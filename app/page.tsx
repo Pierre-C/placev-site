@@ -1,4 +1,5 @@
-// app/(marketing)/page.tsx
+// app/page.tsx
+'use client'
 import { Hero } from '@/components/sections/Hero'
 import { Amenities } from '@/components/sections/Amenities'
 import { Plans } from '@/components/sections/Plans'
