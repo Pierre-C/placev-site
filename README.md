@@ -14,61 +14,11 @@ yarn dev
 
 Le site sera accessible sur [http://localhost:3000](http://localhost:3000)
 
-## 📧 Configuration Brevo (Formulaire de contact)
+## 📧 Contact
 
-Le formulaire de contact utilise Brevo (anciennement Sendinblue) pour l'envoi d'emails.
-
-### 1. Créer un compte Brevo
-
-1. Allez sur [https://www.brevo.com](https://www.brevo.com)
-2. Créez un compte gratuit (300 emails/jour inclus)
-3. Confirmez votre email
-
-### 2. Obtenir votre clé API
-
-1. Connectez-vous à Brevo
-2. Allez dans **Settings** → **API Keys** : [https://app.brevo.com/settings/keys/api](https://app.brevo.com/settings/keys/api)
-3. Cliquez sur **Generate a new API key**
-4. Donnez-lui un nom (ex: "PlaceV Website")
-5. Copiez la clé générée
-
-### 3. Configurer les variables d'environnement
-
-Créez un fichier `.env.local` à la racine du projet :
-
-```env
-# Brevo API Key
-BREVO_API_KEY=votre_clé_api_ici
-
-# Email de destination pour recevoir les messages
-CONTACT_EMAIL=contact@placev.fr
-```
-
-### 4. Configurer l'expéditeur dans Brevo
-
-1. Allez dans **Senders** → **Add a new sender**
-2. Ajoutez `noreply@placev.fr` (ou votre domaine)
-3. Vérifiez le domaine si nécessaire
-
-### 5. Tester en local
-
-```bash
-yarn dev
-```
-
-Allez sur [http://localhost:3000](http://localhost:3000), descendez au formulaire de contact et testez l'envoi !
+Le formulaire de contact utilise un simple lien `mailto:` qui ouvre le client email de l'utilisateur avec un message pré-rempli. Aucune configuration serveur nécessaire !
 
 ## 📦 Déploiement sur Vercel
-
-### Variables d'environnement sur Vercel
-
-1. Allez dans votre projet sur [Vercel](https://vercel.com)
-2. **Settings** → **Environment Variables**
-3. Ajoutez :
-   - `BREVO_API_KEY` : votre clé API Brevo
-   - `CONTACT_EMAIL` : votre email de réception
-
-### Déploiement
 
 ```bash
 # Push vers GitHub
@@ -85,14 +35,12 @@ npx vercel --prod
 - **Styling** : Tailwind CSS
 - **Animations** : Framer Motion
 - **Icons** : Lucide React
-- **Email** : Brevo (API transactionnelle)
 
 ## 📁 Structure du projet
 
 ```
 placev-site/
 ├── app/
-│   ├── api/contact/         # API route pour le formulaire
 │   ├── contact/             # Page contact
 │   ├── galerie/             # Page galerie
 │   ├── offres/              # Page offres
