@@ -13,6 +13,7 @@ export const SITE = {
     blue: "#0A6CFF",
     orange: "#F4A03A",
     mint: "#4FD1C5",
+    white: "#FFFFFF",
   },
   gallery: [
     "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=800&auto=format&fit=crop",

@@ -7,8 +7,17 @@ import { Footer } from '@/components/Footer'
 export const metadata: Metadata = {
   title: 'Place V Coworking — Votre place pour créer, travailler et rencontrer',
   description: 'Espace de coworking moderne : offres flexibles, salles de réunion, communauté.',
-  icons: {
-    icon: '/favicon.ico'
+  metadataBase: new URL('https://placev.fr'),
+  openGraph: {
+    title: 'Place V Coworking',
+    description: 'Espace de coworking moderne au cœur de la ville',
+    type: 'website',
+    locale: 'fr_FR',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Place V Coworking',
+    description: 'Espace de coworking moderne au cœur de la ville',
   }
 }
 

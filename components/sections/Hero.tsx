@@ -1,28 +1,56 @@
 // components/sections/Hero.tsx
-'use client'
-import { motion } from 'framer-motion'
-import { Badge } from './_parts'
-import { SITE } from '@/lib/config/site'
-import { ArrowRight, Calendar, MapPin, Wifi, Coffee, Clock } from 'lucide-react'
+"use client";
+import { motion } from "framer-motion";
+import { Badge } from "./_parts";
+import { SITE } from "@/lib/config/site";
+import {
+  ArrowRight,
+  Calendar,
+  MapPin,
+  Wifi,
+  Coffee,
+  Clock,
+} from "lucide-react";
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden" style={{ background: SITE.palette.cream }}>
+    <section
+      className="relative overflow-hidden"
+      style={{ background: SITE.palette.white }}
+    >
       <div className="mx-auto max-w-7xl px-4 py-20 lg:py-28">
-        <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }} className="max-w-3xl">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="max-w-3xl"
+        >
           <Badge icon={Clock}>Accès 24/7</Badge>
           <h1 className="mt-5 text-4xl font-bold leading-tight md:text-6xl">
             {SITE.tagline}
           </h1>
           <p className="mt-5 text-lg text-neutral-600">
-            Des bureaux flexibles, des salles de réunion modernes et une communauté inspirante au cœur de la ville. Place V, c’est l’équilibre entre confort et productivité.
+            Des bureaux flexibles, des salles de réunion modernes et une
+            communauté inspirante au cœur de la ville. Place V, c’est
+            l’équilibre entre confort et productivité.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <a href="/contact" className="rounded-2xl bg-gradient-to-r from-placev-blue to-placev-mint px-5 py-3 font-medium text-white inline-flex items-center gap-2 shadow-cta">
+            <a
+              href="/contact"
+              className="rounded-2xl bg-gradient-to-r from-placev-blue to-placev-mint px-5 py-3 font-medium text-white inline-flex items-center gap-2 shadow-cta"
+            >
               {SITE.primaryCTA}
               <ArrowRight className="h-4 w-4" />
             </a>
-            <a href="/offres" className="inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-medium ring-1 ring-inset" style={{ boxShadow: 'inset 0 0 0 1px rgba(10,108,255,0.25)', color: '#0A6CFF' }}>
+            <a
+              href="/offres"
+              className="inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-medium ring-1 ring-inset"
+              style={{
+                boxShadow: "inset 0 0 0 1px rgba(10,108,255,0.25)",
+                color: "#0A6CFF",
+              }}
+            >
               Voir les offres
             </a>
           </div>
@@ -34,5 +62,5 @@ export function Hero() {
         </motion.div>
       </div>
     </section>
-  )
+  );
 }
