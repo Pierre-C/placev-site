@@ -1,7 +1,6 @@
 // components/sections/Gallery.tsx
 "use client";
 import { motion } from "framer-motion";
-import Image from "next/image";
 import { SITE } from "@/lib/config/site";
 import { Badge } from "./_parts";
 import { Instagram, Facebook, Linkedin } from "lucide-react";
@@ -34,15 +33,12 @@ export function Gallery() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.4, delay: i * 0.03 }}
-            className="overflow-hidden rounded-2xl relative h-56"
+            className="overflow-hidden rounded-2xl"
           >
-            <Image
+            <img
               src={src}
               alt={`Photo ${i + 1}`}
-              fill
-              sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 25vw"
-              className="object-cover hover:scale-105 transition"
-              quality={85}
+              className="h-56 w-full object-cover hover:scale-105 transition"
             />
           </motion.div>
         ))}
