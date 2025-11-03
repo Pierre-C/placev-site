@@ -26,14 +26,13 @@ export function Hero() {
           transition={{ duration: 0.6 }}
           className="max-w-3xl"
         >
-          <Badge icon={Clock}>Accès 24/7</Badge>
+          <Badge icon={Clock}>Du lundi au mercredi 8h30-18h</Badge>
           <h1 className="mt-5 text-4xl font-bold leading-tight md:text-6xl">
             {SITE.tagline}
           </h1>
           <p className="mt-5 text-lg text-neutral-600">
-            Des bureaux flexibles, des salles de réunion modernes et une
-            communauté inspirante au cœur de la ville. Place V, c’est
-            l’équilibre entre confort et productivité.
+            12 bureaux en open space & une salle de réunion équipée. Commerces,
+            restaurants, parking à proximité.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <a
@@ -43,19 +42,11 @@ export function Hero() {
               {SITE.primaryCTA}
               <ArrowRight className="h-4 w-4" />
             </a>
-            <a
-              href="/offres"
-              className="inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-medium ring-1 ring-inset"
-              style={{
-                boxShadow: "inset 0 0 0 1px rgba(10,108,255,0.25)",
-                color: "#0A6CFF",
-              }}
-            >
-              Voir les offres
-            </a>
           </div>
           <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
-            <Badge icon={MapPin}>Adresse à compléter</Badge>
+            <Badge icon={MapPin}>
+              13 rue du bourg, Espace Saxon, 33270 Bouliac
+            </Badge>
             <Badge icon={Wifi}>Fibre très haut débit</Badge>
             <Badge icon={Coffee}>Café & thé à volonté</Badge>
           </div>

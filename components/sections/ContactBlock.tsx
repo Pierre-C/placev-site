@@ -41,7 +41,8 @@ export function ContactBlock() {
             </div>
 
             <p className="text-xs text-neutral-500 pt-3">
-              Vous pouvez aussi nous contacter par téléphone ou email directement.
+              Vous pouvez aussi nous contacter par téléphone ou email
+              directement.
             </p>
           </div>
         </div>

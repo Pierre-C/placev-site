@@ -5,45 +5,29 @@ import { Check } from "lucide-react";
 
 const plans = [
   {
-    name: "Pass Jour",
-    price: 25,
-    period: "jour",
-    features: ["Wifi ultra-rapide", "Espaces communs", "Café & thé"],
+    name: "Bureau",
+    price: 8,
+    period: "demi journée",
+    features: ["Tarif bouliacais : 7 €", "Tarif réduit : 4€"],
     highlight: false,
   },
   {
-    name: "Nomade",
-    price: 190,
+    name: "Abonnement",
+    price: 160,
     period: "mois",
-    features: [
-      "Bureau flexible",
-      "Accès 24/7",
-      "Phone booths",
-      "Crédits salle 4h/mois",
-    ],
+    features: ["Bureau flexible", "Accès libre", "Phone booth"],
     highlight: true,
   },
   {
-    name: "Résident",
-    price: 320,
-    period: "mois",
+    name: "Salle de réunion",
+    price: 50,
+    period: "2h",
     features: [
-      "Bureau dédié",
-      "Casier sécurisé",
-      "Crédits salle 8h/mois",
-      "Domiciliation en option",
-    ],
-    highlight: false,
-  },
-  {
-    name: "Résident",
-    price: 320,
-    period: "mois",
-    features: [
-      "Bureau dédié",
-      "Casier sécurisé",
-      "Crédits salle 8h/mois",
-      "Domiciliation en option",
+      "100€ la demi journée",
+      "200€ par jour",
+      "8 à 10 personnnes",
+      "Ecran",
+      "Fibre",
     ],
     highlight: false,
   },
@@ -60,7 +44,7 @@ export function Plans() {
           Sans engagement long, upgradez à tout moment.
         </p>
       </div>
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         {plans.map((p, i) => (
           <motion.div
             key={p.name}
