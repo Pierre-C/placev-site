@@ -27,8 +27,8 @@ export function Mission() {
           className="mt-8 space-y-6 text-lg text-neutral-700 leading-relaxed text-center color-white"
         >
           <p className="text-white">
-            à Place V, nous croyons à la force du collectif et à la richesse des
-            rencontres.
+            Chez Place V, nous croyons à la force du collectif et à la richesse
+            des rencontres.
           </p>
 
           <p className="text-white">

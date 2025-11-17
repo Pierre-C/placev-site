@@ -10,6 +10,8 @@ import {
   Snowflake,
   Shield,
   Plug,
+  CarTaxiFront,
+  ShoppingBag,
 } from "lucide-react";
 import { SITE } from "@/lib/config/site";
 
@@ -22,14 +24,18 @@ const items = [
     title: "Phone booths",
     desc: "Cabine insonorisée",
   },
-  { icon: Sun, title: "Lumière naturelle", desc: "Grands puits de jour" },
+  {
+    icon: ShoppingBag,
+    title: "Proche des commerces",
+    desc: "Boulangerie, boucherie et restaurants",
+  },
   { icon: Snowflake, title: "Climatisation", desc: "Confort été comme hiver" },
   {
     icon: Shield,
-    title: "Espace à disposition",
+    title: "Cuisine",
     desc: "Frigo, micro-ondes...",
   },
-  { icon: Plug, title: "Beaucoup de prises", desc: "Multi standards" },
+  { icon: CarTaxiFront, title: "Parking", desc: "Gratuit, à proximité" },
 ];
 
 export function Amenities() {
