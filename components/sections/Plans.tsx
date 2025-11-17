@@ -36,6 +36,7 @@ const plans = [
 ];
 
 export function Plans() {
+  const mailtoLink = `mailto:${SITE.email}?subject=Demande de renseignements - PlaceV Coworking&body=Bonjour,%0D%0A%0D%0AJe souhaite obtenir plus d'informations sur vos espaces de coworking.%0D%0A%0D%0ACordialement`;
   return (
     <section id="offres" className="mx-auto max-w-7xl px-4 py-16">
       <div className="mb-10 text-center">
@@ -82,7 +83,7 @@ export function Plans() {
       </div>
       <div className="grid gap-4 md:grid-cols-1 text-center pt-10">
         <Link
-          href="/contact"
+          href={mailtoLink}
           className="block text-center mx-auto rounded-lg bg-gradient-to-r from-placev-blue to-placev-mint px-4 py-2 text-white"
         >
           En savoir plus

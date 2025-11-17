@@ -14,7 +14,7 @@ import {
 
 export function Hero() {
   const mailtoLink = `mailto:${SITE.email}?subject=Demande de réservation de visite - PlaceV Coworking&body=Bonjour,%0D%0A%0D%0AJe souhaite réserver une visite de vos espaces de coworking.%0D%0A%0D%0ACordialement`;
-  
+
   return (
     <section
       className="relative overflow-hidden"
