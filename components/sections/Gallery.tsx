@@ -7,14 +7,7 @@ import { Instagram, Facebook, Linkedin } from "lucide-react";
 
 export function Gallery() {
   return (
-    <section
-      id="galerie"
-      className="mx-auto max-w-7xl px-4 py-16"
-      style={{
-        background:
-          "linear-gradient(0deg, rgba(79,209,197,0.08), rgba(79,209,197,0.08))",
-      }}
-    >
+    <section id="galerie" className="mx-auto max-w-7xl px-4 py-16">
       <div className="mb-8 flex items-end justify-between">
         <h2 className="text-3xl font-semibold md:text-4xl">
           Place V en images

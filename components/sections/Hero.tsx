@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 
 export function Hero() {
+  const mailtoLink = `mailto:${SITE.email}?subject=Demande de réservation de visite - PlaceV Coworking&body=Bonjour,%0D%0A%0D%0AJe souhaite réserver une visite de vos espaces de coworking.%0D%0A%0D%0ACordialement`;
+  
   return (
     <section
       className="relative overflow-hidden"
@@ -36,8 +38,8 @@ export function Hero() {
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <a
-              href="/contact"
-              className="rounded-2xl bg-gradient-to-r from-placev-blue to-placev-mint px-5 py-3 font-medium text-white inline-flex items-center gap-2 shadow-cta"
+              href={mailtoLink}
+              className="rounded-2xl bg-gradient-to-r from-placev-blue to-placev-mint px-5 py-3 font-medium text-white inline-flex items-center gap-2 shadow-cta hover:opacity-90 transition"
             >
               {SITE.primaryCTA}
               <ArrowRight className="h-4 w-4" />

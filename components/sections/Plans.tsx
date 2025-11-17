@@ -1,7 +1,9 @@
 // components/sections/Plans.tsx
 "use client";
+import { SITE } from "@/lib/config/site";
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
+import Link from "next/link";
 
 const plans = [
   {
@@ -13,7 +15,7 @@ const plans = [
   },
   {
     name: "Abonnement",
-    price: 160,
+    price: 150,
     period: "mois",
     features: ["Bureau flexible", "Accès libre", "Phone booth"],
     highlight: true,
@@ -77,6 +79,14 @@ export function Plans() {
             </ul>
           </motion.div>
         ))}
+      </div>
+      <div className="grid gap-4 md:grid-cols-1 text-center pt-10">
+        <Link
+          href="/contact"
+          className="block text-center mx-auto rounded-lg bg-gradient-to-r from-placev-blue to-placev-mint px-4 py-2 text-white"
+        >
+          En savoir plus
+        </Link>
       </div>
     </section>
   );

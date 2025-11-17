@@ -64,7 +64,7 @@ export function ContactBlock() {
           </ul>
           <div className="mt-6 h-64 w-full overflow-hidden rounded-xl">
             <img
-              src="https://images.unsplash.com/photo-1505761671935-60b3a7427bad?q=80&w=1200&auto=format&fit=crop"
+              src="/gallery/PXL_20250909_120231896.jpg"
               alt="Plan d'accès"
               className="h-full w-full object-cover"
             />

@@ -7,6 +7,8 @@ import { SITE } from "@/lib/config/site";
 
 export function Header() {
   const [open, setOpen] = useState(false);
+  const mailtoLink = `mailto:${SITE.email}?subject=Demande de réservation de visite - PlaceV Coworking&body=Bonjour,%0D%0A%0D%0AJe souhaite réserver une visite de vos espaces de coworking.%0D%0A%0D%0ACordialement`;
+  
   return (
     <header className="sticky top-0 z-50 backdrop-blur bg-white/70 border-b border-black/5">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
@@ -21,12 +23,12 @@ export function Header() {
           {/* <Link href="/offres" className="hover:opacity-70">Offres</Link>
           <Link href="/galerie" className="hover:opacity-70">Galerie</Link>
           <Link href="/contact" className="hover:opacity-70">Contact</Link> */}
-          <Link
-            href="/contact"
-            className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-placev-blue to-placev-mint px-4 py-2 text-white shadow-cta"
+          <a
+            href={mailtoLink}
+            className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-placev-blue to-placev-mint px-4 py-2 text-white shadow-cta hover:opacity-90 transition"
           >
             <Calendar className="h-4 w-4" /> {SITE.primaryCTA}
-          </Link>
+          </a>
         </nav>
         <button
           className="md:hidden"
@@ -47,12 +49,12 @@ export function Header() {
               {label}
             </Link>
           ))}
-          <Link
-            href="/contact"
+          <a
+            href={mailtoLink}
             className="block text-center rounded-2xl bg-gradient-to-r from-placev-blue to-placev-mint px-4 py-2 text-white"
           >
             {SITE.primaryCTA}
-          </Link>
+          </a>
         </div>
       )}
     </header>

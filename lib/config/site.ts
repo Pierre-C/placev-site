@@ -2,10 +2,10 @@
 export const SITE = {
   name: "PlaceV",
   description: "Espace de coworking moderne et flexible",
-  address: "123 Rue de la Paix, 75001 Paris",
-  phone: "+33 1 23 45 67 89",
-  email: "contact@placev.fr",
-  url: "https://placev.fr",
+  address: "16 rue du bourg, Espace Saxon, 33270 Bouliac",
+  phone: "+33 6 45 92 49 04",
+  email: "placevcoworking@gmail.com",
+  url: "https://placev.co",
   primaryCTA: "Réserver une visite",
   tagline: "L’espace de coworking lumineux au coeur de Bouliac.",
   palette: {
