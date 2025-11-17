@@ -36,7 +36,7 @@ export function Amenities() {
   return (
     <section
       id="services"
-      className="mx-auto max-w-7xl px-4 py-16"
+      className="mx-auto max-w-7xl px-4 py-16 rounded-2xl"
       style={{ background: SITE.palette.cream }}
     >
       <div className="mb-10 text-center">

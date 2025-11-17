@@ -10,7 +10,7 @@ export const SITE = {
   tagline: "L’espace de coworking lumineux au coeur de Bouliac.",
   palette: {
     cream: "#FFF6E9",
-    blue: "#0A6CFF",
+    blue: "#006AFE",
     orange: "#F4A03A",
     mint: "#4FD1C5",
     white: "#FFFFFF",
