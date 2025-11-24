@@ -3,11 +3,11 @@ export function FAQ() {
   const items = [
     {
       q: "Peut-on visiter avant de s'inscrire ?",
-      a: "Oui, contactez nous pour venir visiter et profiter d'une demi-journée offerte.",
+      a: "Oui, contactez nous à placevcoworking@gmail.com pour venir visiter et profiter d'une demi-journée offerte.",
     },
     {
       q: "Comment réserver un poste ?",
-      a: "Envoyez nous un mail à placevcoworking pour réserver votre demi-journée offerte.",
+      a: "Envoyez nous un mail à placevcoworking@gmail.com pour réserver votre demi-journée offerte.",
     },
     {
       q: "Comment devenir coworker ?",

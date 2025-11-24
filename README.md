@@ -31,12 +31,27 @@ Consultez [BREVO_SETUP.md](./BREVO_SETUP.md) pour les instructions détaillées 
 
 ## 📦 Déploiement sur Vercel
 
+**⚠️ Important** : Pour que la newsletter fonctionne en production, vous devez configurer les variables d'environnement Brevo sur Vercel.
+
+**Guide complet** : [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md)
+
+**Configuration rapide des variables d'environnement :**
+
+1. Allez sur [Vercel Dashboard](https://vercel.com)
+2. Settings → Environment Variables
+3. Ajoutez :
+   - `BREVO_API_KEY` : votre clé API Brevo
+   - `BREVO_LIST_IDS` : `[2]` (votre ID de liste)
+4. Redéployez votre application
+
+**Déploiement :**
+
 ```bash
 # Push vers GitHub
 git push origin main
 
 # Ou déployer directement via CLI
-npx vercel --prod
+vercel --prod
 ```
 
 ## 🛠️ Stack Technique

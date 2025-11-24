@@ -7,7 +7,6 @@ import { SITE } from "@/lib/config/site";
 
 export function Header() {
   const [open, setOpen] = useState(false);
-  const mailtoLink = `mailto:${SITE.email}?subject=Demande de réservation de visite - PlaceV Coworking&body=Bonjour,%0D%0A%0D%0AJe souhaite réserver une visite de vos espaces de coworking.%0D%0A%0D%0ACordialement`;
   
   return (
     <header className="sticky top-0 z-50 backdrop-blur bg-white/70 border-b border-black/5">
@@ -24,7 +23,7 @@ export function Header() {
           <Link href="/galerie" className="hover:opacity-70">Galerie</Link>
           <Link href="/contact" className="hover:opacity-70">Contact</Link> */}
           <a
-            href={mailtoLink}
+            href="/#contact"
             className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-placev-blue to-placev-mint px-4 py-2 text-white shadow-cta hover:opacity-90 transition"
           >
             <Calendar className="h-4 w-4" /> {SITE.primaryCTA}
@@ -50,8 +49,8 @@ export function Header() {
             </Link>
           ))}
           <a
-            href={mailtoLink}
-            className="block text-center rounded-2xl bg-gradient-to-r from-placev-blue to-placev-mint px-4 py-2 text-white"
+            href="/#contact"
+            className="block text-center rounded-2xl bg-gradient-to-r from-placev-blue to-placev-mint px-4 py-2 text-white hover:opacity-90 transition"
           >
             {SITE.primaryCTA}
           </a>

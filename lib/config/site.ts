@@ -2,7 +2,7 @@
 export const SITE = {
   name: "PlaceV",
   description: "Espace de coworking moderne et flexible",
-  address: "16 rue du bourg, Espace Saxon, 33270 Bouliac",
+  address: "13 rue du bourg, Espace Saxon, 33270 Bouliac",
   phone: "+33 6 45 92 49 04",
   email: "placevcoworking@gmail.com",
   url: "https://placev.co",

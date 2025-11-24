@@ -10,14 +10,17 @@ const plans = [
     name: "Bureau",
     price: 8,
     period: "demi journée",
-    features: ["Tarif bouliacais : 7 €", "Tarif réduit : 4€"],
+    features: [
+      "Tarif bouliacais : 7 € / demi-journée",
+      "Tarif réduit : 4€ / demi-journée",
+    ],
     highlight: false,
   },
   {
-    name: "Abonnement",
+    name: "Abonnement bureau",
     price: 150,
     period: "mois",
-    features: ["Bureau flexible", "Accès libre", "Phone booth"],
+    features: ["Accès illimité du lundi au mercredi", "Placement libre"],
     highlight: true,
   },
   {
@@ -25,9 +28,8 @@ const plans = [
     price: 50,
     period: "2h",
     features: [
-      "100€ la demi journée",
-      "200€ par jour",
-      "8 à 10 personnnes",
+      "200€ la journée",
+      "Capacité en réunion 10 personnes",
       "Ecran",
       "Fibre",
     ],
@@ -36,7 +38,6 @@ const plans = [
 ];
 
 export function Plans() {
-  const mailtoLink = `mailto:${SITE.email}?subject=Demande de renseignements - PlaceV Coworking&body=Bonjour,%0D%0A%0D%0AJe souhaite obtenir plus d'informations sur vos espaces de coworking.%0D%0A%0D%0ACordialement`;
   return (
     <section id="offres" className="mx-auto max-w-7xl px-4 py-16">
       <div className="mb-10 text-center">
@@ -44,7 +45,7 @@ export function Plans() {
           Des offres simples et transparentes
         </h2>
         <p className="mt-2 text-neutral-600">
-          Sans engagement long, upgradez à tout moment.
+          Venez tester, la 1ère demi-journée est offerte
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-3">
@@ -82,12 +83,12 @@ export function Plans() {
         ))}
       </div>
       <div className="grid gap-4 md:grid-cols-1 text-center pt-10">
-        <Link
-          href={mailtoLink}
-          className="block text-center mx-auto rounded-lg bg-gradient-to-r from-placev-blue to-placev-mint px-4 py-2 text-white"
+        <a
+          href="#contact"
+          className="block text-center mx-auto rounded-lg bg-gradient-to-r from-placev-blue to-placev-mint px-4 py-2 text-white hover:opacity-90 transition"
         >
           En savoir plus
-        </Link>
+        </a>
       </div>
     </section>
   );

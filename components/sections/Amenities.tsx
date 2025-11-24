@@ -49,9 +49,7 @@ export function Amenities() {
         <h2 className="text-3xl font-semibold md:text-4xl">
           Tout ce qu'il faut pour bien travailler
         </h2>
-        <p className="mt-2 text-neutral-600">
-          Des services inclus, sans frais cachés.
-        </p>
+        <p className="mt-2 text-neutral-600"></p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {items.map((it, i) => (

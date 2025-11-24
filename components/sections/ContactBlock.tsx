@@ -1,9 +1,54 @@
 // components/sections/ContactBlock.tsx
+"use client";
+
 import { MapPin, Phone, Mail, Clock, Send } from "lucide-react";
 import { SITE } from "@/lib/config/site";
+import { useState, FormEvent } from "react";
 
 export function ContactBlock() {
-  const mailtoLink = `mailto:${SITE.email}?subject=Demande de renseignements - PlaceV Coworking&body=Bonjour,%0D%0A%0D%0AJe souhaite obtenir plus d'informations sur vos espaces de coworking.%0D%0A%0D%0ACordialement`;
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    message: "",
+  });
+  const [status, setStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setStatus("loading");
+    setErrorMessage("");
+
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Une erreur est survenue");
+      }
+
+      setStatus("success");
+      setFormData({ name: "", email: "", phone: "", message: "" });
+
+      // Réinitialiser le message de succès après 5 secondes
+      setTimeout(() => {
+        setStatus("idle");
+      }, 5000);
+    } catch (error: any) {
+      setStatus("error");
+      setErrorMessage(error.message);
+    }
+  };
 
   return (
     <section id="contact" className="mx-auto max-w-7xl px-4 py-16">
@@ -14,16 +59,76 @@ export function ContactBlock() {
             Une question ? Envoyez-nous un message, on répond vite.
           </p>
 
-          <div className="mt-6 space-y-3">
-            <a
-              href={mailtoLink}
-              className="w-full rounded-xl bg-gradient-to-r from-placev-blue to-placev-mint px-4 py-3 font-medium text-white flex items-center justify-center gap-2 hover:opacity-90 transition"
+          <form onSubmit={handleSubmit} className="mt-6 space-y-3">
+            <input
+              type="text"
+              placeholder="Votre nom *"
+              required
+              value={formData.name}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+              className="w-full rounded-xl border border-black/10 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-placev-blue"
+            />
+            <input
+              type="email"
+              placeholder="Votre email *"
+              required
+              value={formData.email}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
+              className="w-full rounded-xl border border-black/10 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-placev-blue"
+            />
+            <input
+              type="tel"
+              placeholder="Votre téléphone"
+              value={formData.phone}
+              onChange={(e) =>
+                setFormData({ ...formData, phone: e.target.value })
+              }
+              className="w-full rounded-xl border border-black/10 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-placev-blue"
+            />
+            <textarea
+              placeholder="Votre message *"
+              required
+              rows={4}
+              value={formData.message}
+              onChange={(e) =>
+                setFormData({ ...formData, message: e.target.value })
+              }
+              className="w-full rounded-xl border border-black/10 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-placev-blue"
+            />
+
+            {status === "success" && (
+              <div className="rounded-xl bg-green-50 border border-green-200 p-3 text-sm text-green-800">
+                ✓ Message envoyé avec succès ! Nous vous répondrons rapidement.
+              </div>
+            )}
+
+            {status === "error" && (
+              <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-800">
+                ✗ {errorMessage}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={status === "loading"}
+              className="w-full rounded-xl bg-gradient-to-r from-placev-blue to-placev-mint px-4 py-3 font-medium text-white flex items-center justify-center gap-2 hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send className="h-4 w-4" />
-              Envoyer un email
-            </a>
+              {status === "loading"
+                ? "Envoi en cours..."
+                : "Envoyer le message"}
+            </button>
+          </form>
 
-            <div className="grid gap-3 text-sm">
+          <div className="mt-4 pt-4 border-t border-black/5">
+            <p className="text-sm text-neutral-600 mb-2">
+              Ou contactez-nous directement :
+            </p>
+            <div className="grid gap-2 text-sm">
               <a
                 href={`mailto:${SITE.email}`}
                 className="flex items-center gap-2 text-neutral-600 hover:text-placev-blue transition"
@@ -39,11 +144,6 @@ export function ContactBlock() {
                 {SITE.phone}
               </a>
             </div>
-
-            <p className="text-xs text-neutral-500 pt-3">
-              Vous pouvez aussi nous contacter par téléphone ou email
-              directement.
-            </p>
           </div>
         </div>
         <div className="rounded-2xl border border-black/5 bg-white p-6">
@@ -59,7 +159,8 @@ export function ContactBlock() {
               <Mail className="h-4 w-4" /> {SITE.email}
             </li>
             <li className="flex items-center gap-2">
-              <Clock className="h-4 w-4" /> Ouvert 24/7 pour les membres
+              <Clock className="h-4 w-4" /> Ouvert du lundi au mercredi, de 8:30
+              à 18:00
             </li>
           </ul>
           <div className="mt-6 h-64 w-full overflow-hidden rounded-xl">

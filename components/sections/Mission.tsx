@@ -15,7 +15,7 @@ export function Mission() {
           className="text-center"
         >
           <h2 className="text-3xl font-semibold md:text-4xl text-white">
-            Notre mission
+            L'association
           </h2>
         </motion.div>
 
@@ -32,25 +32,29 @@ export function Mission() {
           </p>
 
           <p className="text-white">
-            Porté par trois habitantes entrepreneures de Bouliac —{" "}
-            <strong>Marlène Bonhomme</strong>, <strong>Suzanne Boureau</strong>{" "}
-            et <strong>Margot Rota</strong> — Place V incarne un projet
-            associatif, collectif et accessible, imaginé pour celles et ceux qui
-            veulent conjuguer autonomie et convivialité.
+            Porté par trois habitantes entrepreneures de Bouliac — Place V
+            incarne un projet associatif, collectif et accessible, imaginé pour
+            celles et ceux qui veulent conjuguer autonomie et convivialité.
           </p>
 
           <p className="text-white">
-            L'association à pour but de créer du lien, s'entraider, mutualiser
-            les idées, se sentir moins seul au boulot… et bien sûr, partager les
-            joies, les galères et les cafés !
+            L'association à pour but de créer du lien, s'entraider, transmettre,
+            se sentir moins seul au boulot… et bien sûr, partager les joies, les
+            galères et les cafés !
+            <br />
+            <br />
           </p>
 
-          <p className="text-white">
-            Plus qu'un simple lieu de travail, Place V est aussi un espace de
-            transmission : des savoir-faire, des savoir-être, et des valeurs qui
-            font vivre le <strong>Village</strong>, la <strong>Vie</strong> et
-            surtout <strong>Vous</strong>.
-          </p>
+          <div className="mt-8 flex justify-center">
+            <a
+              href="https://www.helloasso.com/associations/place-v/adhesions/adhesions"
+              target="_blank"
+              className="inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-3 font-medium text-placev-blue shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+            >
+              <Heart className="h-5 w-5" />
+              Adhérez à l'association
+            </a>
+          </div>
         </motion.div>
       </div>
     </section>

@@ -13,8 +13,6 @@ import {
 } from "lucide-react";
 
 export function Hero() {
-  const mailtoLink = `mailto:${SITE.email}?subject=Demande de réservation de visite - PlaceV Coworking&body=Bonjour,%0D%0A%0D%0AJe souhaite réserver une visite de vos espaces de coworking.%0D%0A%0D%0ACordialement`;
-
   return (
     <section
       className="relative overflow-hidden"
@@ -28,17 +26,17 @@ export function Hero() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <Badge icon={Clock}>Du lundi au mercredi 8h30-18h</Badge>
             <h1 className="mt-5 text-4xl font-bold leading-tight md:text-6xl">
               {SITE.tagline}
             </h1>
             <p className="mt-5 text-lg text-neutral-600">
-              12 bureaux en open space & une salle de réunion équipée.
-              Commerces, restaurants, parking à proximité.
+              12 bureaux en open space & une salle de réunion équipée. Ouvert du
+              lundi au mercredi, de 8:30 à 18:00. Commerces, restaurants,
+              parking à proximité.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <a
-                href={mailtoLink}
+                href="#contact"
                 className="rounded-2xl bg-gradient-to-r from-placev-blue to-placev-mint px-5 py-3 font-medium text-white inline-flex items-center gap-2 shadow-cta hover:opacity-90 transition"
               >
                 {SITE.primaryCTA}
@@ -46,6 +44,7 @@ export function Hero() {
               </a>
             </div>
             <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
+              <Badge icon={Clock}>Du lundi au mercredi</Badge>
               <Badge icon={MapPin}>
                 13 rue du bourg, Espace Saxon, 33270 Bouliac
               </Badge>
