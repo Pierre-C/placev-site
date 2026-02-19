@@ -1,0 +1,151 @@
+feature: foundations-auth
+slice: 1
+title: "Fondations & Authentification"
+user_stories: [US-1.1, US-1.2, US-1.3, US-5.2]
+estimated_days: 2
+status: ready
+
+dependencies: []
+
+# ─── BASE DE DONNÉES ──────────────────────────────────────────────────────────
+database:
+  provider: Neon (Serverless Postgres)
+  local_branch: develop      # Même branche pour local ET preview Vercel
+  prod_branch: main
+  note: "Pas de Docker, pas de base locale. On se connecte directement à Neon develop."
+
+# ─── MOCKS ACTIFS ─────────────────────────────────────────────────────────────
+mocks:
+  stripe: "non requis pour cette Slice"
+  brevo:
+    variable: "BREVO_MOCK=true"
+    behavior: "Logge les emails en console + stocke dans mockEmailLog[] — aucun envoi réel"
+    files:
+      - lib/brevo-mock.ts
+      - lib/brevo.ts
+      - __tests__/__mocks__/brevo.ts
+
+# ─── ENV REQUIS ───────────────────────────────────────────────────────────────
+env_required:
+  DATABASE_URL: "connection string Neon branche develop"
+  NEXTAUTH_SECRET: "openssl rand -base64 32"
+  NEXTAUTH_URL: "http://localhost:3000"
+  BREVO_MOCK: "true"
+
+# ─── PRISMA ───────────────────────────────────────────────────────────────────
+prisma_models: [User, Transaction, SystemSetting]
+
+prisma_seed:
+  users:
+    - { email: "admin@placev.fr",    password: "TestPassword123!", role: ADMIN,  segment: BOULIACAIS, credits: 99 }
+    - { email: "externe@test.fr",    password: "TestPassword123!", segment: EXTERNE,    credits: 5  }
+    - { email: "bouliacais@test.fr", password: "TestPassword123!", segment: BOULIACAIS, credits: 3  }
+    - { email: "reduit@test.fr",     password: "TestPassword123!", segment: REDUIT,     credits: 2  }
+    - { email: "pauvre@test.fr",     password: "TestPassword123!", segment: EXTERNE,    credits: -2 }
+  system_settings:
+    DESK_CAPACITY: "15"
+    PRICE_CREDIT_BOULIACAIS: "700"
+    PRICE_CREDIT_EXTERNE: "800"
+    PRICE_CREDIT_REDUIT: "400"
+
+# ─── AUTH ─────────────────────────────────────────────────────────────────────
+auth:
+  provider: credentials (email + password)
+  password_hash: bcrypt (12 rounds)
+  session_strategy: jwt
+  jwt_callbacks:
+    include_in_token: [id, role, segment, credits]
+    note: "CRITIQUE — segment et credits dans le token évitent un appel DB à chaque calcul de prix"
+  protected_routes:
+    - "/(app)/* → redirect /login si non authentifié"
+    - "/admin/* → role ADMIN requis → redirect /dashboard si USER"
+
+# ─── PAGES ────────────────────────────────────────────────────────────────────
+pages:
+  - path: /register
+    on_submit:
+      - Valider avec Zod
+      - Hash password (bcrypt 12 rounds)
+      - Créer User (credits=1, segment=EXTERNE par défaut)
+      - Créer Transaction(type=WELCOME_CREDIT, creditsAdd=1)
+      - "brevo.sendEmail({ template: 'bienvenue-validation', to: user.email, variables: { name, credits: 1 } })"
+      - "→ En mode BREVO_MOCK=true : log console uniquement, aucun email réel"
+      - Redirect /dashboard
+
+  - path: /login
+  - path: /dashboard (protected, server component)
+    displays: [credit_balance, transaction_history_last_20, upcoming_reservations, link_to_booking]
+  - path: /admin (protected, role=ADMIN)
+
+# ─── TESTS ────────────────────────────────────────────────────────────────────
+tests:
+
+  unit:
+    file: "__tests__/auth.test.ts"
+    cases:
+      - "Segment par défaut = EXTERNE si non spécifié"
+      - "Crédits initiaux = 1 (crédit de bienvenue)"
+      - "Mot de passe hashé avec bcrypt, non stocké en clair"
+      - "Inscription crée une Transaction WELCOME_CREDIT avec creditsAdd=1"
+      - "JWT contient role, segment et credits"
+
+  http:
+    file: "__tests__/api/slice-01-auth.http.test.ts"
+    tool: next-test-api-route-handler
+    mocks_required:
+      - "vi.mock('@/lib/brevo')  ← OBLIGATOIRE pour asserter les emails sans envoi réel"
+    cases:
+      - route: "POST /api/auth/register"
+        scenario: "Inscription valide"
+        body: { name: "Test", email: "nouveau@httptest.fr", password: "TestPassword123!" }
+        expected_status: 201
+        expected_body: { user.segment: "EXTERNE", user.credits: 1 }
+        must_not_contain: ["passwordHash", "$2b$"]
+        assert_brevo: "brevo.sendEmail appelé 1 fois avec template='bienvenue-validation'"
+
+      - route: "POST /api/auth/register"
+        scenario: "Email déjà existant"
+        body: { email: "externe@test.fr" }
+        expected_status: 409
+        assert_brevo: "brevo.sendEmail NON appelé"
+
+      - route: "POST /api/auth/register"
+        scenario: "Mot de passe trop court (< 8 chars)"
+        expected_status: 422
+        assert_brevo: "brevo.sendEmail NON appelé"
+
+      - route: "POST /api/auth/register"
+        scenario: "Email invalide"
+        expected_status: 422
+
+      - route: "GET /api/profile"
+        scenario: "Authentifié → retourne profil sans passwordHash"
+        expected_status: 200
+        must_not_contain: ["passwordHash"]
+
+      - route: "GET /api/profile"
+        scenario: "Non authentifié"
+        expected_status: 401
+
+  e2e:
+    file: "e2e/slice-01-auth.spec.ts"
+    tool: playwright
+    setup: "e2e/global.setup.ts — sauvegarde sessions auth dans e2e/.auth/"
+    cases:
+      - "Inscription complète → dashboard → solde = 1 affiché"
+      - "Console montre '[Brevo Mock] bienvenue-validation' après inscription"
+      - "Email déjà utilisé → erreur → reste sur /register"
+      - "Connexion valide → dashboard"
+      - "Mauvais mot de passe → erreur → reste sur /login"
+      - "/dashboard sans auth → redirect /login"
+      - "/admin sans auth → redirect /login"
+      - "USER sur /admin → redirect /dashboard"
+      - "ADMIN sur /admin → accès accordé"
+
+# ─── DÉFINITION DE DONE ───────────────────────────────────────────────────────
+done_when:
+  - npm run test → vert (unitaires + HTTP)
+  - npm run test:e2e:slice1 → vert (Playwright)
+  - Inscription et connexion fonctionnelles sur Neon develop
+  - Console affiche '[Brevo Mock] bienvenue-validation' à chaque inscription
+  - Middleware protège correctement les routes

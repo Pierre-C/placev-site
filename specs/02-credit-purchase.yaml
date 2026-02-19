@@ -1,0 +1,145 @@
+feature: credit-purchase
+slice: 2
+title: "Paiement & Recharge de Crédits"
+user_stories: [US-2.1, US-2.2]
+estimated_days: 2
+status: ready
+
+dependencies: [slice-01-foundations-auth]
+
+# ─── BASE DE DONNÉES ──────────────────────────────────────────────────────────
+database:
+  provider: Neon (Serverless Postgres)
+  local_branch: develop
+  note: "Pas de base locale. Connexion directe à Neon develop."
+
+# ─── MOCKS ACTIFS ─────────────────────────────────────────────────────────────
+mocks:
+  stripe:
+    variable: "STRIPE_MOCK=true + NEXT_PUBLIC_STRIPE_MOCK=true"
+    behavior: |
+      Flux crédits entièrement local — aucun compte Stripe requis :
+      1. POST /api/credits/checkout → mockStripe.checkout.sessions.create()
+      2. Retourne URL locale /api/stripe-mock/checkout?session_id=cs_mock_...
+      3. Cette page déclenche le webhook mock automatiquement
+      4. credits++ en DB → redirect /dashboard?payment=success
+    files:
+      - lib/stripe-mock.ts
+      - lib/stripe.ts
+      - app/api/stripe-mock/checkout/route.ts
+      - __tests__/__mocks__/stripe.ts
+    when_stripe_ready:
+      - "Créer compte stripe.com → récupérer sk_test_ + pk_test_"
+      - "Dashboard Stripe → Webhooks → Add endpoint (events: checkout.session.completed)"
+      - "Copier STRIPE_WEBHOOK_SECRET (whsec_...)"
+      - "Passer STRIPE_MOCK=false + NEXT_PUBLIC_STRIPE_MOCK=false"
+      - "Tester avec carte 4242 4242 4242 4242, exp 12/34, CVC 123"
+  brevo:
+    variable: "BREVO_MOCK=true"
+    behavior: "Logge les emails en console + stocke dans mockEmailLog[] — aucun envoi réel"
+
+# ─── ENV REQUIS ───────────────────────────────────────────────────────────────
+env_required:
+  DATABASE_URL: "connection string Neon branche develop"
+  NEXTAUTH_SECRET: "valeur de la Slice 1"
+  NEXTAUTH_URL: "http://localhost:3000"
+  STRIPE_MOCK: "true"
+  NEXT_PUBLIC_STRIPE_MOCK: "true"
+  BREVO_MOCK: "true"
+
+# ─── IMPLÉMENTATION ───────────────────────────────────────────────────────────
+pricing:
+  source: "SystemSetting — PRICE_CREDIT_{segment} en centimes"
+  packs: [5, 10, 20]  # crédits disponibles à l'achat
+
+api_routes:
+  - method: POST
+    path: /api/credits/checkout
+    auth: required
+    input: "{ creditsAmount: z.enum(['5', '10', '20']) }"
+    logic:
+      - Calculer prix = creditsAmount × SystemSetting[PRICE_CREDIT_{user.segment}]
+      - stripe.checkout.sessions.create() → retourne URL (locale en mock, stripe.com en prod)
+      - Retourner { url }
+
+  - method: POST
+    path: /api/webhooks/stripe
+    events:
+      checkout.session.completed:
+        - Vérifier signature (ignorée si STRIPE_MOCK=true, stricte sinon)
+        - Vérifier idempotence (stripeId déjà en DB → skip)
+        - $transaction : User.credits += creditsAmount + Transaction(CREDIT_PURCHASE)
+        - brevo.sendEmail('confirmation-achat-credits') — loggé en mock, envoyé en prod
+
+# ─── TESTS ────────────────────────────────────────────────────────────────────
+tests:
+
+  unit:
+    file: "__tests__/credits.test.ts"
+    cases:
+      - "Prix BOULIACAIS = 700 cents/crédit"
+      - "Prix EXTERNE = 800 cents/crédit"
+      - "Prix REDUIT = 400 cents/crédit"
+      - "10 crédits EXTERNE = 8000 cents"
+      - "5 crédits BOULIACAIS = 3500 cents"
+
+  http:
+    file: "__tests__/api/slice-02-credits.http.test.ts"
+    tool: next-test-api-route-handler
+    mocks_required:
+      - "vi.mock('@/lib/stripe')  ← retourne URL mock locale"
+      - "vi.mock('@/lib/brevo')   ← capture les emails sans envoi"
+    cases:
+      - route: "POST /api/credits/checkout"
+        scenario: "Pack valide → URL retournée"
+        auth: externe@test.fr
+        body: { creditsAmount: "10" }
+        expected_status: 200
+        expected_body: { url: "string" }
+
+      - route: "POST /api/credits/checkout"
+        scenario: "Non authentifié"
+        expected_status: 401
+
+      - route: "POST /api/credits/checkout"
+        scenario: "Pack invalide (999)"
+        body: { creditsAmount: "999" }
+        expected_status: 422
+
+      - route: "POST /api/webhooks/stripe"
+        scenario: "checkout.session.completed → crédits incrémentés"
+        body: "stripeTestHelpers.mockCheckoutCompleted({ userId, creditsAmount: '10' })"
+        headers: { stripe-signature: "mock_signature" }
+        expected_status: 200
+        side_effects:
+          - "user.credits += 10"
+          - "Transaction CREDIT_PURCHASE créée avec stripeId"
+        assert_brevo: "brevo.sendEmail appelé avec template='confirmation-achat-credits'"
+
+      - route: "POST /api/webhooks/stripe"
+        scenario: "Idempotence — même stripeId deux fois"
+        expected_status: 200
+        side_effects: ["crédits incrémentés UNE SEULE fois"]
+        assert_brevo: "brevo.sendEmail appelé UNE SEULE fois"
+
+      - route: "POST /api/webhooks/stripe"
+        scenario: "Signature invalide (en mode non-mock)"
+        expected_status: 400
+
+  e2e:
+    file: "e2e/slice-02-credits.spec.ts"
+    tool: playwright
+    stripe_mode: "MOCK — redirect vers /api/stripe-mock/checkout, pas stripe.com"
+    cases:
+      - "Membre voit les 3 packs avec prix selon son segment (EXTERNE = 8€/crédit)"
+      - "Clic pack 10 crédits → redirect mock → redirect /dashboard?payment=success"
+      - "Toast 'Paiement réussi' visible"
+      - "Solde mis à jour (+10 crédits dans le dashboard)"
+      - "Transaction CREDIT_PURCHASE visible dans l'historique"
+      - "Console affiche '[Brevo Mock] confirmation-achat-credits'"
+
+done_when:
+  - npm run test → vert
+  - npm run test:e2e:slice2 → vert
+  - Achat de crédits fonctionnel localement sans aucun compte Stripe
+  - Console affiche les deux mocks : Stripe URL locale + Brevo log email

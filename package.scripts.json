@@ -1,0 +1,31 @@
+{
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+
+    "test:http": "vitest run __tests__/api",
+    "test:unit": "vitest run __tests__ --exclude __tests__/api",
+
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:slice1": "playwright test e2e/slice-01-auth.spec.ts",
+    "test:e2e:slice3": "playwright test e2e/slice-03-booking.spec.ts",
+    "test:e2e:slice5": "playwright test e2e/slice-05-admin.spec.ts",
+
+    "test:all": "npm run test && npm run test:e2e"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "next-test-api-route-handler": "^4.0.0",
+    "@playwright/test": "^1.40.0",
+    "vitest-mock-extended": "^1.0.0"
+  }
+}

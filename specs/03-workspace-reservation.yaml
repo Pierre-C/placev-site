@@ -1,0 +1,158 @@
+feature: workspace-reservation
+slice: 3
+title: "Réservation de Postes & Calendrier"
+user_stories: [US-3.1, US-3.2, US-3.4, US-3.5]
+estimated_days: 4
+status: ready
+
+dependencies: [slice-01, slice-02]
+
+# ─── BASE DE DONNÉES ──────────────────────────────────────────────────────────
+database:
+  provider: Neon (Serverless Postgres)
+  local_branch: develop
+  new_models: [Reservation, ClosedDate]
+
+# ─── MOCKS ACTIFS ─────────────────────────────────────────────────────────────
+mocks:
+  stripe: "non requis pour cette Slice (pas de paiement)"
+  brevo:
+    variable: "BREVO_MOCK=true"
+    behavior: "Logge les emails en console + stocke dans mockEmailLog[] — aucun envoi réel"
+    emails_triggered:
+      - template: "confirmation-reservation"
+        trigger: "Réservation CONFIRMED créée"
+        variables: [user.name, date, slot, costCredits, newBalance, cancellation_link]
+      - template: "confirmation-annulation"
+        trigger: "Annulation par l'utilisateur"
+        variables: [user.name, date, slot, creditsRefunded, newBalance]
+
+# ─── ENV REQUIS ───────────────────────────────────────────────────────────────
+env_required:
+  DATABASE_URL: "connection string Neon branche develop"
+  NEXTAUTH_SECRET: "valeur des Slices précédentes"
+  NEXTAUTH_URL: "http://localhost:3000"
+  BREVO_MOCK: "true"
+  STRIPE_MOCK: "true"  # déjà en place depuis Slice 2
+
+# ─── RÈGLES MÉTIER ────────────────────────────────────────────────────────────
+out_of_scope:
+  - "Règle gratuité salle < 2h pour coworkers — gestion physique, NE PAS IMPLÉMENTER"
+
+business_rules:
+  slots: "AM = 1 crédit (09h-13h), PM = 1 crédit (14h-18h), FULL = 2 crédits (09h-18h)"
+  capacity_source: "SystemSetting key DESK_CAPACITY — jamais hardcodé"
+  balance_threshold: "user.credits - cost >= -3 (sinon 403)"
+  examples:
+    - "credits=-2 + cost=1 → -3 → AUTORISÉ (limite exacte)"
+    - "credits=-2 + cost=2 → -4 → REFUSÉ"
+    - "credits=-3 + cost=1 → -4 → REFUSÉ"
+  cancellation: "now() < reservation.start - 12h (sinon 422)"
+  concurrency: "Prisma $transaction atomique sur COUNT + INSERT"
+  closed_dates: "ClosedDate → remaining=0, réservation → 422"
+
+api_routes:
+  - GET /api/availability → créneaux disponibles (public)
+  - POST /api/booking → créer réservation (auth required)
+  - POST /api/booking/[id]/cancel → annuler réservation (auth required)
+
+# ─── TESTS ────────────────────────────────────────────────────────────────────
+tests:
+
+  unit:
+    file: "__tests__/booking.test.ts"
+    cases:
+      - "AM = 1 crédit, PM = 1 crédit, FULL = 2 crédits"
+      - "credits=-2 + cost=1 → -3 → AUTORISÉ"
+      - "credits=-2 + cost=2 → -4 → REFUSÉ"
+      - "credits=-3 + cost=1 → -4 → REFUSÉ"
+      - "Annulation > 12h → autorisée"
+      - "Annulation < 12h → refusée"
+      - "Double annulation (status=CANCELLED) → refusée — pas de double remboursement"
+      - "ClosedDate → remaining = 0 sur tous les créneaux"
+      - "DESK_CAPACITY dynamique respectée"
+
+  http:
+    file: "__tests__/api/slice-03-booking.http.test.ts"
+    tool: next-test-api-route-handler
+    mocks_required:
+      - "vi.mock('@/lib/brevo')  ← OBLIGATOIRE — asserter les emails de confirmation"
+    cases:
+      - route: "GET /api/availability"
+        scenario: "Plage valide"
+        expected_status: 200
+        expected_schema: "Array<{ date, slot: AM|PM, remaining: number }>"
+
+      - route: "GET /api/availability"
+        scenario: "ClosedDate → all remaining=0"
+        expected_status: 200
+
+      - route: "GET /api/availability"
+        scenario: "Paramètres manquants"
+        expected_status: 400
+
+      - route: "POST /api/booking"
+        scenario: "Réservation AM valide (credits=5)"
+        auth: externe@test.fr
+        body: { date: FUTURE_DATE, slot: "AM" }
+        expected_status: 201
+        expected_body: { status: "CONFIRMED", costCredits: 1 }
+        side_effects: ["user.credits -= 1", "Transaction BOOKING_DEBIT créée"]
+        assert_brevo: "brevo.sendEmail appelé avec template='confirmation-reservation'"
+        assert_brevo_variables: "{ slot: 'AM', costCredits: 1 }"
+
+      - route: "POST /api/booking"
+        scenario: "Non authentifié"
+        expected_status: 401
+        assert_brevo: "brevo.sendEmail NON appelé"
+
+      - route: "POST /api/booking"
+        scenario: "Solde insuffisant (credits=-2, FULL)"
+        auth: pauvre@test.fr
+        expected_status: 403
+        assert_brevo: "brevo.sendEmail NON appelé"
+
+      - route: "POST /api/booking"
+        scenario: "Créneau complet"
+        expected_status: 409
+        assert_brevo: "brevo.sendEmail NON appelé"
+
+      - route: "POST /api/booking"
+        scenario: "Date fermée"
+        expected_status: 422
+        assert_brevo: "brevo.sendEmail NON appelé"
+
+      - route: "POST /api/booking/[id]/cancel"
+        scenario: "Annulation valide > 12h"
+        expected_status: 200
+        side_effects: ["status=CANCELLED", "user.credits remboursés", "Transaction CANCELLATION_REFUND"]
+        assert_brevo: "brevo.sendEmail appelé avec template='confirmation-annulation'"
+        assert_brevo_variables: "{ creditsRefunded: 1 }"
+
+      - route: "POST /api/booking/[id]/cancel"
+        scenario: "Réservation d'un autre utilisateur"
+        expected_status: 403
+        assert_brevo: "brevo.sendEmail NON appelé"
+
+      - route: "POST /api/booking/[id]/cancel"
+        scenario: "Double annulation"
+        expected_status: 422
+        assert_brevo: "brevo.sendEmail NON appelé"
+
+  e2e:
+    file: "e2e/slice-03-booking.spec.ts"
+    tool: playwright
+    cases:
+      - "Calendrier visible sans connexion"
+      - "Dates passées désactivées"
+      - "Réservation AM → solde -1 → console '[Brevo Mock] confirmation-reservation'"
+      - "Réservation FULL → solde -2"
+      - "Réservation visible dans le dashboard"
+      - "Solde insuffisant → erreur + lien achat crédits"
+      - "Annulation depuis dashboard → crédits remboursés → console '[Brevo Mock] confirmation-annulation'"
+
+done_when:
+  - npm run test → vert (unitaires + HTTP)
+  - npm run test:e2e:slice3 → vert
+  - Calendrier affiche les vraies disponibilités depuis Neon develop
+  - Console affiche les emails Brevo mockés à chaque réservation et annulation
