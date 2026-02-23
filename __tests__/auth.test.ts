@@ -3,29 +3,82 @@
  * Tests unitaires — Slice 1 : Fondations & Authentification
  *
  * À lancer avec : npm run test
- * Ces tests doivent être écrits AVANT l'implémentation (TDD).
- * Ne pas modifier ce fichier une fois les tests verts.
+ * Prisma et Brevo sont mockés — aucun appel DB ou email réel.
  */
 
-import { describe, it, expect, beforeEach } from "vitest"
+import { describe, it, expect, vi, beforeEach } from "vitest"
 import bcrypt from "bcrypt"
+import { mockDeep, mockReset } from "vitest-mock-extended"
+import type { PrismaClient } from "@prisma/client"
 
-// ─── Ces imports seront créés par l'agent lors de l'implémentation ───────────
-// import { createUser, getUserByEmail } from "@/lib/services/user"
-// import { createWelcomeCredit } from "@/lib/services/credits"
-// import { buildJwtPayload } from "@/lib/auth"
+// ─── Mocks ────────────────────────────────────────────────────────────────────
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: mockDeep<PrismaClient>(),
+}))
+
+vi.mock("@/lib/brevo")
+
+// ─── Imports après les mocks ──────────────────────────────────────────────────
+
+import { createUser, getUserByEmail } from "@/lib/services/user"
+import { createWelcomeCredit } from "@/lib/services/credits"
+import { buildJwtPayload } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { brevo } from "@/lib/brevo"
+
+const mockPrisma = prisma as ReturnType<typeof mockDeep<PrismaClient>>
+
+// ─── Fixtures ─────────────────────────────────────────────────────────────────
+
+const fakeUser = {
+  id: "cltest123",
+  email: "test@test.fr",
+  name: "Test User",
+  passwordHash: "$2b$12$fakehashedpassword",
+  role: "USER" as const,
+  segment: "EXTERNE" as const,
+  credits: 1,
+  isMember: false,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+}
+
+const fakeTransaction = {
+  id: "cltx123",
+  userId: fakeUser.id,
+  type: "WELCOME_CREDIT" as const,
+  creditsAdd: 1,
+  creditsBefore: 0,
+  createdAt: new Date(),
+}
+
+// ─── Setup ────────────────────────────────────────────────────────────────────
+
+beforeEach(() => {
+  mockReset(mockPrisma)
+  vi.clearAllMocks()
+
+  // Comportement par défaut de $transaction : exécute le callback
+  mockPrisma.$transaction.mockImplementation(
+    async (fn: (tx: PrismaClient) => Promise<unknown>) => fn(mockPrisma)
+  )
+  mockPrisma.user.create.mockResolvedValue(fakeUser)
+  mockPrisma.transaction.create.mockResolvedValue(fakeTransaction)
+  mockPrisma.user.findUnique.mockResolvedValue(null)
+})
+
+// ─── Tests : User Registration ────────────────────────────────────────────────
 
 describe("User Registration", () => {
   it("should set default segment to EXTERNE when not specified", async () => {
-    // const user = await createUser({ email: "test@test.fr", password: "Password123!" })
-    // expect(user.segment).toBe("EXTERNE")
-    expect(true).toBe(true) // placeholder — remplacer par l'implémentation réelle
+    const { user } = await createUser({ email: "test@test.fr", password: "Password123!" })
+    expect(user.segment).toBe("EXTERNE")
   })
 
   it("should initialize credits to 1 (welcome credit)", async () => {
-    // const user = await createUser({ email: "test2@test.fr", password: "Password123!" })
-    // expect(user.credits).toBe(1)
-    expect(true).toBe(true)
+    const { user } = await createUser({ email: "test2@test.fr", password: "Password123!" })
+    expect(user.credits).toBe(1)
   })
 
   it("should hash the password and not store plain text", async () => {
@@ -36,44 +89,82 @@ describe("User Registration", () => {
 
     expect(isValid).toBe(true)
     expect(isNotPlainText).toBe(true)
+    expect(hash).toMatch(/^\$2b\$12\$/)
   })
 
   it("should create a WELCOME_CREDIT transaction on registration", async () => {
-    // const { user, transaction } = await createUser(...)
-    // expect(transaction.type).toBe("WELCOME_CREDIT")
-    // expect(transaction.creditsAdd).toBe(1)
-    // expect(transaction.userId).toBe(user.id)
-    expect(true).toBe(true)
+    const { transaction } = await createUser({
+      email: "test3@test.fr",
+      password: "Password123!",
+    })
+    expect(transaction.type).toBe("WELCOME_CREDIT")
+    expect(transaction.creditsAdd).toBe(1)
+    expect(transaction.userId).toBe(fakeUser.id)
+  })
+
+  it("should call brevo.sendEmail with bienvenue-validation template", async () => {
+    await createUser({ email: "test4@test.fr", name: "Alice", password: "Password123!" })
+    expect(brevo.sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ template: "bienvenue-validation" })
+    )
+  })
+
+  it("should not expose passwordHash in the returned user", async () => {
+    const { user } = await createUser({ email: "test5@test.fr", password: "Password123!" })
+    expect((user as Record<string, unknown>).passwordHash).toBeUndefined()
   })
 })
+
+// ─── Tests : JWT Session ──────────────────────────────────────────────────────
 
 describe("JWT Session", () => {
   it("should include role in JWT token", () => {
     const mockUser = { id: "1", role: "USER", segment: "EXTERNE", credits: 3 }
-    // const token = buildJwtPayload(mockUser)
-    // expect(token.role).toBe("USER")
-    expect(mockUser.role).toBeDefined()
+    const token = buildJwtPayload(mockUser)
+    expect(token.role).toBe("USER")
   })
 
   it("should include segment in JWT token", () => {
     const mockUser = { id: "1", role: "USER", segment: "BOULIACAIS", credits: 5 }
-    // const token = buildJwtPayload(mockUser)
-    // expect(token.segment).toBe("BOULIACAIS")
-    expect(mockUser.segment).toBeDefined()
+    const token = buildJwtPayload(mockUser)
+    expect(token.segment).toBe("BOULIACAIS")
   })
 
   it("should include credits in JWT token", () => {
     const mockUser = { id: "1", role: "USER", segment: "REDUIT", credits: 2 }
-    // const token = buildJwtPayload(mockUser)
-    // expect(token.credits).toBe(2)
-    expect(mockUser.credits).toBeDefined()
+    const token = buildJwtPayload(mockUser)
+    expect(token.credits).toBe(2)
+  })
+
+  it("should include id in JWT token", () => {
+    const mockUser = { id: "abc123", role: "ADMIN", segment: "EXTERNE", credits: 99 }
+    const token = buildJwtPayload(mockUser)
+    expect(token.id).toBe("abc123")
   })
 })
 
+// ─── Tests : getUserByEmail ───────────────────────────────────────────────────
+
+describe("getUserByEmail", () => {
+  it("should return null when user does not exist", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null)
+    const user = await getUserByEmail("nonexistent@test.fr")
+    expect(user).toBeNull()
+  })
+
+  it("should return the user when found", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(fakeUser)
+    const user = await getUserByEmail("test@test.fr")
+    expect(user?.email).toBe("test@test.fr")
+  })
+})
+
+// ─── Tests : Access Control ───────────────────────────────────────────────────
+
 describe("Access Control", () => {
   it("should redirect USER role away from /admin", () => {
-    // Ce test est validé par le middleware Next.js — tester via integration test
-    // Voir auth.integration.test.ts
+    // La protection de route est assurée par le middleware Next.js.
+    // Validé en E2E via e2e/slice-01-auth.spec.ts.
     expect(true).toBe(true)
   })
 })
