@@ -1,0 +1,211 @@
+feature: ui-integration
+slice: 0
+title: "Intégration UI — Navigation & Authentification"
+user_stories: [US-0.1, US-0.2, US-0.3]
+estimated_days: 0.5
+status: ready
+
+description: |
+  Points de couture entre le site vitrine existant et le module de réservation.
+  À implémenter après la Slice 1 (Auth) et avant la Slice 2 (Crédits).
+  Rend l'application navigable et cohérente visuellement.
+  Ne modifie pas le contenu des pages vitrine existantes.
+
+dependencies: [slice-01-foundations-auth]
+
+# ─── BASE DE DONNÉES ──────────────────────────────────────────────────────────
+database:
+  provider: Neon (Serverless Postgres)
+  local_branch: develop
+  migration_required: false
+  note: "Aucune migration — cette Slice ne touche pas au schéma Prisma."
+
+# ─── MOCKS ACTIFS ─────────────────────────────────────────────────────────────
+mocks:
+  stripe: "non requis pour cette Slice"
+  brevo: "non requis pour cette Slice"
+
+# ─── ENV REQUIS ───────────────────────────────────────────────────────────────
+env_required:
+  DATABASE_URL: "connection string Neon branche develop"
+  NEXTAUTH_SECRET: "valeur de la Slice 1"
+  NEXTAUTH_URL: "http://localhost:3000"
+
+# ─── RÈGLES D'IMPLÉMENTATION ─────────────────────────────────────────────────
+rules:
+  - "Ne jamais casser les pages vitrine existantes (Home, Offres, Galerie, Contact)"
+  - "Le header principal est un Server Component — lire la session via getServerSession()"
+  - "signOut() est une fonction client — créer un Client Component isolé LogoutButton.tsx"
+  - "Ne pas transformer tout le header en 'use client' pour un seul bouton"
+  - "Adapter le style des nouveaux éléments à la charte graphique existante (Tailwind)"
+  - "Tous les éléments interactifs ont un data-testid pour les tests Playwright"
+  - "Sur mobile : boutons accessibles dans le menu burger si présent"
+
+# ─── COMPOSANTS ──────────────────────────────────────────────────────────────
+components:
+
+  - id: US-0.1
+    name: "Bouton Se connecter / Mon espace dans le header principal"
+    file: "components/layout/HeaderAuthButton.tsx"
+    location: "Header du site vitrine — layout partagé par toutes les pages"
+    behavior:
+      non_authentifie: |
+        → Bouton "Se connecter" (data-testid="header-login-btn")
+        → Lien vers /login
+      authentifie_user: |
+        → Afficher prénom de l'utilisateur
+        → Lien "Mon espace" vers /dashboard (data-testid="header-dashboard-link")
+        → Le bloc entier a data-testid="header-user-menu"
+      authentifie_admin: |
+        → Même chose + badge "Admin" discret (data-testid="header-admin-badge")
+    implementation_note: |
+      Dans le layout Server Component :
+        const session = await getServerSession(authOptions)
+      Passer session en prop à HeaderAuthButton (Client Component léger).
+      Ne pas faire de useSession() dans le header — ça force 'use client' sur tout.
+
+  - id: US-0.2
+    name: "Retrait du bouton Contact dans le header"
+    location: "Header du site vitrine"
+    behavior: |
+      Retirer le bouton/lien qui redirige vers le formulaire de contact
+      depuis le header principal.
+      La page /contact reste accessible — ne pas la supprimer.
+      Ne pas laisser d'espace vide ou de layout brisé après le retrait.
+    data_testid_removed: "header-contact-btn"
+    implementation_note: |
+      Vérifier d'abord comment le bouton est défini (composant ? lien direct ?).
+      Retirer proprement. Vérifier le rendu mobile si un menu burger existe.
+
+  - id: US-0.3
+    name: "Bouton Logout dans le layout du module de réservation"
+    file: "components/app/LogoutButton.tsx"
+    location: "Header ou barre de navigation du layout /(app) — visible sur /dashboard, /booking, /admin"
+    behavior: |
+      Bouton "Se déconnecter" visible en haut à droite sur toutes les pages
+      du module de réservation.
+      Au clic : signOut({ callbackUrl: '/login' }) → redirect /login.
+    data_testid: "logout-btn"
+    implementation_note: |
+      'use client' uniquement sur ce composant.
+      Utiliser signOut de next-auth/react — pas de route API custom.
+      Placer dans le layout de /(app) pour qu'il apparaisse sur toutes les pages.
+
+# ─── TESTS ────────────────────────────────────────────────────────────────────
+tests:
+
+  unit:
+    file: "__tests__/ui-integration.test.ts"
+    mocks_required:
+      - "vi.mock('next-auth') — mocker getServerSession()"
+    cases:
+      - "getServerSession() retourne null → HeaderAuthButton affiche header-login-btn"
+      - "getServerSession() retourne user → HeaderAuthButton affiche header-user-menu avec prénom"
+      - "getServerSession() retourne admin → HeaderAuthButton affiche header-admin-badge"
+      - "header-contact-btn absent du rendu header"
+
+  http:
+    note: "Pas de nouvelles routes API — pas de tests HTTP pour cette Slice."
+
+  e2e:
+    file: "e2e/slice-00-ui-integration.spec.ts"
+    tool: playwright
+    setup: "Réutilise les sessions de e2e/.auth/ créées par global.setup.ts"
+
+    cases:
+
+      # ── Header — visiteur non connecté ──────────────────────────────
+      - id: "E2E-0.1"
+        scenario: "Header affiche 'Se connecter' pour un visiteur non connecté"
+        auth: none
+        steps:
+          - Naviguer vers /
+          - data-testid='header-login-btn' est visible
+          - data-testid='header-user-menu' n'existe pas
+          - Cliquer sur header-login-btn → redirect /login
+
+      # ── Header — utilisateur connecté ───────────────────────────────
+      - id: "E2E-0.2"
+        scenario: "Header affiche le prénom et Mon espace après connexion"
+        auth: externe@test.fr
+        steps:
+          - Naviguer vers /
+          - data-testid='header-user-menu' est visible
+          - Le texte contient le prénom de l'utilisateur
+          - data-testid='header-login-btn' n'existe plus
+          - Cliquer sur header-dashboard-link → redirect /dashboard
+
+      # ── Header — admin connecté ──────────────────────────────────────
+      - id: "E2E-0.3"
+        scenario: "Header affiche le badge Admin pour un admin connecté"
+        auth: admin@placev.fr
+        steps:
+          - Naviguer vers /
+          - data-testid='header-admin-badge' est visible
+          - data-testid='header-user-menu' est visible
+
+      # ── Retrait bouton Contact ───────────────────────────────────────
+      - id: "E2E-0.4"
+        scenario: "Le bouton Contact n'est plus dans le header"
+        auth: none
+        steps:
+          - Naviguer vers /
+          - data-testid='header-contact-btn' n'existe pas
+          - Naviguer directement vers /contact → status 200, page accessible
+
+      # ── Logout depuis /dashboard ─────────────────────────────────────
+      - id: "E2E-0.5"
+        scenario: "Bouton logout visible sur /dashboard"
+        auth: externe@test.fr
+        steps:
+          - Naviguer vers /dashboard
+          - data-testid='logout-btn' est visible
+
+      - id: "E2E-0.6"
+        scenario: "Logout redirige vers /login et détruit la session"
+        auth: externe@test.fr
+        steps:
+          - Naviguer vers /dashboard
+          - Cliquer sur data-testid='logout-btn'
+          - Vérifier redirect vers /login
+          - Naviguer vers /dashboard
+          - Vérifier re-redirect vers /login (session détruite)
+
+      # ── Logout depuis /admin ─────────────────────────────────────────
+      - id: "E2E-0.7"
+        scenario: "Bouton logout visible et fonctionnel depuis /admin"
+        auth: admin@placev.fr
+        steps:
+          - Naviguer vers /admin
+          - data-testid='logout-btn' est visible
+          - Cliquer sur logout-btn → redirect /login
+          - Naviguer vers /admin → redirect /login (session détruite)
+
+      # ── Non-régression site vitrine ──────────────────────────────────
+      - id: "E2E-0.8"
+        scenario: "Les pages du site vitrine ne sont pas cassées"
+        auth: none
+        steps:
+          - Naviguer vers / → pas d'erreur console, header visible
+          - Naviguer vers /contact → formulaire de contact toujours visible
+          - Header cohérent sur toutes les pages vitrine (pas de layout brisé)
+
+      # ── Mobile ───────────────────────────────────────────────────────
+      - id: "E2E-0.9"
+        scenario: "Navigation accessible sur mobile"
+        viewport: "iPhone 13"
+        steps:
+          - Naviguer vers /
+          - Le bouton login (ou menu burger contenant les liens) est accessible
+          - Pas d'overflow horizontal, pas d'élément tronqué
+
+# ─── DÉFINITION DE DONE ───────────────────────────────────────────────────────
+done_when:
+  - npm run test → vert (unitaires)
+  - npm run test:e2e -- --grep "slice-00" → vert (9 scénarios Playwright)
+  - Visite manuelle sur http://localhost:3000 :
+      - Visiteur non connecté → bouton "Se connecter" visible dans le header
+      - Après connexion → prénom + "Mon espace" visible dans le header
+      - /dashboard → bouton "Se déconnecter" en haut à droite
+      - /contact toujours accessible
+      - Aucune régression visuelle sur le site vitrine
