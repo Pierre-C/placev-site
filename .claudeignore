@@ -1,0 +1,68 @@
+# Claude Ignore File
+# Exclude files/folders that are not relevant for the booking module development
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+
+# Cache and logs
+.turbo/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.eslintcache
+
+# Testing coverage
+coverage/
+.nyc_output/
+
+# Environment files (keep .env.example visible)
+.env*.local
+.env.production
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Git
+.git/
+.gitignore
+
+# Public assets (images, fonts)
+public/*.jpg
+public/*.jpeg
+public/*.png
+public/*.gif
+public/*.svg
+public/*.webp
+public/*.ico
+public/fonts/
+
+
+# Site vitrine components (DO NOT MODIFY)
+components/sections/
+components/Header.tsx
+components/Footer.tsx
+components/Newsletter.tsx
+
+# Site vitrine API (existing)
+app/api/newsletter/
+
