@@ -36,3 +36,14 @@ yarn-error.log*
 next-env.d.ts
 
 yarn.lock
+
+
+# tests
+e2e/
+playwright-report/
+test-results/
+
+# claude
+.claude
+
+yarn.lock
