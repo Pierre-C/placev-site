@@ -35,12 +35,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# tests
-playwright-report/
-test-results/
-e2e/
-
-# claude S
-.claude
-
-
+yarn.lock
