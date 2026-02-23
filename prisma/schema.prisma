@@ -1,0 +1,108 @@
+// prisma/schema.prisma
+// Schéma complet Place V — tous les modèles des Slices 1 à 5.
+// Branche Neon `develop` en local/preview, `main` en production.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ─────────────────────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Segment {
+  BOULIACAIS
+  EXTERNE
+  REDUIT
+}
+
+enum Slot {
+  AM
+  PM
+  FULL
+}
+
+enum TransactionType {
+  WELCOME_CREDIT
+  CREDIT_PURCHASE
+  DEBIT_RESERVATION
+  REFUND_CANCELLATION
+  MANUAL_ADJUSTMENT
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+enum ReservationType {
+  OPENSPACE
+  MEETING_ROOM
+}
+
+// ─── Models ────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  role         Role     @default(USER)
+  segment      Segment  @default(EXTERNE)
+  credits      Int      @default(0)
+  isMember     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  transactions Transaction[]
+  reservations Reservation[]
+}
+
+model Transaction {
+  id            String          @id @default(cuid())
+  userId        String
+  type          TransactionType
+  creditsAdd    Int
+  creditsBefore Int
+  createdAt     DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model SystemSetting {
+  key   String @id
+  value String
+}
+
+model Reservation {
+  id                    String            @id @default(cuid())
+  userId                String
+  date                  DateTime
+  slot                  Slot
+  type                  ReservationType
+  status                ReservationStatus @default(CONFIRMED)
+  isProxy               Boolean           @default(false)
+  proxyAdminId          String?
+  creditsCost           Int?
+  stripePriceAmount     Int?
+  stripePaymentIntentId String?
+  cancelledAt           DateTime?
+  createdAt             DateTime          @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model ClosedDate {
+  id               String   @id @default(cuid())
+  date             DateTime @unique
+  reason           String?
+  createdByAdminId String
+  createdAt        DateTime @default(now())
+}

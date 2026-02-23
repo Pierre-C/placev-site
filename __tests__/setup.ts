@@ -1,19 +1,25 @@
 /**
  * __tests__/setup.ts
- * Configuration globale pour Vitest
+ * Configuration globale pour Vitest.
+ * Les variables d'environnement sont définies ici pour que lib/env.ts
+ * ne lève pas d'erreur lors de l'exécution des tests.
  */
 
 import { beforeAll, afterAll } from "vitest"
 
-// Setup global avant tous les tests
+// Définir les variables d'env AVANT tout import de module qui les consomme
+process.env.DATABASE_URL =
+  process.env.DATABASE_URL || "postgresql://test:test@localhost:5432/test"
+process.env.NEXTAUTH_SECRET =
+  process.env.NEXTAUTH_SECRET || "test-secret-for-vitest-that-is-long-enough"
+process.env.BREVO_MOCK = "true"
+process.env.STRIPE_MOCK = "true"
+process.env.NODE_ENV = process.env.NODE_ENV || "test"
+
 beforeAll(async () => {
-  // L'agent devra configurer ici :
-  // - La connexion à une DB SQLite en mémoire pour les tests d'intégration
-  // - ou un mock Prisma via vitest-mock-extended
-  // Exemple avec prisma mock :
-  // vi.mock("@/lib/prisma", () => ({ default: mockDeep<PrismaClient>() }))
+  // Rien à faire globalement — chaque test file mock ce dont il a besoin
 })
 
 afterAll(async () => {
-  // Cleanup
+  // Cleanup global si nécessaire
 })

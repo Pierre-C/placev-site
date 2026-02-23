@@ -1,0 +1,143 @@
+/**
+ * app/(app)/dashboard/page.tsx
+ * Dashboard membre — Server Component protégé.
+ * Affiche : solde de crédits, 20 dernières transactions, réservations à venir, lien vers /booking.
+ */
+
+import { redirect } from "next/navigation"
+import Link from "next/link"
+import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+
+export default async function DashboardPage() {
+  const session = await auth()
+  if (!session?.user) redirect("/login")
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    include: {
+      transactions: {
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      },
+      reservations: {
+        where: {
+          status: "CONFIRMED",
+          date: { gte: new Date() },
+        },
+        orderBy: { date: "asc" },
+        take: 10,
+      },
+    },
+  })
+
+  if (!user) redirect("/login")
+
+  const transactionLabels: Record<string, string> = {
+    WELCOME_CREDIT: "Crédit de bienvenue",
+    CREDIT_PURCHASE: "Achat de crédits",
+    DEBIT_RESERVATION: "Réservation",
+    REFUND_CANCELLATION: "Remboursement annulation",
+    MANUAL_ADJUSTMENT: "Ajustement manuel",
+  }
+
+  return (
+    <div className="mx-auto max-w-4xl px-4 py-8">
+      {/* En-tête */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-neutral-900" data-testid="welcome-message">
+          Bonjour, {user.name ?? user.email}
+        </h1>
+        <p className="mt-1 text-neutral-500">Bienvenue sur votre espace Place V</p>
+      </div>
+
+      {/* Solde de crédits */}
+      <div className="mb-6 rounded-2xl bg-neutral-900 p-6 text-white">
+        <p className="text-sm font-medium text-neutral-400">Solde de crédits</p>
+        <p className="mt-1 text-5xl font-bold" data-testid="credit-balance">
+          {user.credits}
+        </p>
+        <p className="mt-1 text-sm text-neutral-400">
+          {user.credits >= 0 ? "crédit(s) disponible(s)" : "crédit(s) en débit"}
+        </p>
+      </div>
+
+      {/* Lien réservation */}
+      <div className="mb-6">
+        <Link
+          href="/booking"
+          data-testid="link-booking"
+          className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-medium text-neutral-900 shadow-sm ring-1 ring-neutral-200 hover:bg-neutral-50"
+        >
+          Faire une réservation
+        </Link>
+      </div>
+
+      {/* Réservations à venir */}
+      {user.reservations.length > 0 && (
+        <section className="mb-6">
+          <h2 className="mb-3 text-lg font-semibold text-neutral-900">Réservations à venir</h2>
+          <div className="space-y-2">
+            {user.reservations.map((r) => (
+              <div
+                key={r.id}
+                className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-neutral-100"
+              >
+                <div>
+                  <p className="font-medium text-neutral-900">
+                    {r.date.toLocaleDateString("fr-FR", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                    })}
+                  </p>
+                  <p className="text-sm text-neutral-500">
+                    {r.slot === "AM" ? "Matin" : r.slot === "PM" ? "Après-midi" : "Journée"} —{" "}
+                    {r.type === "OPENSPACE" ? "Open-space" : "Salle de réunion"}
+                  </p>
+                </div>
+                <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                  Confirmée
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Historique des transactions */}
+      <section>
+        <h2 className="mb-3 text-lg font-semibold text-neutral-900">
+          Historique des transactions
+        </h2>
+        <div data-testid="transaction-history" className="space-y-2">
+          {user.transactions.length === 0 ? (
+            <p className="text-sm text-neutral-400">Aucune transaction pour le moment.</p>
+          ) : (
+            user.transactions.map((t) => (
+              <div
+                key={t.id}
+                className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-neutral-100"
+              >
+                <div>
+                  <p className="font-medium text-neutral-900">
+                    {transactionLabels[t.type] ?? t.type}
+                  </p>
+                  <p className="text-sm text-neutral-400">
+                    {t.createdAt.toLocaleDateString("fr-FR")}
+                  </p>
+                </div>
+                <span
+                  className={`text-sm font-semibold ${t.creditsAdd >= 0 ? "text-green-600" : "text-red-600"}`}
+                >
+                  {t.creditsAdd >= 0 ? "+" : ""}
+                  {t.creditsAdd} crédit(s)
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+    </div>
+  )
+}
