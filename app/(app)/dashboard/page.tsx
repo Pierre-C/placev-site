@@ -13,6 +13,9 @@ export default async function DashboardPage() {
   const session = await auth()
   if (!session?.user) redirect("/login")
 
+  // Les admins sont redirigés vers le back-office
+  if (session.user.role === "ADMIN") redirect("/admin")
+
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     include: {

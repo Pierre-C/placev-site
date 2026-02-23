@@ -32,45 +32,43 @@ export interface CreateUserResult {
 
 /**
  * Crée un nouvel utilisateur avec son crédit de bienvenue.
- * Hash le mot de passe, crée l'utilisateur et la transaction en DB atomiquement,
+ * Hash le mot de passe, crée l'utilisateur puis la transaction de bienvenue,
  * puis envoie l'email de bienvenue via Brevo.
+ *
+ * Note : opérations séquentielles (PrismaNeonHttp ne supporte pas $transaction callback).
  */
 export async function createUser(input: CreateUserInput): Promise<CreateUserResult> {
   const { email, name, password, segment = "EXTERNE" } = input
 
   const passwordHash = await bcrypt.hash(password, 12)
 
-  const result = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
-      data: {
-        email,
-        name,
-        passwordHash,
-        segment,
-        credits: 1,
-      },
-    })
-
-    const transaction = await createWelcomeCredit(user.id, tx)
-
-    return { user, transaction }
-  })
-
-  await brevo.sendEmail({
-    template: "bienvenue-validation",
-    to: result.user.email,
-    toName: result.user.name ?? undefined,
-    variables: {
-      name: result.user.name ?? email,
+  const user = await prisma.user.create({
+    data: {
+      email,
+      name,
+      passwordHash,
+      segment,
       credits: 1,
     },
   })
 
-  const { passwordHash: _, ...userWithoutHash } = result.user
+  const transaction = await createWelcomeCredit(user.id)
+
+  await brevo.sendEmail({
+    template: "bienvenue-validation",
+    to: user.email,
+    toName: user.name ?? undefined,
+    variables: {
+      name: user.name ?? email,
+      credits: 1,
+    },
+  })
+
+  const { passwordHash: _, ...userWithoutHash } = user
 
   return {
     user: userWithoutHash,
-    transaction: result.transaction,
+    transaction,
   }
 }
 

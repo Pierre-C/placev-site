@@ -1,29 +1,21 @@
 /**
  * lib/prisma.ts
- * Singleton Prisma 7 avec adapter Neon — toujours importer depuis @/lib/prisma.
- * Prisma 7 requiert un driver adapter pour la connexion runtime.
+ * Singleton Prisma 7 avec adapter Neon HTTP — toujours importer depuis @/lib/prisma.
  *
- * Utilise PrismaNeon (WebSocket Pool) pour supporter prisma.$transaction.
- * En environnement Node.js (non-edge), le constructeur WebSocket (ws) est configuré.
+ * Utilise PrismaNeonHttp (HTTP fetch) — compatible Next.js App Router, Edge runtime
+ * et environnements sans WebSocket natif.
+ * Note : l'adaptateur HTTP ne supporte pas les transactions interactives ($transaction callback).
  */
 
 import { PrismaClient } from "@prisma/client"
-import { PrismaNeon } from "@prisma/adapter-neon"
-import { Pool, neonConfig } from "@neondatabase/serverless"
-
-// Configurer WebSocket pour Node.js (pas nécessaire dans les Edge runtimes)
-if (typeof WebSocket === "undefined") {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  neonConfig.webSocketConstructor = require("ws")
-}
+import { PrismaNeonHttp } from "@prisma/adapter-neon"
 
 function createPrismaClient(): PrismaClient {
   const connectionString = process.env.DATABASE_URL
   if (!connectionString) {
     throw new Error("DATABASE_URL est requis pour initialiser le client Prisma")
   }
-  const pool = new Pool({ connectionString })
-  const adapter = new PrismaNeon(pool)
+  const adapter = new PrismaNeonHttp(connectionString)
   return new PrismaClient({ adapter })
 }
 

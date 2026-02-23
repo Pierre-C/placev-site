@@ -1,89 +1,47 @@
 /**
  * app/(app)/register/page.tsx
  * Page d'inscription — Client Component.
- * Appelle POST /api/auth/register puis signIn pour créer la session, puis redirige vers /dashboard.
+ * Utilise un Server Action (registerAction) via useFormState.
+ * Auth.js v5 : la création de compte, la session et la redirection sont côté serveur.
  */
 
 "use client"
 
-import { useState, type FormEvent } from "react"
-import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useFormState, useFormStatus } from "react-dom"
+import { registerAction } from "./actions"
 import Link from "next/link"
 
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="w-full rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-60"
+    >
+      {pending ? "Création en cours…" : "Créer mon compte"}
+    </button>
+  )
+}
+
 export default function RegisterPage() {
-  const router = useRouter()
-  const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
-
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError("")
-    setLoading(true)
-
-    const formData = new FormData(e.currentTarget)
-    const name = formData.get("name") as string
-    const email = formData.get("email") as string
-    const password = formData.get("password") as string
-    const segment = formData.get("segment") as string
-
-    try {
-      // 1. Créer le compte
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, segment }),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        const message =
-          data.error ||
-          (data.errors
-            ? Object.values(data.errors).flat().join(", ")
-            : "Une erreur est survenue")
-        setError(message)
-        return
-      }
-
-      // 2. Créer la session
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      })
-
-      if (result?.error) {
-        setError("Compte créé mais connexion échouée. Veuillez vous connecter.")
-        router.push("/login")
-        return
-      }
-
-      // 3. Rediriger vers le dashboard
-      router.push("/dashboard")
-    } catch {
-      setError("Une erreur inattendue est survenue")
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [state, formAction] = useFormState(registerAction, { error: "" })
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6 rounded-2xl bg-white p-8 shadow-sm">
         <h1 className="text-2xl font-bold text-neutral-900">Créer un compte</h1>
 
-        {error && (
+        {state.error && (
           <p
             data-testid="error-message"
             className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
           >
-            {error}
+            {state.error}
           </p>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form action={formAction} className="space-y-4">
           <div>
             <label htmlFor="name" className="mb-1 block text-sm font-medium text-neutral-700">
               Nom complet
@@ -120,7 +78,6 @@ export default function RegisterPage() {
               name="password"
               type="password"
               required
-              minLength={8}
               autoComplete="new-password"
               className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
             />
@@ -142,13 +99,7 @@ export default function RegisterPage() {
             </select>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-60"
-          >
-            {loading ? "Création en cours…" : "Créer mon compte"}
-          </button>
+          <SubmitButton />
         </form>
 
         <p className="text-center text-sm text-neutral-500">

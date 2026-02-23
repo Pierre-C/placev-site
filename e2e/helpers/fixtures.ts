@@ -5,7 +5,7 @@
  */
 
 import { test as base } from "@playwright/test"
-import { SESSIONS } from "../global.setup"
+import { SESSIONS } from "./session-paths"
 
 // Types des fixtures custom
 type PlaceVFixtures = {

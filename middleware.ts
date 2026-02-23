@@ -1,14 +1,19 @@
 /**
  * middleware.ts
  * Protection des routes via Auth.js v5.
+ * Utilise authConfig (edge-safe, sans bcrypt ni Prisma).
  *
  * Règles :
- *   /(app)/* → redirect /login si non authentifié
- *   /admin/*  → role ADMIN requis → redirect /dashboard si USER
+ *   /dashboard/* → redirect /login si non authentifié
+ *   /booking/*   → redirect /login si non authentifié
+ *   /admin/*     → role ADMIN requis → redirect /dashboard si USER
  */
 
-import { auth } from "@/lib/auth"
+import NextAuth from "next-auth"
+import { authConfig } from "@/lib/auth.config"
 import { NextResponse } from "next/server"
+
+const { auth } = NextAuth(authConfig)
 
 export default auth((req) => {
   const { nextUrl } = req

@@ -1,9 +1,10 @@
 /**
  * lib/auth.ts
- * Configuration Auth.js v5 — provider Credentials email/password, stratégie JWT.
- * JWT inclut id, role, segment et credits pour éviter un appel DB à chaque requête.
+ * Configuration Auth.js v5 complète — Node.js runtime uniquement.
+ * Étend authConfig (edge-safe) avec le provider Credentials (bcrypt + Prisma).
  *
- * CRITIQUE : segment et credits dans le token évitent un appel DB à chaque calcul de prix.
+ * Ne pas importer depuis middleware.ts (bcrypt n'est pas compatible Edge).
+ * Le middleware utilise NextAuth(authConfig) depuis lib/auth.config.ts.
  */
 
 import NextAuth from "next-auth"
@@ -11,32 +12,17 @@ import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcrypt"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
+import { authConfig } from "./auth.config"
+
+export { buildJwtPayload } from "./auth.config"
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 })
 
-/**
- * Construit le payload JWT à partir d'un utilisateur.
- * Exporté pour être testable unitairement.
- */
-export function buildJwtPayload(user: {
-  id: string
-  role: string
-  segment: string
-  credits: number
-}) {
-  return {
-    id: user.id,
-    role: user.role,
-    segment: user.segment,
-    credits: user.credits,
-  }
-}
-
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  secret: process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET,
+  ...authConfig,
 
   providers: [
     Credentials({
@@ -63,33 +49,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
   ],
-
-  session: { strategy: "jwt" },
-
-  callbacks: {
-    jwt({ token, user }) {
-      if (user) {
-        const payload = buildJwtPayload({
-          id: user.id as string,
-          role: user.role as string,
-          segment: user.segment as string,
-          credits: user.credits as number,
-        })
-        Object.assign(token, payload)
-      }
-      return token
-    },
-
-    session({ session, token }) {
-      session.user.id = token.id as string
-      session.user.role = token.role as string
-      session.user.segment = token.segment as string
-      session.user.credits = token.credits as number
-      return session
-    },
-  },
-
-  pages: {
-    signIn: "/login",
-  },
 })

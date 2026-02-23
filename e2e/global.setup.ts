@@ -5,14 +5,7 @@
  */
 
 import { test as setup, expect } from "@playwright/test"
-import path from "path"
-
-// Chemins des fichiers de session sauvegardés (réutilisés entre les tests)
-export const SESSIONS = {
-  membre: path.join(__dirname, ".auth/membre.json"),
-  admin: path.join(__dirname, ".auth/admin.json"),
-  membreSansCredits: path.join(__dirname, ".auth/membre-sans-credits.json"),
-}
+import { SESSIONS } from "./helpers/session-paths"
 
 setup("créer et authentifier les utilisateurs de test", async ({ page }) => {
   // ── 1. S'assurer que les utilisateurs de test existent (via seeder) ────
