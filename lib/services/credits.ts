@@ -23,3 +23,39 @@ export async function createWelcomeCredit(
     },
   })
 }
+
+/**
+ * Calcule le prix total d'un pack de crédits.
+ * Fonction pure — aucun appel DB.
+ *
+ * @param creditsAmount - Nombre de crédits à acheter
+ * @param pricePerCredit - Prix d'un crédit en centimes (ex: 800 pour 8€)
+ * @returns Prix total en centimes
+ */
+export function calculateCreditPrice(
+  creditsAmount: number,
+  pricePerCredit: number
+): number {
+  return creditsAmount * pricePerCredit
+}
+
+/**
+ * Récupère le prix d'un crédit pour un segment donné depuis la DB.
+ * Lit SystemSetting `PRICE_CREDIT_{segment}` (valeur en centimes).
+ *
+ * @param segment - Segment utilisateur (BOULIACAIS, EXTERNE, REDUIT)
+ * @param tx - Client Prisma (ou transaction)
+ * @returns Prix en centimes par crédit
+ */
+export async function getCreditPriceForSegment(
+  segment: string,
+  tx: Prisma.TransactionClient = prisma
+): Promise<number> {
+  const setting = await tx.systemSetting.findUnique({
+    where: { key: `PRICE_CREDIT_${segment}` },
+  })
+  if (!setting) {
+    throw new Error(`Prix non configuré pour le segment ${segment}`)
+  }
+  return parseInt(setting.value, 10)
+}
