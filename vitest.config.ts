@@ -2,6 +2,9 @@ import { defineConfig } from "vitest/config";
 import path from "path";
 
 export default defineConfig({
+  esbuild: {
+    jsx: "automatic",
+  },
   test: {
     environment: "node",
     globals: true,
@@ -27,6 +30,10 @@ export default defineConfig({
       {
         find: "next-auth/providers/credentials",
         replacement: path.resolve(__dirname, "__mocks__/next-auth-credentials.ts"),
+      },
+      {
+        find: "next-auth/react",
+        replacement: path.resolve(__dirname, "__mocks__/next-auth-react.ts"),
       },
       {
         find: "next-auth",
