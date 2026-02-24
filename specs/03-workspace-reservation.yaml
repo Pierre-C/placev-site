@@ -56,12 +56,135 @@ api_routes:
   - POST /api/booking → créer réservation (auth required)
   - POST /api/booking/[id]/cancel → annuler réservation (auth required)
 
+# ─── FRONTEND — COMPOSANT CALENDRIER ─────────────────────────────────────────
+frontend:
+  component: BookingCalendar
+  file: "components/booking/BookingCalendar.tsx"
+  type: "'use client' — React Client Component"
+  page: "app/(app)/booking/page.tsx"
+  page_access: "public — visible sans connexion, réservation nécessite auth"
+
+  starting_point: |
+    Un composant de base est fourni dans /components/booking/BookingCalendarBase.tsx.
+    L'agent DOIT partir de ce composant et l'adapter — ne pas réécrire from scratch.
+    Les helpers de date (getMonthGrid, startOfWeekMonday, formatYMD, addDays) sont
+    déjà corrects A priori, l'agent doit réexploiter et adapter. 
+
+  base_component_what_to_keep:
+    - "Tous les helpers de date (getMonthGrid, startOfWeekMonday, formatYMD, addDays)"
+    - "La structure useEffect + fetch vers GET /api/availability"
+    - "Le availMap (Map<date|slot, remaining>) pour lookup O(1)"
+    - "La grille 6 semaines × 7 jours (42 cases)"
+    - "La navigation mois par mois (monthCursor, setMonthCursor)"
+    - "La détection des jours hors-mois courant"
+    - "Les animations Framer Motion existantes"
+
+  base_component_what_to_change:
+    - "Supprimer HALF_DAY_PRICE_EUR, FULL_DAY_PRICE_EUR — les prix sont en crédits, pas en euros"
+    - "Supprimer DAILY_CAPACITY — vient de l'API (remaining dans availability)"
+    - "Supprimer la logique quantity (nb de personnes) — une réservation = 1 personne"
+    - "Supprimer le fallback démo — remplacer par un vrai état d'erreur UI"
+    - "Remplacer selections (Record<string, SelectionItem>) par selectedSlot (objet unique)"
+    - "Brancher la confirmation sur POST /api/booking"
+
+  slot_states:
+    available:
+      condition: "remaining > 0 ET date >= aujourd'hui ET pas ClosedDate"
+      display: "Places restantes (ex: '8 places')"
+      style: "fond clair, curseur pointer, hover effect"
+      data_attrs: "data-testid='slot-tile', data-date='YYYY-MM-DD', data-slot='AM|PM|FULL', data-remaining={n}"
+
+    full:
+      condition: "remaining = 0 ET date future"
+      display: "'Complet'"
+      style: "fond grisé, curseur not-allowed"
+      data_attrs: "data-testid='slot-tile', data-full='true'"
+
+    past:
+      condition: "date < aujourd'hui"
+      display: "Grisé, non cliquable"
+      data_attrs: "data-testid='slot-tile', data-disabled='true'"
+
+    closed:
+      condition: "remaining = 0 depuis une ClosedDate"
+      display: "'Fermé' — couleur distincte de 'Complet'"
+      note: "L'API retourne remaining=0 pour les deux cas. Ajouter un champ isClosed
+             dans la réponse GET /api/availability pour distinguer les deux."
+      data_attrs: "data-testid='slot-tile', data-disabled='true', data-closed='true'"
+
+    out_of_month:
+      condition: "jour hors du mois affiché"
+      display: "Opacité réduite, non cliquable"
+
+  selection_flow:
+    step_1_select: |
+      Clic sur tuile disponible → sélection mémorisée dans selectedSlot
+      Ouvrir un panneau de confirmation sous le calendrier (pas de modale bloquante)
+      data-testid="booking-summary" sur ce panneau
+
+    step_2_summary: |
+      Le panneau affiche :
+        - Date lisible ("Lundi 15 mars 2025")
+        - Créneau ("Matin 09h–13h" / "Après-midi 14h–18h" / "Journée 09h–18h")
+        - Coût : "1 crédit" ou "2 crédits"
+        - Solde après réservation (si authentifié) : "Votre solde : 4 → 3 crédits"
+        - Si non authentifié : "Connectez-vous pour réserver" + lien /login
+
+    step_3_confirm: |
+      Bouton "Confirmer la réservation" (data-testid="confirm-booking")
+      → spinner pendant POST /api/booking { date, slot }
+
+    step_4_result:
+      success: |
+        data-testid="booking-success" visible
+        Solde affiché mis à jour immédiatement
+        Tuile passe à remaining-1 (rechargement availability du mois)
+        Panneau se ferme après 2s ou sur clic "Fermer"
+
+      error_balance: |
+        data-testid="error-insufficient-balance" visible
+        data-testid="link-buy-credits" → lien vers /credits
+
+      error_full: |
+        data-testid="error-slot-full" visible
+        Rechargement automatique de l'availability
+
+      error_closed: |
+        Message "Ce jour est fermé" — pas de data-testid spécifique requis
+
+  data_testids:
+    - "booking-calendar"           # conteneur principal
+    - "calendar-prev-month"        # bouton ←
+    - "calendar-next-month"        # bouton →
+    - "calendar-month-label"       # texte "Mars 2025"
+    - "slot-tile"                  # chaque tuile AM/PM/FULL
+    - "booking-summary"            # panneau de confirmation
+    - "confirm-booking"            # bouton confirmer
+    - "booking-success"            # message succès
+    - "error-insufficient-balance" # message solde insuffisant
+    - "link-buy-credits"           # lien vers /credits
+    - "error-slot-full"            # message créneau pris
+
+  dashboard_integration:
+    file: "app/(app)/dashboard/page.tsx"
+    section: "upcoming-reservations"
+    display: |
+      Liste des réservations CONFIRMED à venir, triées par date ASC.
+      Pour chaque réservation : date lisible, créneau, coût en crédits.
+      Bouton "Annuler" si now() < reservation.start - 12h.
+    data_testids:
+      - "upcoming-reservations"    # conteneur liste
+      - "cancel-booking-btn"       # bouton annuler par réservation
+      - "confirm-cancel"           # bouton de confirmation dans dialog
+      - "cancel-success"           # message succès annulation
+
 # ─── TESTS ────────────────────────────────────────────────────────────────────
 tests:
 
   unit:
     file: "__tests__/booking.test.ts"
     cases:
+      # Logique métier crédits
       - "AM = 1 crédit, PM = 1 crédit, FULL = 2 crédits"
       - "credits=-2 + cost=1 → -3 → AUTORISÉ"
       - "credits=-2 + cost=2 → -4 → REFUSÉ"
@@ -71,6 +194,15 @@ tests:
       - "Double annulation (status=CANCELLED) → refusée — pas de double remboursement"
       - "ClosedDate → remaining = 0 sur tous les créneaux"
       - "DESK_CAPACITY dynamique respectée"
+      # Helpers calendrier (fonctions pures extraites du composant de base)
+      - "getMonthGrid retourne exactement 42 jours"
+      - "getMonthGrid commence toujours un lundi"
+      - "startOfWeekMonday(mercredi) → lundi de la même semaine"
+      - "startOfWeekMonday(lundi) → ce même lundi inchangé"
+      - "startOfWeekMonday(dimanche) → lundi de la semaine précédente"
+      - "formatYMD retourne YYYY-MM-DD sans décalage timezone"
+      - "Tuile avec date < aujourd'hui → disabled=true"
+      - "Tuile avec remaining=0 → full=true"
 
   http:
     file: "__tests__/api/slice-03-booking.http.test.ts"
@@ -143,16 +275,34 @@ tests:
     file: "e2e/slice-03-booking.spec.ts"
     tool: playwright
     cases:
-      - "Calendrier visible sans connexion"
-      - "Dates passées désactivées"
-      - "Réservation AM → solde -1 → console '[Brevo Mock] confirmation-reservation'"
-      - "Réservation FULL → solde -2"
-      - "Réservation visible dans le dashboard"
-      - "Solde insuffisant → erreur + lien achat crédits"
-      - "Annulation depuis dashboard → crédits remboursés → console '[Brevo Mock] confirmation-annulation'"
+      # Calendrier — navigation et affichage
+      - "Calendrier visible sur /booking sans connexion"
+      - "Navigation ← → change le mois affiché (calendar-month-label mis à jour)"
+      - "Dates passées affichées en grisé — data-disabled=true, non cliquables"
+      - "Tuile remaining=0 affiche 'Complet' — data-full=true"
+      # Sélection et confirmation
+      - "Clic sur tuile disponible → booking-summary s'ouvre avec date et créneau"
+      - "Panneau affiche le coût en crédits (1 ou 2)"
+      - "Sans connexion → message 'Connectez-vous' + lien /login dans le panneau"
+      - "Connecté → confirm-booking visible, solde après réservation affiché"
+      # Réservation
+      - "Réservation AM → booking-success visible → solde -1 dans le header"
+      - "Réservation FULL → booking-success visible → solde -2 dans le header"
+      - "Après réservation → tuile passe à remaining-1 (rechargement availability)"
+      - "Réservation visible dans upcoming-reservations sur /dashboard"
+      # Erreurs
+      - "Solde insuffisant → error-insufficient-balance + link-buy-credits visible"
+      # Annulation
+      - "Bouton cancel-booking-btn visible si annulation possible (> 12h)"
+      - "Clic cancel-booking-btn → confirm-cancel → cancel-success → crédits remboursés"
+      # Brevo mock
+      - "Console affiche '[Brevo Mock] confirmation-reservation' après réservation"
+      - "Console affiche '[Brevo Mock] confirmation-annulation' après annulation"
 
 done_when:
-  - npm run test → vert (unitaires + HTTP)
-  - npm run test:e2e:slice3 → vert
-  - Calendrier affiche les vraies disponibilités depuis Neon develop
-  - Console affiche les emails Brevo mockés à chaque réservation et annulation
+  - npm run test → vert (unitaires + HTTP — 18 cas)
+  - npm run test:e2e:slice3 → vert (17 scénarios Playwright)
+  - Calendrier navigable sur http://localhost:3000/booking
+  - Réservation bout en bout : sélection → panneau → confirmation → solde mis à jour
+  - Annulation depuis /dashboard → crédits remboursés
+  - Console affiche les emails Brevo mockés à chaque action
