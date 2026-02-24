@@ -5,9 +5,16 @@
  */
 
 import { test as setup, expect } from "@playwright/test"
+import { execSync } from "child_process"
 import { SESSIONS } from "./helpers/session-paths"
 
 setup("créer et authentifier les utilisateurs de test", async ({ page }) => {
+  // ── 0. Seeder la DB ────────────────────────────────────────────────────
+  // Réinitialise les crédits des comptes de test et supprime leurs
+  // réservations futures — garantit un état propre quel que soit le mode
+  // d'exécution (npm script, VS Code, CI).
+  execSync("npx prisma db seed", { stdio: "inherit" })
+
   // ── 1. S'assurer que les utilisateurs de test existent (via seeder) ────
   // Le seeder Prisma doit avoir créé ces comptes :
   // - externe@test.fr / TestPassword123! (credits: 5)
