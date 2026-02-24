@@ -1,13 +1,16 @@
 /**
  * app/(app)/dashboard/page.tsx
  * Dashboard membre — Server Component protégé.
- * Affiche : solde de crédits, 20 dernières transactions, réservations à venir, lien vers /booking.
+ * Affiche : solde de crédits, packs de recharge, transactions, réservations à venir.
  */
 
+import { Suspense } from "react"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { CreditPackSection } from "./CreditPackSection"
+import { PaymentStatusBanner } from "./PaymentStatusBanner"
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -46,6 +49,11 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
+      {/* Bannière paiement (success / cancelled) — Client Component avec Suspense */}
+      <Suspense fallback={null}>
+        <PaymentStatusBanner />
+      </Suspense>
+
       {/* En-tête */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-neutral-900" data-testid="welcome-message">
@@ -64,6 +72,9 @@ export default async function DashboardPage() {
           {user.credits >= 0 ? "crédit(s) disponible(s)" : "crédit(s) en débit"}
         </p>
       </div>
+
+      {/* Packs de recharge — Server Component */}
+      <CreditPackSection segment={user.segment} />
 
       {/* Lien réservation */}
       <div className="mb-6">
