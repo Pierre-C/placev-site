@@ -5,15 +5,22 @@
  */
 
 import { test as setup, expect } from "@playwright/test"
-import { execSync } from "child_process"
+import { exec } from "child_process"
+import { promisify } from "util"
 import { SESSIONS } from "./helpers/session-paths"
+
+const execAsync = promisify(exec)
 
 setup("créer et authentifier les utilisateurs de test", async ({ page }) => {
   // ── 0. Seeder la DB ────────────────────────────────────────────────────
   // Réinitialise les crédits des comptes de test et supprime leurs
   // réservations futures — garantit un état propre quel que soit le mode
   // d'exécution (npm script, VS Code, CI).
-  execSync("npx prisma db seed", { stdio: "inherit" })
+  // Note : on utilise exec async (pas execSync) pour ne pas bloquer le
+  // thread Node.js — execSync couperait le keepalive WebSocket de
+  // Playwright vers le browser et ferait crasher la connexion.
+  const { stdout } = await execAsync("npx prisma db seed")
+  if (stdout) console.log(stdout)
 
   // ── 1. S'assurer que les utilisateurs de test existent (via seeder) ────
   // Le seeder Prisma doit avoir créé ces comptes :
