@@ -71,6 +71,7 @@ model Transaction {
   type          TransactionType
   creditsAdd    Int
   creditsBefore Int
+  stripeId      String?         @unique
   createdAt     DateTime        @default(now())
 
   user User @relation(fields: [userId], references: [id])
