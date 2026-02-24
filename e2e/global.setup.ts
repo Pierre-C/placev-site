@@ -51,4 +51,13 @@ setup("créer et authentifier les utilisateurs de test", async ({ page }) => {
   await page.click('[type="submit"]')
   await expect(page).toHaveURL("/dashboard")
   await page.context().storageState({ path: SESSIONS.membreSansCredits })
+
+  // ── 5. Warm-up de /api/availability ────────────────────────────────────
+  // En cold start (premier lancement, serveur dev fraîchement démarré par
+  // Playwright), la compilation de la route /api/availability peut prendre
+  // 30–60 s. On la déclenche ici avec un timeout généreux pour qu'elle soit
+  // prête quand les tests commencent (sinon l'expect(slot).toBeVisible()
+  // à 20 s time out systématiquement).
+  await page.goto("/booking")
+  await page.waitForSelector('[data-testid="slot-tile"]', { timeout: 60_000 })
 })
