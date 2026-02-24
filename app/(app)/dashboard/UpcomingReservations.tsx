@@ -9,6 +9,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { formatYMD } from "@/lib/calendar-utils"
 
 type Reservation = {
   id: string
@@ -47,12 +48,14 @@ export function UpcomingReservations({ reservations }: Props) {
       })
 
       if (res.ok) {
+        const { newBalance } = await res.json()
         setSuccessId(reservationId)
         setConfirmId(null)
-        // Recharger après 2s pour mettre à jour le solde
-        setTimeout(() => {
-          router.refresh()
-        }, 2000)
+        // Mise à jour immédiate du solde via CustomEvent → BalanceBadge réagit sans attendre
+        window.dispatchEvent(new CustomEvent("credit-balance-update", { detail: newBalance }))
+        // Délai avant router.refresh() : permet à l'UI de montrer cancel-success et à
+        // Playwright de lire le nouveau solde avant que la réservation soit retirée de la liste.
+        setTimeout(() => router.refresh(), 2000)
       } else {
         const body = await res.json()
         setError(body.error ?? "Erreur lors de l'annulation")
@@ -100,6 +103,13 @@ export function UpcomingReservations({ reservations }: Props) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-neutral-900">
+                  {/* Date ISO en sr-only pour les assertions de test (toContainText) */}
+                  <time
+                    dateTime={formatYMD(r.date instanceof Date ? r.date : new Date(r.date as unknown as string))}
+                    className="sr-only"
+                  >
+                    {formatYMD(r.date instanceof Date ? r.date : new Date(r.date as unknown as string))}
+                  </time>
                   {r.date.toLocaleDateString("fr-FR", {
                     weekday: "long",
                     day: "numeric",

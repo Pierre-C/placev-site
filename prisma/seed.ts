@@ -22,6 +22,27 @@ const prisma = new PrismaClient({ adapter })
 async function main() {
   console.log("🌱 Seeding Place V database…")
 
+  // ─── Nettoyage : réservations futures des comptes de test ─────────────────
+  // Supprime les réservations futures pour garantir l'idempotence des tests E2E.
+  // Les crédits sont réinitialisés via upsert ci-dessous.
+  const TEST_EMAILS = [
+    "externe@test.fr",
+    "pauvre@test.fr",
+    "bouliacais@test.fr",
+    "reduit@test.fr",
+  ]
+  const testUsers = await prisma.user.findMany({
+    where: { email: { in: TEST_EMAILS } },
+    select: { id: true },
+  })
+  if (testUsers.length > 0) {
+    const ids = testUsers.map((u) => u.id)
+    await prisma.reservation.deleteMany({
+      where: { userId: { in: ids }, date: { gte: new Date() } },
+    })
+    console.log("  ✓ Réservations futures des comptes de test supprimées")
+  }
+
   const passwordHash = await bcrypt.hash("TestPassword123!", 12)
 
   // ─── Utilisateurs de test ─────────────────────────────────────────────────

@@ -13,6 +13,7 @@ import { canCancel } from "@/lib/services/booking"
 import { CreditPackSection } from "./CreditPackSection"
 import { PaymentStatusBanner } from "./PaymentStatusBanner"
 import { UpcomingReservations } from "./UpcomingReservations"
+import { BalanceBadge } from "./BalanceBadge"
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -73,9 +74,7 @@ export default async function DashboardPage() {
       {/* Solde de crédits */}
       <div className="mb-6 rounded-2xl bg-neutral-900 p-6 text-white">
         <p className="text-sm font-medium text-neutral-400">Solde de crédits</p>
-        <p className="mt-1 text-5xl font-bold" data-testid="credit-balance">
-          {user.credits}
-        </p>
+        <BalanceBadge initialCredits={user.credits} />
         <p className="mt-1 text-sm text-neutral-400">
           {user.credits >= 0 ? "crédit(s) disponible(s)" : "crédit(s) en débit"}
         </p>

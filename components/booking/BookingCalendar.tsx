@@ -88,7 +88,7 @@ export default function BookingCalendar({ userId, initialCredits }: BookingCalen
 
   const [monthCursor, setMonthCursor] = useState(() => startOfMonth())
   const [availability, setAvailability] = useState<AvailabilityItem[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null)
   const [credits, setCredits] = useState(initialCredits ?? 0)
@@ -103,26 +103,35 @@ export default function BookingCalendar({ userId, initialCredits }: BookingCalen
   }, [])
 
   // Charge les disponibilités pour le mois affiché
-  const fetchAvailability = useCallback(async () => {
+  // signal?: AbortController signal — permet d'annuler si le composant est démonté (StrictMode)
+  const fetchAvailability = useCallback(async (signal?: AbortSignal) => {
     try {
       setLoading(true)
       setFetchError(null)
       const start = formatYMD(days[0])
       const end = formatYMD(addDays(days[41], 1))
-      const res = await fetch(`/api/availability?start=${start}&end=${end}`)
+      const res = await fetch(
+        `/api/availability?start=${start}&end=${end}`,
+        signal ? { signal } : undefined,
+      )
       if (!res.ok) throw new Error("Réponse serveur invalide")
       const data: AvailabilityItem[] = await res.json()
       setAvailability(data)
-    } catch {
+      setLoading(false)
+    } catch (err) {
+      // Abort silencieux — ne pas mettre à jour l'état si la requête a été annulée
+      if (signal?.aborted) return
+      if (err instanceof DOMException && err.name === "AbortError") return
       setFetchError("Impossible de charger les disponibilités. Veuillez réessayer.")
       setAvailability([])
-    } finally {
       setLoading(false)
     }
   }, [days])
 
   useEffect(() => {
-    fetchAvailability()
+    const controller = new AbortController()
+    fetchAvailability(controller.signal)
+    return () => controller.abort()
   }, [fetchAvailability])
 
   // availMap : Map<"YYYY-MM-DD|AM"|"YYYY-MM-DD|PM", AvailabilityItem> pour lookup O(1)
@@ -286,12 +295,13 @@ export default function BookingCalendar({ userId, initialCredits }: BookingCalen
             const isPast = day < today
 
             return (
-              <motion.div
+              // Pas de pointer-events-none sur les cellules hors mois : les dates futures
+              // restent cliquables même si hors du mois affiché (la grille de 42 jours
+              // peut inclure des dates du mois suivant). L'opacité signale visuellement
+              // que ce n'est pas le mois principal.
+              <div
                 key={i}
-                className={`rounded-lg p-0.5 ${isCurrentMonth ? "" : "opacity-25 pointer-events-none"}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: isCurrentMonth ? 1 : 0.25 }}
-                transition={{ duration: 0.1, delay: i * 0.003 }}
+                className={`rounded-lg p-0.5 ${isCurrentMonth ? "" : "opacity-25"}`}
               >
                 {/* Numéro du jour */}
                 <div
@@ -354,7 +364,7 @@ export default function BookingCalendar({ userId, initialCredits }: BookingCalen
                     </button>
                   )
                 })}
-              </motion.div>
+              </div>
             )
           })}
         </div>

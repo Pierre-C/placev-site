@@ -15,6 +15,15 @@ export default defineConfig({
     ["list"], // Output console lisible
   ],
 
+  // Timeout global par test (le setup peut prendre du temps au démarrage à froid)
+  timeout: 60_000,
+
+  // Timeout pour les assertions expect() — augmenté car les Server Actions peuvent
+  // prendre plusieurs secondes lors de la compilation à froid du serveur Next.js dev.
+  expect: {
+    timeout: 20_000,
+  },
+
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000",
     trace: "on-first-retry",
@@ -23,6 +32,9 @@ export default defineConfig({
     // Langue française pour les assertions de texte
     locale: "fr-FR",
     timezoneId: "Europe/Paris",
+    // Timeout pour les actions (click, fill, etc.) et les navigations
+    actionTimeout: 15_000,
+    navigationTimeout: 20_000,
   },
 
   projects: [
