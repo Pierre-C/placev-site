@@ -44,6 +44,7 @@ enum ReservationStatus {
 
 enum ReservationType {
   OPENSPACE
+  ORGANIZATION
   MEETING_ROOM
 }
 
@@ -84,20 +85,21 @@ model SystemSetting {
 
 model Reservation {
   id                    String            @id @default(cuid())
-  userId                String
+  userId                String?
   date                  DateTime
   slot                  Slot
   type                  ReservationType
   status                ReservationStatus @default(CONFIRMED)
   isProxy               Boolean           @default(false)
   proxyAdminId          String?
+  label                 String?
   creditsCost           Int?
   stripePriceAmount     Int?
   stripePaymentIntentId String?
   cancelledAt           DateTime?
   createdAt             DateTime          @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
 }
 
 model ClosedDate {
