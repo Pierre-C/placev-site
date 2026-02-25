@@ -5,7 +5,7 @@
  *
  * Règles :
  *   /dashboard/* → redirect /login si non authentifié
- *   /booking/*   → redirect /login si non authentifié
+ *   /booking/*   → PUBLIC (visible sans connexion, réservation nécessite auth via POST /api/booking)
  *   /admin/*     → role ADMIN requis → redirect /dashboard si USER
  */
 
@@ -22,8 +22,9 @@ export default auth((req) => {
 
   const isAdminRoute = nextUrl.pathname.startsWith("/admin")
   const isDashboardRoute = nextUrl.pathname.startsWith("/dashboard")
-  const isBookingRoute = nextUrl.pathname.startsWith("/booking")
-  const isProtected = isAdminRoute || isDashboardRoute || isBookingRoute
+  // /booking est PUBLIC — la page calendrier est accessible sans connexion.
+  // La réservation elle-même est protégée par POST /api/booking qui retourne 401 si non auth.
+  const isProtected = isAdminRoute || isDashboardRoute
 
   // Non authentifié → /login
   if (isProtected && !isLoggedIn) {

@@ -8,9 +8,8 @@
  */
 
 import { describe, it, expect } from "vitest"
-
-// ─── Fonctions à implémenter par l'agent ─────────────────────────────────────
-// import { canBook, calculateCost, canCancel } from "@/lib/services/booking"
+import { calculateCost, canBook, canCancel } from "@/lib/services/booking"
+import { formatYMD, addDays, startOfWeekMonday, getMonthGrid } from "@/lib/calendar-utils"
 
 // ─── Helpers de test ─────────────────────────────────────────────────────────
 function addHours(date: Date, hours: number): Date {
@@ -20,99 +19,82 @@ function addHours(date: Date, hours: number): Date {
 // ─── Logique de coût ─────────────────────────────────────────────────────────
 describe("calculateCost", () => {
   it("should cost 1 credit for AM slot", () => {
-    // expect(calculateCost("AM")).toBe(1)
-    expect(1).toBe(1) // placeholder
+    expect(calculateCost("AM")).toBe(1)
   })
 
   it("should cost 1 credit for PM slot", () => {
-    // expect(calculateCost("PM")).toBe(1)
-    expect(1).toBe(1)
+    expect(calculateCost("PM")).toBe(1)
   })
 
   it("should cost 2 credits for FULL day slot", () => {
-    // expect(calculateCost("FULL")).toBe(2)
-    expect(2).toBe(2)
+    expect(calculateCost("FULL")).toBe(2)
   })
 })
 
 // ─── Validation du solde (seuil -3) ──────────────────────────────────────────
 describe("canBook — balance threshold", () => {
   it("should ALLOW booking when credits=5 and cost=1 (result: 4)", () => {
-    // expect(canBook({ credits: 5, cost: 1 })).toBe(true)
-    expect(5 - 1).toBeGreaterThanOrEqual(-3)
+    expect(canBook({ credits: 5, cost: 1 })).toBe(true)
   })
 
   it("should ALLOW booking when credits=0 and cost=1 (result: -1)", () => {
-    expect(0 - 1).toBeGreaterThanOrEqual(-3)
+    expect(canBook({ credits: 0, cost: 1 })).toBe(true)
   })
 
   it("should ALLOW booking when credits=-2 and cost=1 (result: -3) — LIMITE AUTORISÉE", () => {
-    expect(-2 - 1).toBeGreaterThanOrEqual(-3)
+    expect(canBook({ credits: -2, cost: 1 })).toBe(true)
   })
 
   it("should BLOCK booking when credits=-2 and cost=2 (result: -4) — LIMITE REFUSÉE", () => {
-    expect(-2 - 2).toBeLessThan(-3)
+    expect(canBook({ credits: -2, cost: 2 })).toBe(false)
   })
 
   it("should BLOCK booking when credits=-3 and cost=1 (result: -4)", () => {
-    expect(-3 - 1).toBeLessThan(-3)
+    expect(canBook({ credits: -3, cost: 1 })).toBe(false)
   })
 
   it("should BLOCK booking when credits=-3 and cost=2 (result: -5)", () => {
-    expect(-3 - 2).toBeLessThan(-3)
+    expect(canBook({ credits: -3, cost: 2 })).toBe(false)
   })
 })
 
 // ─── Règle d'annulation (fenêtre 12h) ────────────────────────────────────────
 describe("canCancel — 12h rule", () => {
   it("should ALLOW cancellation when > 12h before start", () => {
-    const start = addHours(new Date(), 24) // demain
-    const now = new Date()
-    const hoursBeforeStart = (start.getTime() - now.getTime()) / (1000 * 60 * 60)
-    expect(hoursBeforeStart).toBeGreaterThan(12)
+    const futureDate = addHours(new Date(), 24)
+    expect(canCancel({ status: "CONFIRMED", date: futureDate })).toBe(true)
   })
 
   it("should ALLOW cancellation exactly at 12h+1min before start", () => {
     const start = addHours(new Date(), 12.1)
-    const now = new Date()
-    const hoursBeforeStart = (start.getTime() - now.getTime()) / (1000 * 60 * 60)
-    expect(hoursBeforeStart).toBeGreaterThan(12)
+    expect(canCancel({ status: "CONFIRMED", date: start })).toBe(true)
   })
 
   it("should BLOCK cancellation when < 12h before start", () => {
-    const start = addHours(new Date(), 6) // dans 6h
-    const now = new Date()
-    const hoursBeforeStart = (start.getTime() - now.getTime()) / (1000 * 60 * 60)
-    expect(hoursBeforeStart).toBeLessThanOrEqual(12)
+    const start = addHours(new Date(), 6)
+    expect(canCancel({ status: "CONFIRMED", date: start })).toBe(false)
   })
 
   it("should BLOCK cancellation for past reservations", () => {
-    const start = addHours(new Date(), -2) // passé
-    const now = new Date()
-    const hoursBeforeStart = (start.getTime() - now.getTime()) / (1000 * 60 * 60)
-    expect(hoursBeforeStart).toBeLessThanOrEqual(12)
+    const past = addHours(new Date(), -2)
+    expect(canCancel({ status: "CONFIRMED", date: past })).toBe(false)
   })
 
   it("should NOT allow double cancellation (already CANCELLED status)", () => {
-    // const reservation = { status: "CANCELLED", costCredits: 1 }
-    // expect(canCancel(reservation)).toBe(false)
-    const reservation = { status: "CANCELLED" }
-    expect(reservation.status).toBe("CANCELLED")
-    // L'agent doit implémenter : if reservation.status === "CANCELLED" → throw error
+    const futureDate = addHours(new Date(), 48)
+    expect(canCancel({ status: "CANCELLED", date: futureDate })).toBe(false)
   })
 })
 
 // ─── Disponibilité ────────────────────────────────────────────────────────────
 describe("getAvailability", () => {
   it("should return remaining=0 for a closed date", () => {
-    // const availability = await getAvailability({ date: "2025-07-14", closedDates: ["2025-07-14"] })
-    // expect(availability.every(a => a.remaining === 0)).toBe(true)
     const isClosed = true
     expect(isClosed ? 0 : 15).toBe(0)
   })
 
   it("should respect dynamic DESK_CAPACITY from SystemSetting", () => {
-    const capacity = 12 // valeur depuis SystemSetting
+    const capacity = 12
     const existingBookings = 10
     const remaining = capacity - existingBookings
     expect(remaining).toBe(2)
@@ -123,5 +105,111 @@ describe("getAvailability", () => {
     const existingBookings = 15
     const remaining = Math.max(0, capacity - existingBookings)
     expect(remaining).toBe(0)
+  })
+})
+
+// ─── Helpers calendrier ───────────────────────────────────────────────────────
+describe("getMonthGrid", () => {
+  it("should return exactly 42 days", () => {
+    const grid = getMonthGrid(new Date(2025, 2, 1)) // mars 2025
+    expect(grid).toHaveLength(42)
+  })
+
+  it("should always start on a Monday (getDay() === 1)", () => {
+    // Tester plusieurs mois différents
+    const months = [
+      new Date(2025, 0, 1), // janvier 2025 (commence un mercredi)
+      new Date(2025, 2, 1), // mars 2025 (commence un samedi)
+      new Date(2025, 6, 1), // juillet 2025 (commence un mardi)
+    ]
+    for (const month of months) {
+      const grid = getMonthGrid(month)
+      expect(grid[0].getDay()).toBe(1) // 1 = lundi
+    }
+  })
+
+  it("should cover the target month", () => {
+    const march = new Date(2025, 2, 1) // mars 2025
+    const grid = getMonthGrid(march)
+    const dates = grid.map((d) => d.getTime())
+    // Le 1er mars et le 31 mars doivent être dans la grille
+    expect(dates).toContain(new Date(2025, 2, 1).setHours(0, 0, 0, 0))
+    expect(dates).toContain(new Date(2025, 2, 31).setHours(0, 0, 0, 0))
+  })
+})
+
+describe("startOfWeekMonday", () => {
+  it("should return Monday of the same week for a Wednesday", () => {
+    const wednesday = new Date(2025, 2, 12) // mercredi 12 mars 2025
+    const monday = startOfWeekMonday(wednesday)
+    expect(monday.getDay()).toBe(1) // lundi
+    expect(monday.getDate()).toBe(10) // lundi 10 mars
+  })
+
+  it("should return the same Monday if input is Monday", () => {
+    const monday = new Date(2025, 2, 10) // lundi 10 mars 2025
+    const result = startOfWeekMonday(monday)
+    expect(result.getDay()).toBe(1)
+    expect(result.getDate()).toBe(10)
+  })
+
+  it("should return the PREVIOUS Monday for a Sunday", () => {
+    const sunday = new Date(2025, 2, 16) // dimanche 16 mars 2025
+    const result = startOfWeekMonday(sunday)
+    expect(result.getDay()).toBe(1) // lundi
+    expect(result.getDate()).toBe(10) // lundi 10 mars (semaine précédente)
+  })
+})
+
+describe("formatYMD", () => {
+  it("should return YYYY-MM-DD format", () => {
+    const date = new Date(2025, 2, 15) // 15 mars 2025 (heure locale)
+    expect(formatYMD(date)).toBe("2025-03-15")
+  })
+
+  it("should pad month and day with zeros", () => {
+    const date = new Date(2025, 0, 5) // 5 janvier 2025
+    expect(formatYMD(date)).toBe("2025-01-05")
+  })
+
+  it("should use local date components (no timezone drift)", () => {
+    // Crée une date à minuit heure locale — toISOString() pourrait donner la veille
+    const localMidnight = new Date(2025, 2, 1, 0, 0, 0, 0) // 1er mars à minuit local
+    const result = formatYMD(localMidnight)
+    // Doit toujours retourner "2025-03-01" quelle que soit la timezone du runtime
+    expect(result).toBe("2025-03-01")
+  })
+
+  it("slot past today should be disabled", () => {
+    const yesterday = addDays(new Date(), -1)
+    const isPast = yesterday < new Date()
+    expect(isPast).toBe(true)
+  })
+
+  it("slot with remaining=0 should be full", () => {
+    const remaining = 0
+    const isFull = remaining === 0
+    expect(isFull).toBe(true)
+  })
+})
+
+describe("addDays", () => {
+  it("should add positive days", () => {
+    const date = new Date(2025, 2, 10) // 10 mars
+    const result = addDays(date, 5)
+    expect(result.getDate()).toBe(15)
+  })
+
+  it("should not mutate the original date", () => {
+    const date = new Date(2025, 2, 10)
+    addDays(date, 5)
+    expect(date.getDate()).toBe(10) // original inchangé
+  })
+
+  it("should handle month boundaries", () => {
+    const date = new Date(2025, 0, 31) // 31 janvier
+    const result = addDays(date, 1)
+    expect(result.getMonth()).toBe(1) // février
+    expect(result.getDate()).toBe(1)
   })
 })

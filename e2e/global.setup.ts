@@ -5,9 +5,23 @@
  */
 
 import { test as setup, expect } from "@playwright/test"
+import { exec } from "child_process"
+import { promisify } from "util"
 import { SESSIONS } from "./helpers/session-paths"
 
+const execAsync = promisify(exec)
+
 setup("créer et authentifier les utilisateurs de test", async ({ page }) => {
+  // ── 0. Seeder la DB ────────────────────────────────────────────────────
+  // Réinitialise les crédits des comptes de test et supprime leurs
+  // réservations futures — garantit un état propre quel que soit le mode
+  // d'exécution (npm script, VS Code, CI).
+  // Note : on utilise exec async (pas execSync) pour ne pas bloquer le
+  // thread Node.js — execSync couperait le keepalive WebSocket de
+  // Playwright vers le browser et ferait crasher la connexion.
+  const { stdout } = await execAsync("npx prisma db seed")
+  if (stdout) console.log(stdout)
+
   // ── 1. S'assurer que les utilisateurs de test existent (via seeder) ────
   // Le seeder Prisma doit avoir créé ces comptes :
   // - externe@test.fr / TestPassword123! (credits: 5)
@@ -37,4 +51,13 @@ setup("créer et authentifier les utilisateurs de test", async ({ page }) => {
   await page.click('[type="submit"]')
   await expect(page).toHaveURL("/dashboard")
   await page.context().storageState({ path: SESSIONS.membreSansCredits })
+
+  // ── 5. Warm-up de /api/availability ────────────────────────────────────
+  // En cold start (premier lancement, serveur dev fraîchement démarré par
+  // Playwright), la compilation de la route /api/availability peut prendre
+  // 30–60 s. On la déclenche ici avec un timeout généreux pour qu'elle soit
+  // prête quand les tests commencent (sinon l'expect(slot).toBeVisible()
+  // à 20 s time out systématiquement).
+  await page.goto("/booking")
+  await page.waitForSelector('[data-testid="slot-tile"]', { timeout: 60_000 })
 })

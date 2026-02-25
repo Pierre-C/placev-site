@@ -9,8 +9,11 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { canCancel } from "@/lib/services/booking"
 import { CreditPackSection } from "./CreditPackSection"
 import { PaymentStatusBanner } from "./PaymentStatusBanner"
+import { UpcomingReservations } from "./UpcomingReservations"
+import { BalanceBadge } from "./BalanceBadge"
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -47,6 +50,12 @@ export default async function DashboardPage() {
     MANUAL_ADJUSTMENT: "Ajustement manuel",
   }
 
+  // Annoter les réservations avec la fenêtre d'annulation
+  const reservationsWithCancel = user.reservations.map((r) => ({
+    ...r,
+    canCancel: canCancel({ status: r.status, date: r.date }),
+  }))
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       {/* Bannière paiement (success / cancelled) — Client Component avec Suspense */}
@@ -65,9 +74,7 @@ export default async function DashboardPage() {
       {/* Solde de crédits */}
       <div className="mb-6 rounded-2xl bg-neutral-900 p-6 text-white">
         <p className="text-sm font-medium text-neutral-400">Solde de crédits</p>
-        <p className="mt-1 text-5xl font-bold" data-testid="credit-balance">
-          {user.credits}
-        </p>
+        <BalanceBadge initialCredits={user.credits} />
         <p className="mt-1 text-sm text-neutral-400">
           {user.credits >= 0 ? "crédit(s) disponible(s)" : "crédit(s) en débit"}
         </p>
@@ -87,37 +94,8 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      {/* Réservations à venir */}
-      {user.reservations.length > 0 && (
-        <section className="mb-6">
-          <h2 className="mb-3 text-lg font-semibold text-neutral-900">Réservations à venir</h2>
-          <div className="space-y-2">
-            {user.reservations.map((r) => (
-              <div
-                key={r.id}
-                className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-neutral-100"
-              >
-                <div>
-                  <p className="font-medium text-neutral-900">
-                    {r.date.toLocaleDateString("fr-FR", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                    })}
-                  </p>
-                  <p className="text-sm text-neutral-500">
-                    {r.slot === "AM" ? "Matin" : r.slot === "PM" ? "Après-midi" : "Journée"} —{" "}
-                    {r.type === "OPENSPACE" ? "Open-space" : "Salle de réunion"}
-                  </p>
-                </div>
-                <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
-                  Confirmée
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Réservations à venir — Client Component avec annulation */}
+      <UpcomingReservations reservations={reservationsWithCancel} />
 
       {/* Historique des transactions */}
       <section>

@@ -55,6 +55,30 @@ export function futureDateYMD(daysFromNow = 7): string {
 }
 
 /**
+ * Retourne la N-ième date future (à partir de demain) correspondant à un jour ouvert
+ * (Lun=1, Mar=2, Mer=3). Garantit N dates distinctes dans la grille du mois courant.
+ * Exemples : futureOpenDateYMD(1) → 1er prochain Lun/Mar/Mer, (2) → 2ème, etc.
+ */
+export function futureOpenDateYMD(nthOpenDay = 1): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 1) // commencer à demain (en heure locale)
+  let count = 0
+  while (true) {
+    if ([1, 2, 3].includes(d.getDay())) {
+      count++
+      if (count === nthOpenDay) break
+    }
+    d.setDate(d.getDate() + 1)
+  }
+  // Utiliser les composantes locales (pas toISOString/UTC) pour éviter le décalage de timezone
+  // (identique à formatYMD dans lib/calendar-utils.ts)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+/**
  * Lit le solde de crédits affiché sur le dashboard.
  */
 export async function getDisplayedBalance(page: Parameters<typeof base>[0]): Promise<number> {
