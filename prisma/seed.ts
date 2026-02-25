@@ -105,6 +105,7 @@ async function main() {
 
   const settings = [
     { key: "DESK_CAPACITY", value: "15" },
+    { key: "OPEN_DAYS", value: "1,2,3" },
     { key: "PRICE_CREDIT_BOULIACAIS", value: "700" },
     { key: "PRICE_CREDIT_EXTERNE", value: "800" },
     { key: "PRICE_CREDIT_REDUIT", value: "400" },

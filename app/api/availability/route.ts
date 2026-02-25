@@ -37,11 +37,15 @@ export async function GET(request: Request) {
   const startDate = new Date(start)
   const endDate = new Date(end)
 
-  // DESK_CAPACITY depuis SystemSetting (jamais hardcodé)
-  const capacitySetting = await prisma.systemSetting.findUnique({
-    where: { key: "DESK_CAPACITY" },
-  })
+  // DESK_CAPACITY et OPEN_DAYS depuis SystemSetting (jamais hardcodés)
+  const [capacitySetting, openDaysSetting] = await Promise.all([
+    prisma.systemSetting.findUnique({ where: { key: "DESK_CAPACITY" } }),
+    prisma.systemSetting.findUnique({ where: { key: "OPEN_DAYS" } }),
+  ])
   const capacity = capacitySetting ? parseInt(capacitySetting.value, 10) : 15
+  const openDays = openDaysSetting?.key === "OPEN_DAYS"
+    ? openDaysSetting.value.split(",").map(Number)
+    : [1, 2, 3]
 
   // Dates fermées dans la plage
   const closedDates = await prisma.closedDate.findMany({
@@ -83,7 +87,8 @@ export async function GET(request: Request) {
   while (current <= endDate) {
     // On utilise toISOString pour correspondre aux dates stockées en UTC dans la DB
     const dateStr = current.toISOString().slice(0, 10)
-    const isClosed = closedSet.has(dateStr)
+    const isNotOpenDay = !openDays.includes(current.getUTCDay())
+    const isClosed = closedSet.has(dateStr) || isNotOpenDay
 
     for (const slot of ["AM", "PM"] as const) {
       const count = countMap.get(`${dateStr}|${slot}`) ?? 0

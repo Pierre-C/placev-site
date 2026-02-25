@@ -53,6 +53,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "La date de réservation est dans le passé" }, { status: 422 })
   }
 
+  // Vérifier que le jour est ouvert (OPEN_DAYS)
+  const openDaysSetting = await prisma.systemSetting.findUnique({
+    where: { key: "OPEN_DAYS" },
+  })
+  const openDays = openDaysSetting?.key === "OPEN_DAYS"
+    ? openDaysSetting.value.split(",").map(Number)
+    : [1, 2, 3]
+  if (!openDays.includes(reservationDate.getUTCDay())) {
+    return NextResponse.json(
+      { error: "Ce jour n'est pas ouvert à la réservation" },
+      { status: 422 }
+    )
+  }
+
   // Vérifier si la date est fermée
   const closedDate = await prisma.closedDate.findFirst({
     where: { date: reservationDate },

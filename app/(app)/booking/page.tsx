@@ -5,11 +5,18 @@
  */
 
 import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
 import BookingCalendar from "@/components/booking/BookingCalendar"
 
 export default async function BookingPage() {
-  const session = await auth()
+  const [session, openDaysSetting] = await Promise.all([
+    auth(),
+    prisma.systemSetting.findUnique({ where: { key: "OPEN_DAYS" } }),
+  ])
   const user = session?.user
+  const openDays = openDaysSetting
+    ? openDaysSetting.value.split(",").map(Number)
+    : [1, 2, 3]
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -29,6 +36,7 @@ export default async function BookingPage() {
       <BookingCalendar
         userId={user?.id}
         initialCredits={user?.credits ?? undefined}
+        openDays={openDays}
       />
     </div>
   )

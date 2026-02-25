@@ -3,9 +3,9 @@
  * Tests E2E — Slice 3 : Réservation de postes, annulation, calendrier
  */
 
-import { test, expect, getDisplayedBalance, futureDateYMD } from "./helpers/fixtures"
+import { test, expect, getDisplayedBalance, futureOpenDateYMD } from "./helpers/fixtures"
 
-const FUTURE_DATE = futureDateYMD(7) // dans 7 jours
+const FUTURE_DATE = futureOpenDateYMD(1) // 1er Lun/Mar/Mer à partir de demain (dans la grille courante)
 
 // ─── Calendrier public ────────────────────────────────────────────────────────
 test.describe("Calendrier public", () => {
@@ -63,7 +63,7 @@ test.describe("Réservation d'un poste", () => {
     const balanceBefore = await getDisplayedBalance(membrePage)
 
     await membrePage.goto("/booking")
-    const slot = membrePage.locator(`[data-date="${futureDateYMD(8)}"][data-slot="FULL"]`)
+    const slot = membrePage.locator(`[data-date="${futureOpenDateYMD(2)}"][data-slot="FULL"]`)
     await slot.click()
     await membrePage.click('[data-testid="confirm-booking"]')
     await expect(membrePage.locator('[data-testid="booking-success"]')).toBeVisible()
@@ -76,7 +76,7 @@ test.describe("Réservation d'un poste", () => {
   test("la réservation apparaît dans le dashboard membre", async ({ membrePage }) => {
     // Réserver d'abord
     await membrePage.goto("/booking")
-    await membrePage.locator(`[data-date="${futureDateYMD(9)}"][data-slot="PM"]`).click()
+    await membrePage.locator(`[data-date="${futureOpenDateYMD(3)}"][data-slot="PM"]`).click()
     await membrePage.click('[data-testid="confirm-booking"]')
     await expect(membrePage.locator('[data-testid="booking-success"]')).toBeVisible()
 
@@ -85,7 +85,7 @@ test.describe("Réservation d'un poste", () => {
     await expect(membrePage.locator('[data-testid="upcoming-reservations"]')).toBeVisible()
     await expect(
       membrePage.locator('[data-testid="upcoming-reservations"]')
-    ).toContainText(futureDateYMD(9))
+    ).toContainText(futureOpenDateYMD(3))
   })
 
   test("un membre avec solde insuffisant ne peut pas réserver", async ({ pauvreMembrePage }) => {
@@ -118,7 +118,8 @@ test.describe("Annulation de réservation", () => {
   test("un membre peut annuler une réservation et récupère ses crédits", async ({ membrePage }) => {
     // Étape 1 : Réserver
     await membrePage.goto("/booking")
-    await membrePage.locator(`[data-date="${futureDateYMD(10)}"][data-slot="AM"]`).click()
+    // Réutilise la 3e date (même date que le test PM) mais avec le slot AM — pas de conflit
+    await membrePage.locator(`[data-date="${futureOpenDateYMD(3)}"][data-slot="AM"]`).click()
     await membrePage.click('[data-testid="confirm-booking"]')
     await expect(membrePage.locator('[data-testid="booking-success"]')).toBeVisible()
 
@@ -126,12 +127,14 @@ test.describe("Annulation de réservation", () => {
     await membrePage.goto("/dashboard")
     const balanceAfterBooking = await getDisplayedBalance(membrePage)
 
-    // Étape 3 : Annuler depuis le dashboard
-    await membrePage.locator('[data-testid="cancel-booking-btn"]').first().click()
+    // Étape 3 : Annuler depuis le calendrier — cliquer sur le créneau réservé ouvre le panneau d'annulation
+    await membrePage.goto("/booking")
+    await membrePage.locator(`[data-date="${futureOpenDateYMD(3)}"][data-slot="AM"]`).click()
     await membrePage.locator('[data-testid="confirm-cancel"]').click()
 
     // Étape 4 : Vérifier le remboursement
     await expect(membrePage.locator('[data-testid="cancel-success"]')).toBeVisible()
+    await membrePage.goto("/dashboard")
     const balanceAfterCancel = await getDisplayedBalance(membrePage)
     expect(balanceAfterCancel).toBe(balanceAfterBooking + 1)
   })

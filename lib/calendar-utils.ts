@@ -50,3 +50,18 @@ export function getMonthGrid(currentMonth: Date): Date[] {
   const start = startOfWeekMonday(startOfMonth(currentMonth))
   return Array.from({ length: 42 }, (_, i) => addDays(start, i))
 }
+
+/**
+ * Retourne un tableau de 30 Date couvrant 6 semaines × 5 jours (Lun–Ven).
+ * Utilisé pour le calendrier 5 colonnes sans Samedi/Dimanche.
+ */
+export function getMonthGridWeekdays(currentMonth: Date): Date[] {
+  const start = startOfWeekMonday(startOfMonth(currentMonth))
+  const days: Date[] = []
+  for (let week = 0; week < 6; week++) {
+    for (let d = 0; d < 5; d++) {
+      days.push(addDays(start, week * 7 + d))
+    }
+  }
+  return days
+}
