@@ -38,9 +38,17 @@ const mockPrisma = prisma as ReturnType<typeof mockDeep<PrismaClient>>
 
 const FUTURE_DATE = (() => {
   const d = new Date()
-  d.setDate(d.getDate() + 14)
-  // Utiliser UTC pour cohérence avec new Date("YYYY-MM-DD")
-  return d.toISOString().slice(0, 10)
+  let futureDate = new Date(d.setDate(d.getDate() + 1)) // Start from tomorrow
+
+  while (
+    futureDate.getUTCDay() !== 1 && // Not Monday
+    futureDate.getUTCDay() !== 2 && // Not Tuesday
+    futureDate.getUTCDay() !== 3    // Not Wednesday
+  ) {
+    futureDate.setDate(futureDate.getDate() + 1)
+  }
+  // Use UTC for consistency with new Date("YYYY-MM-DD")
+  return futureDate.toISOString().slice(0, 10)
 })()
 
 const fakeSession = {

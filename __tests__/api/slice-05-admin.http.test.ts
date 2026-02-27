@@ -95,6 +95,13 @@ const fakePoorUser = {
 beforeEach(() => {
   mockReset(mockPrisma)
   vi.clearAllMocks()
+  // Mock transaction to just run the callback with mockPrisma
+  mockPrisma.$transaction.mockImplementation(async (arg) => {
+    if (typeof arg === "function") {
+      return arg(mockPrisma)
+    }
+    return Promise.all(arg)
+  })
   // Par défaut : session admin
   vi.mocked(auth).mockResolvedValue(fakeAdminSession as Awaited<ReturnType<typeof auth>>)
 })
@@ -468,12 +475,9 @@ describe("POST /api/admin/close-date", () => {
   })
 
   it("409 — date déjà fermée, brevo NON appelé", async () => {
-    mockPrisma.closedDate.findFirst.mockResolvedValue({
-      id: "cd-existing",
-      date: new Date(FUTURE_DATE),
-      reason: "Déjà fermée",
-      createdByAdminId: "admin-123",
-      createdAt: new Date(),
+    mockPrisma.closedDate.create.mockRejectedValue({
+      code: "P2002",
+      message: "Unique constraint failed on the fields: (`date`)",
     })
 
     await testApiHandler({
