@@ -43,13 +43,13 @@ export async function updateSettings(settings: { key: string; value: string }[])
     throw new Error("Unauthorized")
   }
 
-  const transactions = settings.map(({ key, value }) =>
-    prisma.systemSetting.update({
+  for (const { key, value } of settings) {
+    await prisma.systemSetting.upsert({
       where: { key },
-      data: { value },
+      update: { value },
+      create: { key, value },
     })
-  )
+  }
 
-  await prisma.$transaction(transactions)
   revalidatePath("/admin/settings")
 }

@@ -38,7 +38,7 @@ export async function GET(request: Request) {
       },
     })
 
-    const csvHeaders = "date,slot,name,email,segment,costCredits,status,isProxy\\n"
+    const csvHeaders = "date,slot,name,email,segment,costCredits,status,isProxy\n"
     
     const csvRows = reservations.map((r) => {
       const date = r.date.toISOString().slice(0, 10)
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
       const isProxy = r.isProxy ? "true" : "false"
 
       return `${date},${slot},${name},${email},${segment},${costCredits},${resStatus},${isProxy}`
-    }).join("\\n")
+    }).join("\n")
 
     const csvContent = csvHeaders + csvRows
 

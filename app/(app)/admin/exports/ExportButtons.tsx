@@ -1,25 +1,36 @@
 "use client"
 
-import { exportBookings, exportMembers } from "./actions"
+import { exportMembers } from "./actions"
 
 export default function ExportButtons() {
+  const downloadFromApi = async (url: string, filename: string) => {
+    const res = await fetch(url)
+    if (res.ok) {
+        const blob = await res.blob()
+        const downloadUrl = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.setAttribute("href", downloadUrl)
+        a.setAttribute("download", filename)
+        a.click()
+    }
+  }
+
   return (
     <div className="mt-8 flex space-x-4">
       <button
-        onClick={async () => {
-          const csv = await exportBookings()
-          downloadCsv(csv, "reservations.csv")
-        }}
-        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
+        data-testid="export-bookings-btn"
+        onClick={() => downloadFromApi("/api/admin/export/reservations", "reservations.csv")}
+        className="rounded-2xl bg-neutral-900 px-6 py-3 text-sm font-black text-white shadow-lg hover:bg-neutral-800 transition-all"
       >
         Exporter les réservations
       </button>
       <button
+        data-testid="export-members-btn"
         onClick={async () => {
           const csv = await exportMembers()
           downloadCsv(csv, "membres.csv")
         }}
-        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
+        className="rounded-2xl bg-neutral-100 px-6 py-3 text-sm font-black text-neutral-600 hover:bg-neutral-200 transition-all"
       >
         Exporter les membres
       </button>

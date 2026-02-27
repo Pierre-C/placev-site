@@ -9,7 +9,7 @@ export default async function SettingsPage() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold">Réglages</h2>
+      <h2 className="text-2xl font-bold">Paramètres</h2>
       <div className="mt-8">
         <h3 className="text-xl font-bold">Dates de fermeture</h3>
         <AddClosedDateForm />

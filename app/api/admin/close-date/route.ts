@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       include: {
         user: true,
       },
-    })
+    }) || []
 
     const cancelledReservations = []
     const operations: any[] = []
@@ -96,8 +96,10 @@ export async function POST(request: Request) {
       },
     }))
 
-    // Execute all operations in a batch transaction
-    await prisma.$transaction(operations)
+    // Execute all operations sequentially because interactive transactions are not supported in HTTP mode
+    for (const op of operations) {
+      await prisma.$transaction([op])
+    }
 
     const closedDate = { date: targetDate, reason }
 

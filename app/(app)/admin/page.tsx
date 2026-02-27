@@ -6,7 +6,7 @@ export default async function AdminDashboardPage() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold">Gestion des membres</h2>
+      <h2 className="text-2xl font-bold">Membres</h2>
       <MembersTable users={users} />
     </div>
   )

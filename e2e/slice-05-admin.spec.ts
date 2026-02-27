@@ -29,16 +29,16 @@ test.describe("Dashboard admin — Membres", () => {
 
     // Ouvrir la modale d'ajustement du premier membre
     await adminPage.locator('[data-testid="member-row"]').first()
-      .locator('[data-testid="edit-credits-btn"]').click()
+      .locator('[data-testid="view-edit-btn"]').click()
 
-    await expect(adminPage.locator('[data-testid="edit-credits-modal"]')).toBeVisible()
+    await expect(adminPage.locator('[data-testid="member-detail-modal"]')).toBeVisible()
 
     // Ajouter 5 crédits avec une description
     await adminPage.fill('[data-testid="credits-delta"]', "5")
     await adminPage.fill('[data-testid="credits-reason"]', "Correction manuelle test E2E")
     await adminPage.click('[data-testid="save-credits"]')
 
-    await expect(adminPage.locator('[data-testid="edit-credits-modal"]')).not.toBeVisible()
+    await expect(adminPage.locator('[data-testid="member-detail-modal"]')).not.toBeVisible()
     await expect(adminPage.locator('[data-testid="success-toast"]')).toBeVisible()
   })
 
@@ -46,13 +46,13 @@ test.describe("Dashboard admin — Membres", () => {
     await adminPage.goto("/admin")
 
     const firstRow = adminPage.locator('[data-testid="member-row"]').first()
-    const toggle = firstRow.locator('[data-testid="member-toggle"]')
-    const initialState = await toggle.getAttribute("data-checked")
+    const toggle = firstRow.locator('[data-testid="member-is-member-badge"]')
+    const initialState = await toggle.getAttribute("data-value")
 
     await toggle.click()
 
     // L'état doit avoir changé
-    await expect(toggle).toHaveAttribute("data-checked", initialState === "true" ? "false" : "true")
+    await expect(toggle).toHaveAttribute("data-value", initialState === "true" ? "false" : "true")
   })
 })
 

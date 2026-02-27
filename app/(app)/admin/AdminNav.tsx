@@ -4,11 +4,10 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 const links = [
-  { href: "/admin", label: "Tableau de bord" },
-  { href: "/admin/members", label: "Membres" },
-  { href: "/admin/bookings", label: "Réservations" },
+  { href: "/admin/calendar", label: "Calendrier Coworking" },
+  { href: "/admin", label: "Membres" },
   { href: "/admin/exports", label: "Exports" },
-  { href: "/admin/settings", label: "Réglages" },
+  { href: "/admin/settings", label: "Paramètres" },
 ]
 
 export default function AdminNav() {
