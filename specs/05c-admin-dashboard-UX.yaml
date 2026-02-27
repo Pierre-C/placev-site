@@ -1,0 +1,388 @@
+feature: admin-ux-v2
+slice: "5c"
+title: "Administration — UX Améliorations v2"
+parent_slice: "5b"
+estimated_days: 2
+status: ready
+
+dependencies: [slice-05b]
+
+# ─── CONTEXTE ─────────────────────────────────────────────────────────────────
+context: |
+  Ajustements UX supplémentaires sur le panneau admin suite aux retours utilisateur.
+  Toutes les modifications sont des améliorations des composants existants de la Slice 5b.
+  Une seule nouvelle route API : DELETE /api/admin/close-date (réouverture de date).
+
+# ─── PÉRIMÈTRE ────────────────────────────────────────────────────────────────
+scope:
+  included: |
+    Vue Membres : badge adhérent non-cliquable depuis le tableau (toggle uniquement via modal)
+    Vue Membres : couleur du solde crédits (orange=1, rouge≤0, noir sinon)
+    Vue Membres : barre de recherche texte libre (filtre client-side sur nom/email/segment)
+    Vue Membres : tri des colonnes au clic sur les en-têtes
+    Vue Calendrier : calendrier dans une div à hauteur fixe avec scroll vertical
+    Vue Calendrier : dates passées grisées (visuellement distinctes), border sur la date du jour
+    Vue Calendrier : bouton "Réouvrir cette date" dans le panneau détail (dates fermées manuellement)
+    Vue Paramètres : refonte UX dates de fermeture → bouton "Gérer" ouvre un modal dédié
+
+  out_of_scope: |
+    Modifications des règles métier (inchangées)
+    Nouvelles entités de base de données
+    Modifications des autres sections (Exports, navigation)
+
+# ─── BASE DE DONNÉES ──────────────────────────────────────────────────────────
+database:
+  migration_required: false
+  note: |
+    Aucun changement de schéma. La nouvelle route DELETE /api/admin/close-date
+    supprime simplement une entrée ClosedDate existante (table déjà en place).
+
+# ─── NOUVELLE ROUTE API ───────────────────────────────────────────────────────
+api_routes:
+  new:
+    - "DELETE /api/admin/close-date          → supprime une entrée ClosedDate (réouverture)"
+
+  modified:
+    - "GET /api/admin/calendar               → ajouter le champ closedDateId (string | null)"
+    note: |
+      closedDateId est non-null si la date est fermée via une entrée ClosedDate,
+      null si la date est simplement un jour non-ouvert (OPEN_DAYS).
+      Permet au frontend de distinguer "fermeture manuelle" (réouvrable) vs
+      "jour non-ouvert" (non réouvrable).
+
+# ─── RÈGLES MÉTIER ────────────────────────────────────────────────────────────
+business_rules:
+
+  delete_close_date:
+    route: "DELETE /api/admin/close-date"
+    body: "{ date: 'YYYY-MM-DD' }"
+    behavior: |
+      Cherche un enregistrement ClosedDate dont date = date fournie (UTC midnight).
+      Si trouvé → supprime → retourne { success: true, date }
+      Si non trouvé → 404 { error: 'Date non fermée' }
+    note: |
+      Cette route permet de "réouvrir" une date précédemment fermée par l'admin.
+      Elle ne peut pas rouvrir un jour non-ouvert (Jeu, Ven) — ce n'est pas une ClosedDate.
+
+  members_table:
+    isMember_toggle: |
+      Le badge dans le tableau (member-is-member-badge) n'est PLUS cliquable.
+      C'est maintenant un <span> (ou <div>) coloré, sans handler onClick.
+      Le toggle isMember reste disponible uniquement dans le modal "Voir/Éditer".
+      Conserver data-testid="member-is-member-badge" et data-value="true|false".
+
+    credits_color: |
+      La cellule crédits (data-testid="member-credits") applique une couleur CSS
+      selon la valeur :
+        credits > 1  → classe text-neutral-900 (noir)
+        credits == 1 → classe text-orange-500 (orange)
+        credits <= 0 → classe text-red-600 (rouge)
+      Conserver data-testid="member-credits" et ajouter data-level="positive|one|zero|negative"
+        positive : credits > 1
+        one      : credits == 1
+        zero     : credits == 0
+        negative : credits < 0
+
+    search_bar: |
+      <input data-testid="member-search" placeholder="Rechercher..." />
+      Placée au-dessus du tableau, à gauche.
+      Filtre client-side (toLowerCase + includes) sur :
+        - user.name
+        - user.email
+        - user.segment (BOULIACAIS / EXTERNE / REDUIT)
+      Le filtre est instantané (onChange), sans debounce requis.
+      Si aucun résultat : afficher data-testid="member-search-empty" avec texte
+      "Aucun membre trouvé pour cette recherche."
+
+    sortable_columns: |
+      Colonnes triables : Nom, Email, Crédits, Segment, Adhérent
+      Chaque header est un <button data-testid="column-sort-btn"
+        data-column="name|email|credits|segment|isMember"
+        data-direction="asc|desc|none">
+      Comportement :
+        1er clic → asc, 2ème clic → desc, 3ème clic → none (ordre initial)
+      Indicateurs visuels : ↑ (asc), ↓ (desc), ⇅ (none)
+      Tri client-side sur le tableau déjà filtré par la recherche.
+
+  calendar:
+    scrollable_grid: |
+      Le calendrier (grille des 30 cases + navigation mois) est encapsulé dans :
+      <div data-testid="admin-calendar-grid"
+           style="max-height: 480px; overflow-y: auto;">
+      La div "panneau de gestion des réservations" (admin-calendar-date-panel)
+      est en dehors de cette div scrollable, directement sous dans le layout.
+      Résultat : scroller le calendrier ne cache pas le panneau de gestion.
+
+    past_dates: |
+      Les dates passées (day < today) ont une opacité réduite : opacity-40.
+      Elles restent non-interactives (pas de clic possible).
+      data-past="true" sur la div de la cellule pour les tests.
+
+    today_border: |
+      La date du jour affiche un anneau coloré autour de la tuile :
+      classe ring-2 ring-blue-500 rounded-lg
+      data-today="true" sur la div de la cellule.
+
+    reopen_date: |
+      Dans le panneau de détail (admin-calendar-date-panel), si la date est
+      fermée manuellement (closedDateId != null dans la réponse /api/admin/calendar) :
+        - Afficher le bouton "Réouvrir cette date" (data-testid="admin-open-date-btn")
+          au lieu du bouton "Fermer cette date" (admin-close-date-btn).
+        - Au clic → dialog de confirmation (réutilise admin-confirm-dialog)
+        - Confirmer → appel DELETE /api/admin/close-date { date }
+        - Succès → admin-action-success visible + rafraîchissement du calendrier
+
+  settings_closed_dates:
+    description: |
+      Refonte de la section "Dates de fermeture" dans la page Paramètres.
+      Remplacer le formulaire inline + liste actuelle par un seul bouton
+      qui ouvre un modal dédié.
+
+    bouton_acces: |
+      <button data-testid="manage-closed-dates-btn">
+        Gérer les dates de fermeture
+      </button>
+      Placé dans la section Paramètres, remplace l'ancien AddClosedDateForm inline.
+      ClosedDatesList est supprimée de la vue principale et déplacée dans le modal.
+
+    modal: |
+      <div data-testid="closed-dates-modal">  (portal ou overlay)
+        <h2>Gestion des dates de fermeture</h2>
+        <button data-testid="closed-dates-modal-close">×</button>
+
+        <!-- Formulaire d'ajout (identique à l'actuel AddClosedDateForm) -->
+        IMPORTANT : conserver tous les data-testid existants à l'intérieur :
+          - data-testid="close-date-input"
+          - data-testid="close-date-reason"
+          - data-testid="preview-closure"
+          - data-testid="closure-preview"
+          - data-testid="confirm-closure"
+          - data-testid="closure-success"
+          - data-testid="close-date-already-closed"
+        Ces testids sont utilisés dans les tests E2E de la Slice 5 (slice-05-admin.spec.ts)
+        et DOIVENT rester fonctionnels même à l'intérieur du modal.
+
+        <!-- Tableau des dates existantes -->
+        <div data-testid="closed-dates-list" style="max-height:300px; overflow-y:auto;">
+          <table>
+            <thead>
+              <tr><th>Date</th><th>Raison</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {closedDates
+                .sort((a, b) => b.date - a.date)   // descendant
+                .map(cd => (
+                  <tr data-testid="closed-date-row"
+                      data-past={cd.date < today ? "true" : "false"}>
+                    <td class={isPast ? "opacity-40" : ""}>{date formatée}</td>
+                    <td class={isPast ? "opacity-40" : ""}>{reason}</td>
+                    <td>
+                      <button
+                        data-testid="remove-closed-date-btn"
+                        disabled={isPast}
+                        onClick={() => removeClosedDate(cd.id)}>
+                        Supprimer
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    comportement: |
+      Le modal se ferme via :
+        - Clic sur closed-dates-modal-close
+        - Clic sur le backdrop (overlay)
+      Après une fermeture de date depuis le formulaire : rafraîchir la liste
+      immédiatement sans fermer le modal (revalidatePath ou state local).
+      Après une suppression de date : mise à jour optimiste de la liste.
+
+# ─── FRONTEND ─────────────────────────────────────────────────────────────────
+frontend:
+  new_files:
+    - path: "app/(app)/admin/settings/ClosedDatesModal.tsx"
+      type: "Client Component"
+      note: |
+        Modal de gestion des dates de fermeture. Contient le formulaire
+        AddClosedDateForm et la liste ClosedDatesList déplacés ici.
+
+  modified_files:
+    - path: "app/(app)/admin/MembersTable.tsx"
+      changes:
+        - "member-is-member-badge : rendre non-cliquable (supprimer onClick)"
+        - "Ajouter data-testid='member-credits' avec data-level"
+        - "Ajouter barre de recherche au-dessus du tableau"
+        - "Ajouter tri sur les colonnes (état sortColumn + sortDirection)"
+
+    - path: "app/(app)/admin/calendar/AdminCalendar.tsx"
+      changes:
+        - "Envelopper la grille dans <div data-testid='admin-calendar-grid'>"
+        - "Ajouter data-past='true' sur les cellules passées"
+        - "Ajouter data-today='true' + ring-2 sur la cellule du jour"
+        - "Afficher admin-open-date-btn si closedDateId != null"
+        - "Appeler DELETE /api/admin/close-date sur confirmation"
+
+    - path: "app/api/admin/calendar/route.ts"
+      changes:
+        - "Ajouter closedDateId: string | null dans chaque entrée de la réponse"
+        - "Rechercher le ClosedDate.id correspondant pour les dates fermées manuellement"
+
+    - path: "app/api/admin/close-date/route.ts"
+      changes:
+        - "Ajouter export async function DELETE(request: Request)"
+        - "Body: { date: string } — trouver + supprimer ClosedDate"
+
+    - path: "app/(app)/admin/settings/page.tsx"
+      changes:
+        - "Remplacer <AddClosedDateForm /> et <ClosedDatesList /> par <ClosedDatesModal />"
+        - "Afficher le bouton manage-closed-dates-btn qui ouvre le modal"
+
+  data_testids:
+    new:
+      members_table:
+        - "member-credits"              # cellule crédits (data-level="positive|one|zero|negative")
+        - "member-search"               # input recherche texte libre
+        - "member-search-empty"         # message si aucun résultat
+        - "column-sort-btn"             # header de colonne triable (data-column, data-direction)
+
+      calendar:
+        - "admin-calendar-grid"         # div scrollable de la grille
+        - "admin-open-date-btn"         # réouvrir une date fermée manuellement
+
+      closed_dates_modal:
+        - "manage-closed-dates-btn"     # bouton d'accès au modal
+        - "closed-dates-modal"          # conteneur du modal
+        - "closed-dates-modal-close"    # bouton fermeture du modal
+        - "closed-dates-list"           # tableau des dates avec scroll
+        - "closed-date-row"             # chaque ligne (data-past="true|false")
+        - "remove-closed-date-btn"      # supprimer une date (disabled si passée)
+
+    preserved_inside_modal:
+      note: "Ces testids existants DOIVENT rester fonctionnels à l'intérieur du modal"
+      - "close-date-input"
+      - "close-date-reason"
+      - "preview-closure"
+      - "closure-preview"
+      - "confirm-closure"
+      - "closure-success"
+      - "close-date-already-closed"
+
+    modified:
+      - "member-is-member-badge : devient non-cliquable (span au lieu de button)"
+
+# ─── TESTS ────────────────────────────────────────────────────────────────────
+tests:
+
+  http:
+    file: "__tests__/api/slice-05c-admin-ux.http.test.ts"
+    tool: next-test-api-route-handler
+
+    cases:
+      - route: "DELETE /api/admin/close-date"
+        scenario: "200 — date fermée trouvée → suppression réussie"
+        auth: admin@placev.fr
+        body: { date: FUTURE_DATE }
+        setup: "ClosedDate existante pour FUTURE_DATE"
+        expected_status: 200
+        expected_body: "{ success: true, date: FUTURE_DATE }"
+
+      - route: "DELETE /api/admin/close-date"
+        scenario: "404 — aucune ClosedDate pour cette date"
+        auth: admin@placev.fr
+        body: { date: FUTURE_DATE }
+        setup: "Aucune ClosedDate pour FUTURE_DATE"
+        expected_status: 404
+
+      - route: "DELETE /api/admin/close-date"
+        scenario: "403 — non-admin refusé"
+        auth: externe@test.fr
+        expected_status: 403
+
+      - route: "GET /api/admin/calendar"
+        scenario: "closedDateId non-null pour une date fermée manuellement"
+        auth: admin@placev.fr
+        setup: "ClosedDate existante pour FUTURE_DATE (id='cd-test-123')"
+        expected_status: 200
+        assert: |
+          L'entrée correspondant à FUTURE_DATE (AM ou PM) a closedDateId = 'cd-test-123'.
+          Les entrées pour les jours non-ouverts (openDays) ont closedDateId = null.
+
+      - route: "GET /api/admin/calendar"
+        scenario: "closedDateId null pour un jour non-ouvert (Jeu/Ven)"
+        auth: admin@placev.fr
+        setup: "Aucune ClosedDate, OPEN_DAYS='1,2,3'"
+        expected_status: 200
+        assert: "closedDateId = null même si isClosed = true (jour non-ouvert)"
+
+  e2e:
+    file: "e2e/slice-05c-admin-ux.spec.ts"
+    tool: playwright
+
+    cases:
+      # Membres — badge non-cliquable
+      - "Le badge isMember dans le tableau est une cellule non-interactive (pas de cursor-pointer)"
+      - "Clic sur le badge dans le tableau n'ouvre pas de dialogue ni ne change l'état"
+      - "Le toggle isMember est accessible uniquement depuis le modal Voir/Éditer"
+
+      # Membres — couleurs crédits
+      - "Crédits > 1 → classe text-neutral-900 (noir)"
+      - "Crédits = 1 → classe text-orange-500 et data-level='one'"
+      - "Crédits = 0 → classe text-red-600 et data-level='zero'"
+      - "Crédits < 0 → classe text-red-600 et data-level='negative'"
+
+      # Membres — recherche
+      - "Barre de recherche visible au-dessus du tableau"
+      - "Saisie d'un nom filtrant → seules les lignes correspondantes sont visibles"
+      - "Saisie d'un email filtrant → résultats corrects"
+      - "Recherche insensible à la casse (ex: 'boul' trouve 'BOULIACAIS')"
+      - "Recherche sans résultat → member-search-empty visible"
+      - "Effacer la recherche → toutes les lignes réapparaissent"
+
+      # Membres — tri
+      - "Clic sur header 'Nom' → lignes triées alphabétiquement (asc)"
+      - "Second clic sur header 'Nom' → ordre inversé (desc)"
+      - "Troisième clic sur header 'Nom' → ordre initial restauré"
+      - "Clic sur header 'Crédits' → trié du plus bas au plus haut"
+
+      # Calendrier — grille scrollable
+      - "La grille du calendrier (admin-calendar-grid) a une hauteur maximale"
+      - "Le panneau de réservations (admin-calendar-date-panel) est visible sans scroller"
+
+      # Calendrier — date du jour
+      - "La cellule du jour actuel a l'attribut data-today='true'"
+      - "La cellule du jour actuel est visuellement distincte (ring visible)"
+
+      # Calendrier — dates passées
+      - "Les cellules passées ont data-past='true'"
+      - "Clic sur une tuile passée ne déclenche aucune action"
+
+      # Calendrier — réouverture
+      - "Pour une date fermée manuellement, le bouton admin-open-date-btn est visible dans le panneau"
+      - "admin-close-date-btn est absent pour les dates manuellement fermées (remplacé par open)"
+      - "Clic sur admin-open-date-btn → dialog de confirmation → confirmer → date réouverte"
+      - "Après réouverture, la date redevient disponible dans le calendrier"
+
+      # Paramètres — modal dates de fermeture
+      - "Le bouton manage-closed-dates-btn est visible dans la page Paramètres"
+      - "Clic sur manage-closed-dates-btn → closed-dates-modal visible"
+      - "Le modal contient le formulaire de fermeture (close-date-input visible à l'intérieur)"
+      - "Le modal contient closed-dates-list avec les dates existantes"
+      - "Les dates passées dans le tableau ont data-past='true' et sont visuellement grisées"
+      - "Le bouton remove-closed-date-btn est disabled pour les dates passées"
+      - "Le bouton remove-closed-date-btn est actif pour les dates futures"
+      - "Clic sur remove-closed-date-btn (date future) → la ligne disparaît de la liste"
+      - "Fermeture d'une date depuis le modal → liste mise à jour sans fermer le modal"
+      - "Clic sur closed-dates-modal-close → modal fermé"
+
+done_when:
+  - npm test → tous les tests HTTP slice-05c passent (5 cas)
+  - npm run test:e2e:slice5c → tous les scénarios Playwright passent
+  - Badge adhérent non-cliquable dans le tableau (uniquement toggle via modal)
+  - Crédits en rouge/orange selon valeur dans le tableau membres
+  - Recherche et tri fonctionnels côté client dans le tableau membres
+  - Calendrier dans div scrollable, date du jour avec ring, passées grisées
+  - Bouton "Réouvrir" visible pour les dates fermées manuellement
+  - Modal "Gérer les dates de fermeture" fonctionnel avec liste scrollable
