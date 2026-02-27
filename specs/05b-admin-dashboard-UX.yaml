@@ -1,0 +1,382 @@
+feature: admin-ux
+slice: "5b"
+title: "Administration — UX Improvements"
+parent_slice: 5
+estimated_days: 3
+status: ready
+
+dependencies: [slice-05]
+
+# ─── CONTEXTE ─────────────────────────────────────────────────────────────────
+context: |
+  La Slice 5 implémentée par Gemini a mis en place les routes API admin et une
+  interface fonctionnelle mais minimaliste. Cette slice 5b améliore l'UX du
+  panneau d'administration en ajoutant un calendrier de gestion, en enrichissant
+  le tableau des membres, en étendant les paramètres et en corrigeant l'export CSV.
+
+# ─── PÉRIMÈTRE ────────────────────────────────────────────────────────────────
+scope:
+  included: |
+    Nouveau tab "Calendrier Coworking" avec comptage X/capacité sur les tuiles
+    Annulation individuelle ou par demi-journée depuis le calendrier (avec confirmation)
+    Fermeture de date depuis le calendrier (réutilise POST /api/admin/close-date)
+    Amélioration tableau Membres : badge adhérent coloré, colonne segment
+    Modal "Voir/Éditer" enrichi : historique réservations, édition segment
+    Paramètres étendus : OPEN_DAYS (jours ouverts), tarifs par segment
+    Fix export CSV (bug \\n littéral dans la route API)
+    Nouvelle navigation simplifiée (4 onglets au lieu de 5)
+
+  out_of_scope: |
+    Implémentation salle de réunion (Slice 6 dédiée)
+    Formulaire proxy (reste accessible via /admin/bookings/proxy mais hors nav)
+    Authentification et rôles (inchangés)
+
+# ─── NAVIGATION ───────────────────────────────────────────────────────────────
+navigation:
+  tabs:
+    - label: "Calendrier Coworking"
+      route: "/admin/calendar"
+      order: 1
+      status: nouveau
+    - label: "Membres"
+      route: "/admin"
+      order: 2
+      status: renommé (était "Tableau de bord")
+    - label: "Exports"
+      route: "/admin/exports"
+      order: 3
+      status: inchangé
+    - label: "Paramètres"
+      route: "/admin/settings"
+      order: 4
+      status: renommé (était "Réglages")
+  removed_tabs:
+    - "Membres" (ancienne version, redirigeait vers /admin)
+    - "Réservations" (placeholder vide)
+
+# ─── BASE DE DONNÉES ──────────────────────────────────────────────────────────
+database:
+  migration_required: false
+  note: |
+    Aucun nouveau modèle Prisma. Utilise les modèles existants :
+    User (champ segment), Reservation, Transaction, ClosedDate, SystemSetting.
+    Nouveaux SystemSetting keys utilisés : OPEN_DAYS, PRICE_CREDIT_BOULIACAIS,
+    PRICE_CREDIT_EXTERNE, PRICE_CREDIT_REDUIT (déjà supportés par l'API availability).
+
+# ─── NOUVELLES ROUTES API ─────────────────────────────────────────────────────
+api_routes:
+  new:
+    - "GET  /api/admin/calendar                          → occupancy (count+capacity par slot)"
+    - "GET  /api/admin/reservations?date=YYYY-MM-DD      → réservations d'une date avec user"
+    - "POST /api/admin/reservations/[id]/cancel          → annulation individuelle admin"
+    - "POST /api/admin/reservations/cancel-slot          → annulation tous créneaux demi-journée"
+    - "GET  /api/admin/members/[id]                      → détails membre + réservations récentes"
+    - "PUT  /api/admin/members/[id]/segment              → modification segment"
+
+  fixed:
+    - "GET  /api/admin/export/reservations   → corrigé : \\n littéral remplacé par vrai newline"
+
+# ─── RÈGLES MÉTIER ────────────────────────────────────────────────────────────
+business_rules:
+
+  admin_calendar:
+    display: |
+      Chaque tuile affiche "X/capacité" où X = nb réservations CONFIRMED (OPENSPACE+ORGANIZATION)
+      pour ce créneau. Même design triangle que BookingCalendar.tsx (clip-path AM/PM + bouton FULL).
+      Les jours non ouverts (OPEN_DAYS) et les ClosedDates sont grisés.
+    click_date: |
+      Au clic sur une date → fetch GET /api/admin/reservations?date=YYYY-MM-DD
+      Affiche un tableau sous le calendrier avec : Membre, Email, Créneau, Actions
+      L'admin peut :
+        1. Annuler une réservation individuelle (confirmation obligatoire)
+        2. Annuler toutes les réservations d'une demi-journée AM ou PM (confirmation avec count)
+        3. Fermer la date entière (réutilise POST /api/admin/close-date, confirmation obligatoire)
+
+  admin_cancel_individual:
+    - "Réservation doit être status=CONFIRMED"
+    - "Remboursement crédits user si type=OPENSPACE (creditsCost non null)"
+    - "Crée Transaction REFUND_CANCELLATION"
+    - "Envoie email 'annulation-par-admin' à l'utilisateur"
+    - "Retourne : { reservation, newBalance }"
+
+  admin_cancel_slot:
+    - "Body: { date: YYYY-MM-DD, slot: AM | PM }"
+    - "Cible: slot=AM inclut les réservations slot=AM ET slot=FULL (chevauchement)"
+    - "Cible: slot=PM inclut les réservations slot=PM ET slot=FULL"
+    - "Annule uniquement les CONFIRMED OPENSPACE"
+    - "Remboursement + email pour chaque réservation annulée"
+    - "Retourne : { cancelledCount }"
+
+  members_table:
+    isMember_display: |
+      Badge cliquable (non plus texte brut) :
+        isMember=true  → badge vert (bg-green-100 text-green-800) texte "Oui"
+        isMember=false → badge rouge (bg-red-100 text-red-800) texte "Non"
+      Clic conserve le comportement toggle (PUT /api/admin/members/[id]/member-status)
+    segment_column: |
+      Nouvelle colonne affichant Segment enum : BOULIACAIS / EXTERNE / REDUIT
+      Placée après la colonne "Crédits"
+    modal_enrichi: |
+      Au clic "Voir/Éditer" → fetch GET /api/admin/members/[id]
+      Section INFO (lecture seule) :
+        - Email, date de création (formatée), nb total de réservations
+        - Liste des 5 dernières réservations (date, créneau, statut)
+      Section ÉDITION :
+        - Variation crédits (delta number + raison string — inchangé)
+        - Toggle isMember (checkbox ou bouton)
+        - Select segment (BOULIACAIS / EXTERNE / REDUIT)
+
+  settings:
+    open_days: |
+      Section "Jours d'ouverture" avec 5 cases à cocher :
+        Lundi=1, Mardi=2, Mercredi=3, Jeudi=4, Vendredi=5
+      Valeur stockée dans SystemSetting key=OPEN_DAYS format "1,2,3"
+      Défaut actuel : "1,2,3" (lun-mer)
+    prices: |
+      Section "Tarifs par segment (€)" avec 3 champs numériques :
+        PRICE_CREDIT_BOULIACAIS, PRICE_CREDIT_EXTERNE, PRICE_CREDIT_REDUIT
+      Valeurs affichées en euros (÷100), stockées en centimes (×100)
+    fix_transaction: |
+      settings/actions.ts : remplacer $transaction(array) par opérations séquentielles
+      + remplacer prisma.systemSetting.update → upsert (crée si n'existe pas)
+
+  export_fix:
+    bug: |
+      app/api/admin/export/reservations/route.ts lignes 41 et 54 contiennent
+      "\\n" (backslash+n littéral au lieu d'un vrai retour à la ligne).
+      Résultat : le CSV est une seule ligne, invalide.
+    fix: |
+      Remplacer "\\n" par "\n" dans les deux occurrences.
+    export_button_fix: |
+      exports/ExportButtons.tsx appelle une Server Action (exportBookings) qui utilise
+      Papa.unparse sur des objets Prisma imbriqués → CSV mal formaté.
+      Fix : remplacer par fetch('/api/admin/export/reservations') direct + downloadCsv().
+
+# ─── FRONTEND ─────────────────────────────────────────────────────────────────
+frontend:
+  new_files:
+    - path: "app/(app)/admin/calendar/page.tsx"
+      type: "Server Component"
+      note: "Charge SystemSettings (DESK_CAPACITY, OPEN_DAYS), rend AdminCalendar"
+
+    - path: "app/(app)/admin/calendar/AdminCalendar.tsx"
+      type: "Client Component"
+      note: "Design triangle de BookingCalendar, adapté pour vue admin"
+
+  modified_files:
+    - path: "app/(app)/admin/AdminNav.tsx"
+      change: "4 onglets au lieu de 5, nouveaux labels et routes"
+    - path: "app/(app)/admin/page.tsx"
+      change: "Titre 'Membres', passe reservationCount aux users si nécessaire"
+    - path: "app/(app)/admin/MembersTable.tsx"
+      change: "Colonne segment, badge adhérent, modal enrichi avec fetch"
+    - path: "app/(app)/admin/settings/page.tsx"
+      change: "Titre 'Paramètres'"
+    - path: "app/(app)/admin/settings/GlobalSettingsForm.tsx"
+      change: "Sections OPEN_DAYS et PRICE_CREDIT"
+    - path: "app/(app)/admin/settings/actions.ts"
+      change: "updateSettings : upsert + séquentiel (pas $transaction)"
+    - path: "app/(app)/admin/exports/ExportButtons.tsx"
+      change: "Appel direct API route pour l'export réservations"
+
+  data_testids:
+    calendar:
+      - "admin-calendar"              # container principal
+      - "admin-calendar-slot-tile"    # chaque tuile date/créneau (data-date, data-slot, data-count)
+      - "admin-calendar-date-panel"   # panneau détail sous le calendrier
+      - "admin-reservations-table"    # tableau des réservations d'une date
+      - "admin-reservation-row"       # chaque ligne de réservation
+      - "admin-cancel-btn"            # annuler une réservation individuelle
+      - "admin-cancel-slot-btn"       # annuler toutes les réservations d'une demi-journée
+      - "admin-close-date-btn"        # fermer la date entière
+      - "admin-confirm-dialog"        # boîte de confirmation
+      - "admin-confirm-yes"           # confirmer l'action
+      - "admin-confirm-no"            # annuler l'action
+      - "admin-action-success"        # message de succès post-action
+
+    members:
+      - "members-table"               # tableau (inchangé)
+      - "member-row"                  # ligne (inchangé)
+      - "member-is-member-badge"      # badge Oui/Non cliquable (data-value="true|false")
+      - "member-segment"              # cellule segment dans le tableau
+      - "view-edit-btn"               # bouton Voir/Éditer (remplace edit-credits-btn)
+      - "member-detail-modal"         # modal enrichi
+      - "member-info-reservations"    # liste des réservations récentes dans le modal
+      - "member-edit-segment"         # select segment dans le modal
+
+    settings:
+      - "setting-OPEN_DAYS"           # groupe de checkboxes
+      - "open-day-checkbox"           # chaque case (data-day="1..5")
+      - "save-settings-open-days"     # bouton sauvegarder jours
+      - "setting-PRICE_CREDIT_BOULIACAIS"
+      - "setting-PRICE_CREDIT_EXTERNE"
+      - "setting-PRICE_CREDIT_REDUIT"
+      - "save-settings-prices"        # bouton sauvegarder tarifs
+      - "settings-saved-toast"        # toast confirmation (existant)
+
+    exports:
+      - "export-bookings-btn"         # exporter les réservations (corrigé)
+      - "export-members-btn"          # exporter les membres
+
+# ─── TESTS ────────────────────────────────────────────────────────────────────
+tests:
+
+  http:
+    file: "__tests__/api/slice-05b-admin-ux.http.test.ts"
+    tool: next-test-api-route-handler
+    mocks_required:
+      - "vi.mock('@/lib/prisma')"
+      - "vi.mock('@/lib/brevo')"
+      - "vi.mock('@/lib/auth')"
+
+    cases:
+      - route: "GET /api/admin/calendar"
+        scenario: "Retourne occupancy avec count et capacity par slot"
+        auth: admin@placev.fr
+        setup: "2 réservations OPENSPACE CONFIRMED sur FUTURE_DATE (slot AM)"
+        expected_status: 200
+        expected_body: "Array<{ date, slot, count, capacity, isClosed }>"
+        assert: "count=2 pour AM de FUTURE_DATE"
+
+      - route: "GET /api/admin/calendar"
+        scenario: "403 si non-admin"
+        auth: externe@test.fr
+        expected_status: 403
+
+      - route: "GET /api/admin/reservations"
+        scenario: "Retourne les réservations d'une date avec données user"
+        auth: admin@placev.fr
+        query: "?date=FUTURE_DATE"
+        setup: "1 réservation CONFIRMED OPENSPACE sur FUTURE_DATE"
+        expected_status: 200
+        expected_body: "Array<{ id, slot, status, isProxy, creditsCost, user: { id, name, email, segment } }>"
+
+      - route: "GET /api/admin/reservations"
+        scenario: "400 si date manquante"
+        auth: admin@placev.fr
+        query: ""
+        expected_status: 400
+
+      - route: "POST /api/admin/reservations/[id]/cancel"
+        scenario: "Annulation individuelle valide, crédits remboursés, brevo appelé 1x"
+        auth: admin@placev.fr
+        setup: "Réservation CONFIRMED OPENSPACE creditsCost=1"
+        expected_status: 200
+        side_effects:
+          - "reservation.status → CANCELLED"
+          - "user.credits += 1"
+          - "Transaction REFUND_CANCELLATION créée"
+        assert_brevo: "sendEmail appelé 1 fois template='annulation-par-admin'"
+
+      - route: "POST /api/admin/reservations/[id]/cancel"
+        scenario: "404 si réservation inexistante"
+        auth: admin@placev.fr
+        expected_status: 404
+        assert_brevo: "sendEmail NON appelé"
+
+      - route: "POST /api/admin/reservations/[id]/cancel"
+        scenario: "409 si réservation déjà CANCELLED"
+        auth: admin@placev.fr
+        setup: "Réservation avec status=CANCELLED"
+        expected_status: 409
+        assert_brevo: "sendEmail NON appelé"
+
+      - route: "POST /api/admin/reservations/cancel-slot"
+        scenario: "Annulation toutes réservations AM (inclut FULL), brevo N fois"
+        auth: admin@placev.fr
+        body: { date: FUTURE_DATE, slot: "AM" }
+        setup: "1 résa slot=AM + 1 résa slot=FULL + 1 résa slot=PM sur FUTURE_DATE"
+        expected_status: 200
+        expected_body: "{ cancelledCount: 2 }"
+        assert_brevo: "sendEmail appelé EXACTEMENT 2 fois (pas la résa PM)"
+
+      - route: "POST /api/admin/reservations/cancel-slot"
+        scenario: "Slot invalide → 422"
+        auth: admin@placev.fr
+        body: { date: FUTURE_DATE, slot: "INVALID" }
+        expected_status: 422
+
+      - route: "GET /api/admin/members/[id]"
+        scenario: "Retourne détails membre avec 5 réservations récentes"
+        auth: admin@placev.fr
+        expected_status: 200
+        expected_body: |
+          { id, email, name, credits, isMember, segment, role, createdAt,
+            reservationCount, recentReservations: Array (max 5) }
+
+      - route: "GET /api/admin/members/[id]"
+        scenario: "404 si membre inexistant"
+        auth: admin@placev.fr
+        expected_status: 404
+
+      - route: "PUT /api/admin/members/[id]/segment"
+        scenario: "Modification segment valide EXTERNE → BOULIACAIS"
+        auth: admin@placev.fr
+        body: { segment: "BOULIACAIS" }
+        expected_status: 200
+        expected_body: "{ id, segment: 'BOULIACAIS' }"
+
+      - route: "PUT /api/admin/members/[id]/segment"
+        scenario: "Segment invalide → 422"
+        auth: admin@placev.fr
+        body: { segment: "INVALID" }
+        expected_status: 422
+
+      - route: "GET /api/admin/export/reservations"
+        scenario: "CSV avec vrais retours à la ligne (pas \\n littéral)"
+        auth: admin@placev.fr
+        expected_status: 200
+        expected_headers: { Content-Type: "text/csv" }
+        assert: |
+          Le texte CSV contient au moins 2 lignes séparées par \\n réel (char code 10).
+          La première ligne est exactement : date,slot,name,email,segment,costCredits,status,isProxy
+
+  e2e:
+    file: "e2e/slice-05b-admin-ux.spec.ts"
+    tool: playwright
+    note: "Utilise les sessions admin existantes (même pattern que slice-05 E2E)"
+
+    cases:
+      # Navigation
+      - "Le premier onglet est 'Calendrier Coworking' (href=/admin/calendar)"
+      - "L'onglet 'Membres' pointe vers /admin (pas /admin/members)"
+      - "L'onglet 'Paramètres' pointe vers /admin/settings"
+      - "Les onglets 'Membres' (ancien redirect) et 'Réservations' sont absents"
+
+      # Calendrier Coworking
+      - "Admin voit les tuiles du calendrier avec comptage ex: '2/15' sur les créneaux occupés"
+      - "Admin clique sur une date avec réservations → panneau détail visible sous le calendrier"
+      - "Le tableau des réservations affiche le nom du membre, l'email et le créneau"
+      - "Admin clique 'Annuler' sur une réservation → dialog de confirmation visible"
+      - "Admin confirme l'annulation → admin-action-success visible, reservation disparaît du tableau"
+      - "Admin clique 'Annuler tout AM' → dialog avec nombre de réservations → confirmation → succès"
+      - "Admin clique 'Fermer cette date' → dialog de confirmation → succès → date grisée dans le calendrier"
+
+      # Tableau des membres
+      - "La colonne 'Segment' est visible dans le tableau membres"
+      - "Un membre avec isMember=true affiche un badge vert 'Oui'"
+      - "Un membre avec isMember=false affiche un badge rouge 'Non'"
+      - "Le bouton 'Voir/Éditer' ouvre un modal enrichi (data-testid=member-detail-modal)"
+      - "Le modal affiche l'email, la date de création et les réservations récentes"
+      - "Admin modifie le segment dans le modal → segment mis à jour dans le tableau"
+      - "Admin toggle isMember depuis le modal → badge change de couleur"
+
+      # Paramètres
+      - "La section 'Jours d'ouverture' affiche 5 cases à cocher (Lundi à Vendredi)"
+      - "Lundi, Mardi, Mercredi sont cochés par défaut"
+      - "Admin coche Jeudi → sauvegarde → calendrier public montre Jeudi comme disponible"
+      - "La section 'Tarifs par segment' affiche 3 champs numériques en euros"
+
+      # Export
+      - "Clic 'export-bookings-btn' → téléchargement CSV déclenché"
+      - "Le CSV téléchargé contient la ligne d'en-tête : date,slot,name,email,segment,costCredits,status,isProxy"
+      - "Le CSV contient plusieurs lignes (vraies retours à la ligne, pas une seule ligne)"
+
+done_when:
+  - npm run test → vert pour tous les tests HTTP slice-05b (13 cas)
+  - npm run test:e2e:slice5b → vert (17 scénarios Playwright)
+  - Calendrier coworking affiche comptage X/capacité sur les tuiles
+  - Annulations depuis le calendrier avec confirmation fonctionnelles
+  - Badge adhérent vert/rouge visible dans le tableau membres
+  - Paramètres OPEN_DAYS et tarifs éditables et sauvegardés
+  - Export CSV génère un fichier valide avec vrais retours à la ligne
