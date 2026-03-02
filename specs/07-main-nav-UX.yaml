@@ -1,0 +1,170 @@
+feature: main-nav-ux
+slice: "7"
+title: "Refonte Navigation Principale & CTAs Homepage"
+parent_slice: "6"
+estimated_days: 0.5
+status: ready
+dependencies: [slice-06]
+
+database:
+  migration_required: false
+  note: "Aucun changement de schéma."
+
+api_routes:
+  new: []
+  modified: []
+  note: "Aucune nouvelle route API."
+
+context: |
+  Simplification du header : suppression du CTA fixe redondant, refonte des
+  boutons d'auth pour un format standard (non connecté / connecté).
+  Refonte Hero : renommage CTA "Contactez-nous" + ajout CTA "Créer votre compte".
+  Footer simplifié : Newsletter déplacée dans la section ContactBlock.
+
+scope:
+  included: |
+    Header desktop : suppression CTA réservation, refonte HeaderAuthButton
+    Header mobile : MobileMenu aligné avec le nouveau comportement
+    Hero : renommage CTA + ajout 2e CTA /register
+    Footer : suppression bloc Newsletter
+    ContactBlock : ajout Newsletter comme 3e carte (grille 3 colonnes)
+  out_of_scope: |
+    Logique métier, routes API, schéma DB
+    Style ou contenu des autres sections de la page d'accueil
+    Dashboard membre et espaces admin
+
+business_rules:
+  header_non_connecte:
+    markup: |
+      <span data-testid="header-login-label">Déjà membre ?</span>
+      <Link href="/login" data-testid="header-login-btn">Se connecter</Link>
+
+  header_connecte:
+    markup: |
+      <div data-testid="header-user-menu">
+        <span>Bonjour, {firstName}</span>
+        <Link href="/dashboard" data-testid="header-dashboard-link">Mon espace</Link>
+        <LogoutButton />  {/* data-testid="logout-btn", callbackUrl="/login" */}
+      </div>
+    note: |
+      Réutiliser LogoutButton existant (components/app/LogoutButton.tsx).
+      Ne pas créer un nouveau composant signOut.
+
+  hero_ctas:
+    buttons:
+      - label: "Contactez-nous →"
+        href: "#contact"
+        testid: "hero-cta-contact"
+        style: "gradient bleu-mint (identique à l'actuel)"
+      - label: "Créer votre compte membre"
+        href: "/register"
+        testid: "hero-cta-register"
+        style: "variante secondaire (ex: border + texte bleu, ou gradient atténué)"
+
+  contact_newsletter:
+    position: "3e carte dans la grille ContactBlock (md:grid-cols-3)"
+    component: "Newsletter variant='default'"
+    testid: "contact-newsletter"
+
+  footer:
+    note: |
+      Après suppression du bloc newsletter, le footer n'a plus qu'une colonne.
+      Adapter la grille en conséquence (ex: flex ou grid-cols-1).
+
+frontend:
+  modified_files:
+    - path: "components/Header.tsx"
+      changes:
+        - "Supprimer le bouton <a href='/#contact'> avec Calendar + SITE.primaryCTA"
+        - "Supprimer l'import Calendar de lucide-react"
+        - "Garder uniquement <HeaderAuthButton session={session} />"
+
+    - path: "components/layout/HeaderAuthButton.tsx"
+      changes:
+        - "Non connecté : ajouter span 'Déjà membre ?' (data-testid=header-login-label)"
+        - "Connecté : ajouter <LogoutButton /> après le lien Mon espace"
+        - "Connecté : supprimer le badge Admin (redondant avec header-user-menu)"
+
+    - path: "components/layout/MobileMenu.tsx"
+      changes:
+        - "Non connecté : ajouter span 'Déjà membre ?' avant le lien Se connecter"
+        - "Connecté : ajouter <LogoutButton /> dans le menu ouvert"
+
+    - path: "components/sections/Hero.tsx"
+      changes:
+        - "Renommer le CTA principal en 'Contactez-nous →' (href='#contact')"
+        - "Ajouter data-testid='hero-cta-contact' sur ce bouton"
+        - "Ajouter bouton 'Créer votre compte membre' href='/register' data-testid='hero-cta-register'"
+        - "Conserver SITE.primaryCTA dans lib/config/site.ts si utilisé ailleurs"
+
+    - path: "components/Footer.tsx"
+      changes:
+        - "Supprimer le bloc md:col-span-2 (Restez informé + <Newsletter>)"
+        - "Supprimer l'import Newsletter"
+        - "Adapter la grille (flex ou grid-cols-1)"
+
+    - path: "components/sections/ContactBlock.tsx"
+      changes:
+        - "Passer la grille à md:grid-cols-3"
+        - "Ajouter 3e carte avec <Newsletter variant='default' /> + data-testid='contact-newsletter'"
+        - "Importer Newsletter depuis '@/components/Newsletter'"
+
+  data_testids:
+    new:
+      - "header-login-label"     # span "Déjà membre ?" (non connecté)
+      - "hero-cta-contact"       # bouton Contactez-nous dans Hero
+      - "hero-cta-register"      # bouton Créer votre compte dans Hero
+      - "contact-newsletter"     # wrapper newsletter dans ContactBlock
+    preserved:
+      - "header-login-btn"       # lien Se connecter
+      - "header-user-menu"       # conteneur user connecté
+      - "header-dashboard-link"  # lien Mon espace
+      - "logout-btn"             # LogoutButton existant
+
+tests:
+  unit:
+    file: "__tests__/slice-07-main-nav.test.tsx"
+    cases:
+      - "HeaderAuthButton (no session) : affiche data-testid=header-login-label"
+      - "HeaderAuthButton (no session) : affiche data-testid=header-login-btn"
+      - "HeaderAuthButton (no session) : NE contient PAS de CTA réservation"
+      - "HeaderAuthButton (session) : affiche 'Bonjour, {firstName}'"
+      - "HeaderAuthButton (session) : affiche header-dashboard-link"
+      - "HeaderAuthButton (session) : affiche logout-btn"
+
+  http:
+    note: "Aucun test HTTP requis."
+
+  e2e:
+    file: "e2e/slice-07-main-nav-ux.spec.ts"
+    cases:
+      # Header — non connecté
+      - "Header (non connecté) : affiche 'Déjà membre ?' (header-login-label)"
+      - "Header (non connecté) : affiche 'Se connecter' (header-login-btn)"
+      - "Header (non connecté) : n'affiche pas de bouton 'Réserver une visite'"
+      - "Header (non connecté) : clic 'Se connecter' → /login"
+      # Header — connecté
+      - "Header (connecté) : affiche 'Bonjour,' + prénom"
+      - "Header (connecté) : affiche 'Mon espace' (header-dashboard-link)"
+      - "Header (connecté) : affiche 'Se déconnecter' (logout-btn)"
+      - "Header (connecté) : n'affiche pas de bouton CTA réservation"
+      - "Header (connecté) : clic 'Mon espace' → /dashboard"
+      - "Header (connecté) : clic 'Se déconnecter' → déconnexion + redirection /login"
+      # Hero — CTAs
+      - "Hero : bouton 'Contactez-nous' visible (hero-cta-contact)"
+      - "Hero : bouton 'Créer votre compte membre' visible (hero-cta-register)"
+      - "Hero : hero-cta-register redirige vers /register"
+      # Footer — Newsletter absente
+      - "Footer : ne contient pas de champ email newsletter"
+      - "Footer : ne contient pas de texte 'Restez informé'"
+      # ContactBlock — Newsletter présente
+      - "Section contact : contient le bloc newsletter (contact-newsletter)"
+      - "Section contact : newsletter a un champ email fonctionnel"
+
+done_when:
+  - npm run test → les tests unitaires slice-07 passent
+  - npm run test:e2e → les tests E2E slice-07 passent
+  - Header sans CTA réservation, avec auth contextuelle (non connecté / connecté)
+  - Hero avec 2 CTAs (Contactez-nous + Créer votre compte membre)
+  - Footer sans Newsletter
+  - ContactBlock avec Newsletter en 3e carte
