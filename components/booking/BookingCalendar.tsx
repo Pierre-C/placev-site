@@ -18,6 +18,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { formatYMD, addDays, getMonthGridWeekdays } from "@/lib/calendar-utils"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -110,6 +111,7 @@ export default function BookingCalendar({
   openDays = [1, 2, 3],
 }: BookingCalendarProps) {
   const isAuthenticated = !!userId
+  const router = useRouter()
 
   const [monthCursor, setMonthCursor] = useState(() => startOfMonth())
   const [availability, setAvailability] = useState<AvailabilityItem[]>([])
@@ -289,6 +291,7 @@ export default function BookingCalendar({
       if (res.status === 201) {
         const body = await res.json()
         setCredits(body.reservation.newBalance)
+        router.refresh()
         setBookingState("success")
         await fetchAllData() // rafraîchit disponibilités + mes réservations
         setTimeout(() => {
@@ -323,6 +326,7 @@ export default function BookingCalendar({
       if (res.ok) {
         const body = await res.json()
         setCredits(body.newBalance)
+        router.refresh()
         setCancelState("success")
         await fetchAllData() // rafraîchit disponibilités + mes réservations
         setTimeout(() => {
@@ -401,8 +405,7 @@ export default function BookingCalendar({
     return (
       <div
         className={`relative aspect-square rounded-lg overflow-hidden
-          ${isPast ? "opacity-40" : ""}
-          ${isToday ? "ring-2 ring-blue-500" : ""}`}
+          ${isPast ? "opacity-40" : ""}`}
         data-past={isPast ? "true" : "false"}
         data-today={isToday ? "true" : "false"}
       >        {/* Numéro du jour — z-30, toujours lisible */}
@@ -413,6 +416,11 @@ export default function BookingCalendar({
         >
           {day.getDate()}
         </span>
+
+        {/* Indicateur aujourd'hui — bordure bleue permanente */}
+        {isToday && (
+          <div className="absolute inset-0 border-2 border-blue-500 pointer-events-none z-40" />
+        )}
 
         {/* Triangle AM visuel — haut-gauche, aucun événement souris */}
         <div
@@ -505,17 +513,23 @@ export default function BookingCalendar({
   function renderClosedDayCell(day: Date) {
     const isCurrentMonth = day.getMonth() === monthCursor.getMonth()
     const isPastClosed = day < today
+    const isToday = formatYMD(day) === formatYMD(today)
     return (
       <div
         className={`relative aspect-square rounded-lg bg-neutral-50 flex flex-col items-start justify-start p-1 ${
           isCurrentMonth ? "" : "opacity-25"
         } ${isPastClosed ? "opacity-40" : ""}`}
         data-past={isPastClosed ? "true" : "false"}
-        data-today="false"
+        data-today={isToday ? "true" : "false"}
       >
         <span className="text-[10px] font-semibold text-neutral-300 leading-none">
           {day.getDate()}
         </span>
+
+        {/* Indicateur aujourd'hui — bordure bleue permanente */}
+        {isToday && (
+          <div className="absolute inset-0 border-2 border-blue-500 pointer-events-none z-40" />
+        )}
       </div>
     )
   }

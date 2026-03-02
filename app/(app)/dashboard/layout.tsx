@@ -28,12 +28,21 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <h1 data-testid="welcome-message" className="text-3xl font-bold text-neutral-900">
           Bonjour, {user.name ?? user.email}
         </h1>
-        <span
+      </div>
+
+      <div
+        className={`mb-4 rounded-xl border-2 bg-white px-4 py-3 flex items-center justify-between ${
+          balanceLevel === "normal"  ? "border-green-500"  :
+          balanceLevel === "warning" ? "border-orange-400" : "border-red-500"
+        }`}
+      >
+        <span className="text-sm font-medium text-neutral-600">Solde de crédits</span>
+        <span 
+          className={`text-xl font-bold ${balanceClass}`} 
           data-testid="header-credit-balance"
           data-level={balanceLevel}
-          className={`text-lg font-semibold ${balanceClass}`}
         >
-          {user.credits} crédit{user.credits !== 1 ? "s" : ""}
+          <span data-testid="credit-balance">{user.credits}</span> crédit{user.credits !== 1 ? "s" : ""}
         </span>
       </div>
 

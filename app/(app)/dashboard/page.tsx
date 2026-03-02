@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma"
 import { canCancel } from "@/lib/services/booking"
 import { PaymentStatusBanner } from "./PaymentStatusBanner"
 import { UpcomingReservations } from "./UpcomingReservations"
-import { BalanceBadge } from "./BalanceBadge"
 import BookingCalendar from "@/components/booking/BookingCalendar"
 
 export default async function DashboardPage() {
@@ -43,15 +42,6 @@ export default async function DashboardPage() {
       <Suspense fallback={null}>
         <PaymentStatusBanner />
       </Suspense>
-
-      {/* Solde réactif (mis à jour après annulation sans router.refresh) */}
-      <div className="mb-6 rounded-2xl bg-neutral-900 p-6 text-white">
-        <p className="text-sm font-medium text-neutral-400">Solde de crédits</p>
-        <BalanceBadge initialCredits={user.credits} />
-        <p className="mt-1 text-sm text-neutral-400">
-          {user.credits >= 0 ? "crédit(s) disponible(s)" : "crédit(s) en débit"}
-        </p>
-      </div>
 
       {/* Calendrier de réservation dans un container scrollable */}
       <div

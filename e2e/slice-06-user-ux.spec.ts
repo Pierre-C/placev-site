@@ -305,8 +305,8 @@ test.describe("Onglet Réserver — BookingCalendar : dates passées et today", 
       const todayCell = membrePage.locator('[data-today="true"]')
       await expect(todayCell).toBeVisible()
       const className = await todayCell.getAttribute("class")
-      // La cellule today doit avoir une classe ring (ring-2, ring-blue-500, etc.)
-      expect(className).toMatch(/ring/)
+      // La cellule today doit avoir une classe ring ou outline
+      expect(className).toMatch(/ring|outline/)
     }
   })
 

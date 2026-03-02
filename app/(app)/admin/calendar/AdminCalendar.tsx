@@ -286,8 +286,8 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
                 data-past={isPast ? "true" : "false"}
                 data-today={isToday ? "true" : "false"}
                 className={`relative aspect-square rounded-xl overflow-hidden transition-all ${
-                  isCurrentMonth ? "ring-1 ring-neutral-100" : "opacity-30 grayscale"
-                } ${isSelected ? "ring-2 ring-blue-500 shadow-md" : ""} ${isPast ? "opacity-40" : ""} ${isToday ? "ring-2 ring-blue-500 rounded-lg" : ""}`}
+                  !isCurrentMonth ? "opacity-30 grayscale" : ""
+                } ${isPast ? "opacity-40" : ""}`}
               >
               <span className="absolute top-1 left-2 z-30 text-xs font-bold text-neutral-400 pointer-events-none">
                 {day.getDate()}
@@ -309,6 +309,16 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
                     style={{ clipPath: "polygon(100% 0%, 100% 100%, 0% 100%)" }}
                  />
               </div>
+
+              {/* Overlay sélection — fond bleu translucide sur la tuile cliquée */}
+              {isSelected && (
+                <div className="absolute inset-0 bg-blue-500/10 pointer-events-none z-35" />
+              )}
+
+              {/* Indicateur aujourd'hui — bordure bleue permanente */}
+              {isToday && (
+                <div className="absolute inset-0 border-2 border-blue-500 pointer-events-none z-40" />
+              )}
 
               {/* COUNTERS / CLICKABLE TILES */}
               <button
