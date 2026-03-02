@@ -8,6 +8,7 @@
 
 import Link from "next/link"
 import type { Session } from "next-auth"
+import { LogoutButton } from "@/components/app/LogoutButton"
 
 interface HeaderAuthButtonProps {
   session: Session | null
@@ -16,13 +17,16 @@ interface HeaderAuthButtonProps {
 export function HeaderAuthButton({ session }: HeaderAuthButtonProps) {
   if (!session) {
     return (
-      <Link
-        href="/login"
-        data-testid="header-login-btn"
-        className="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 transition"
-      >
-        Se connecter
-      </Link>
+      <div className="flex items-center gap-2">
+        <span data-testid="header-login-label" className="text-sm text-neutral-500">Déjà membre ?</span>
+        <Link
+          href="/login"
+          data-testid="header-login-btn"
+          className="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 transition"
+        >
+          Se connecter
+        </Link>
+      </div>
     )
   }
 
@@ -33,7 +37,7 @@ export function HeaderAuthButton({ session }: HeaderAuthButtonProps) {
       data-testid="header-user-menu"
       className="flex items-center gap-3"
     >
-      <span className="text-sm text-neutral-700">{firstName}</span>
+      <span className="text-sm text-neutral-700">Bonjour {firstName}</span>
       <Link
         href="/dashboard"
         data-testid="header-dashboard-link"
@@ -44,11 +48,12 @@ export function HeaderAuthButton({ session }: HeaderAuthButtonProps) {
       {session.user?.role === "ADMIN" && (
         <span
           data-testid="header-admin-badge"
-          className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800"
+          className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800"     
         >
           Admin
         </span>
       )}
+      <LogoutButton />
     </div>
   )
 }

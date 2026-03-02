@@ -15,9 +15,6 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     <SessionProvider session={session}>
       <div className="min-h-screen bg-neutral-50">
-        <div className="flex justify-end px-4 py-2 border-b border-neutral-200 bg-white">
-          <LogoutButton />
-        </div>
         {children}
       </div>
     </SessionProvider>

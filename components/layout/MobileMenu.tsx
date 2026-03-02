@@ -9,6 +9,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { Menu, X } from "lucide-react"
 import type { Session } from "next-auth"
+import { LogoutButton } from "@/components/app/LogoutButton"
 
 interface MobileMenuProps {
   session: Session | null
@@ -50,15 +51,21 @@ export function MobileMenu({ session }: MobileMenuProps) {
                   Administration
                 </Link>
               )}
+              <div className="py-1">
+                <LogoutButton />
+              </div>
             </>
           ) : (
-            <Link
-              href="/login"
-              className="block py-1 font-medium"
-              onClick={() => setOpen(false)}
-            >
-              Se connecter
-            </Link>
+            <div className="py-1 flex items-center gap-2">
+              <span className="text-sm text-neutral-500">Déjà membre ?</span>
+              <Link
+                href="/login"
+                className="font-medium"
+                onClick={() => setOpen(false)}
+              >
+                Se connecter
+              </Link>
+            </div>
           )}
         </div>
       )}

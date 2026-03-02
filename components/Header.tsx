@@ -6,8 +6,6 @@
  */
 
 import Link from "next/link"
-import { Calendar } from "lucide-react"
-import { SITE } from "@/lib/config/site"
 import { auth } from "@/lib/auth"
 import { HeaderAuthButton } from "@/components/layout/HeaderAuthButton"
 import { MobileMenu } from "@/components/layout/MobileMenu"
@@ -27,12 +25,6 @@ export async function Header() {
         </Link>
 
         <div role="navigation" className="hidden md:flex items-center gap-4 text-sm">
-          <a
-            href="/#contact"
-            className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-placev-blue to-placev-mint px-4 py-2 text-white shadow-cta hover:opacity-90 transition"
-          >
-            <Calendar className="h-4 w-4" /> {SITE.primaryCTA}
-          </a>
           <HeaderAuthButton session={session} />
         </div>
 

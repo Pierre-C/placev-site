@@ -37,10 +37,18 @@ export function Hero() {
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <a
                 href="#contact"
+                data-testid="hero-cta-contact"
                 className="rounded-2xl bg-gradient-to-r from-placev-blue to-placev-mint px-5 py-3 font-medium text-white inline-flex items-center gap-2 shadow-cta hover:opacity-90 transition"
               >
-                {SITE.primaryCTA}
+                Contactez-nous
                 <ArrowRight className="h-4 w-4" />
+              </a>
+              <a
+                href="/register"
+                data-testid="hero-cta-register"
+                className="rounded-2xl border-2 border-placev-blue px-5 py-3 font-medium text-placev-blue inline-flex items-center gap-2 hover:bg-placev-blue/5 transition"
+              >
+                Créer votre compte membre
               </a>
             </div>
             <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-neutral-600">

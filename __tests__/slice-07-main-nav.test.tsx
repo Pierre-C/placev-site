@@ -1,4 +1,5 @@
 /**
+ * @vitest-environment jsdom
  * __tests__/slice-07-main-nav.test.tsx
  * Tests unitaires — Slice 7 : Refonte Navigation Principale & CTAs
  *
@@ -8,6 +9,7 @@
 
 import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
+import "@testing-library/jest-dom"
 import { HeaderAuthButton } from "@/components/layout/HeaderAuthButton"
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────

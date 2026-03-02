@@ -272,8 +272,8 @@ test.describe("Calendrier — date du jour et dates passées", () => {
 
     const todayCell = adminPage.locator('[data-today="true"]')
     await expect(todayCell).toBeVisible()
-    const className = await todayCell.getAttribute("class")
-    expect(className).toMatch(/ring/)
+    const todayIndicator = todayCell.locator("div.border-blue-500")
+    await expect(todayIndicator).toBeVisible()
   })
 
   test("les cellules passées ont data-past='true'", async ({ adminPage }) => {

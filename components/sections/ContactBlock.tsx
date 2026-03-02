@@ -2,6 +2,7 @@
 "use client";
 
 import { MapPin, Phone, Mail, Clock, Send } from "lucide-react";
+import { Newsletter } from "@/components/Newsletter";
 import { SITE } from "@/lib/config/site";
 import { useState, FormEvent } from "react";
 
@@ -52,7 +53,7 @@ export function ContactBlock() {
 
   return (
     <section id="contact" className="mx-auto max-w-7xl px-4 py-16">
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-3">
         <div className="rounded-2xl border border-black/5 bg-white p-6">
           <h3 className="text-xl font-semibold">Nous contacter</h3>
           <p className="mt-2 text-sm text-neutral-600">
@@ -170,6 +171,9 @@ export function ContactBlock() {
               className="h-full w-full object-cover"
             />
           </div>
+        </div>
+        <div data-testid="contact-newsletter" className="rounded-2xl border border-black/5 bg-white p-6">
+          <Newsletter variant="default" />
         </div>
       </div>
     </section>
