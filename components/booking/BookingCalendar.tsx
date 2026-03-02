@@ -397,9 +397,15 @@ export default function BookingCalendar({
       return "bg-white text-neutral-600 hover:bg-emerald-50 hover:text-emerald-700 shadow"
     }
 
+    const isToday = formatYMD(day) === formatYMD(today)
     return (
-      <div className="relative aspect-square rounded-lg overflow-hidden">
-        {/* Numéro du jour — z-30, toujours lisible */}
+      <div
+        className={`relative aspect-square rounded-lg overflow-hidden
+          ${isPast ? "opacity-40" : ""}
+          ${isToday ? "ring-2 ring-blue-500" : ""}`}
+        data-past={isPast ? "true" : "false"}
+        data-today={isToday ? "true" : "false"}
+      >        {/* Numéro du jour — z-30, toujours lisible */}
         <span
           className={`absolute top-0.5 left-1 z-30 text-[10px] font-semibold leading-none pointer-events-none select-none ${
             isPast ? "text-neutral-300" : "text-neutral-500"
@@ -498,11 +504,14 @@ export default function BookingCalendar({
 
   function renderClosedDayCell(day: Date) {
     const isCurrentMonth = day.getMonth() === monthCursor.getMonth()
+    const isPastClosed = day < today
     return (
       <div
         className={`relative aspect-square rounded-lg bg-neutral-50 flex flex-col items-start justify-start p-1 ${
           isCurrentMonth ? "" : "opacity-25"
-        }`}
+        } ${isPastClosed ? "opacity-40" : ""}`}
+        data-past={isPastClosed ? "true" : "false"}
+        data-today="false"
       >
         <span className="text-[10px] font-semibold text-neutral-300 leading-none">
           {day.getDate()}

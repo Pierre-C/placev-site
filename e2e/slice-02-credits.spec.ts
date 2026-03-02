@@ -1,6 +1,6 @@
 /**
  * e2e/slice-02-credits.spec.ts
- * Tests E2E — Slice 2 : Achat de crédits (flux mock Stripe)
+ * Tests E2E — Slice 2 : Rechargement (flux mock Stripe)
  *
  * Ces tests valident le parcours complet d'achat de crédits en mode mock :
  *   1. Membre voit les 3 packs avec les prix de son segment
@@ -16,7 +16,7 @@ import { test, expect } from "./helpers/fixtures"
 
 test.describe("Affichage des packs de crédits", () => {
   test("le membre voit les 3 packs sur le dashboard", async ({ membrePage: page }) => {
-    await page.goto("/dashboard")
+    await page.goto("/dashboard/recharger")
 
     const packs = page.locator('[data-testid="credit-packs"]')
     await expect(packs).toBeVisible()
@@ -29,7 +29,7 @@ test.describe("Affichage des packs de crédits", () => {
 
   test("le membre EXTERNE voit le prix 8€/crédit (800 centimes)", async ({ membrePage: page }) => {
     // externe@test.fr a le segment EXTERNE → PRICE_CREDIT_EXTERNE = 800 centimes
-    await page.goto("/dashboard")
+    await page.goto("/dashboard/recharger")
 
     // Pack 10 crédits EXTERNE = 10 × 800 = 8000 centimes = 80€
     const pack10Price = page.locator('[data-testid="pack-price-10"]')
@@ -38,7 +38,7 @@ test.describe("Affichage des packs de crédits", () => {
   })
 
   test("chaque pack a un bouton Acheter", async ({ membrePage: page }) => {
-    await page.goto("/dashboard")
+    await page.goto("/dashboard/recharger")
 
     await expect(page.locator('[data-testid="buy-pack-5"]')).toBeVisible()
     await expect(page.locator('[data-testid="buy-pack-10"]')).toBeVisible()
@@ -52,11 +52,11 @@ test.describe("Flux d'achat de crédits (mock Stripe)", () => {
   test("clic pack 5 crédits → redirect mock → dashboard avec payment=success", async ({
     membrePage: page,
   }) => {
-    await page.goto("/dashboard")
+    await page.goto("/dashboard/recharger")
 
     // Lire le solde initial
     const balanceBefore = parseInt(
-      (await page.locator('[data-testid="credit-balance"]').textContent()) ?? "0"
+      (await page.locator('[data-testid="header-credit-balance"]').textContent()) ?? "0"
     )
 
     // Cliquer sur "Acheter" pour le pack 5 crédits
@@ -70,20 +70,20 @@ test.describe("Flux d'achat de crédits (mock Stripe)", () => {
   })
 
   test("solde mis à jour après achat de 5 crédits", async ({ membrePage: page }) => {
-    await page.goto("/dashboard")
+    await page.goto("/dashboard/recharger")
 
     const balanceBefore = parseInt(
-      (await page.locator('[data-testid="credit-balance"]').textContent()) ?? "0"
+      (await page.locator('[data-testid="header-credit-balance"]').textContent()) ?? "0"
     )
 
     await page.click('[data-testid="buy-pack-5"]')
     await expect(page).toHaveURL(/dashboard.*payment=success/, { timeout: 10_000 })
 
     // Recharger la page pour lire le nouveau solde depuis la DB
-    await page.goto("/dashboard")
+    await page.goto("/dashboard/recharger")
 
     const balanceAfter = parseInt(
-      (await page.locator('[data-testid="credit-balance"]').textContent()) ?? "0"
+      (await page.locator('[data-testid="header-credit-balance"]').textContent()) ?? "0"
     )
 
     // Le solde doit avoir augmenté de 5
@@ -93,19 +93,19 @@ test.describe("Flux d'achat de crédits (mock Stripe)", () => {
   test("transaction CREDIT_PURCHASE visible dans l'historique après achat", async ({
     membrePage: page,
   }) => {
-    await page.goto("/dashboard")
+    await page.goto("/dashboard/recharger")
     await page.click('[data-testid="buy-pack-5"]')
     await expect(page).toHaveURL(/dashboard.*payment=success/, { timeout: 10_000 })
 
     // Recharger pour lire l'historique depuis la DB
-    await page.goto("/dashboard")
+    await page.goto("/dashboard/historique")
 
     const history = page.locator('[data-testid="transaction-history"]')
-    await expect(history).toContainText("Achat de crédits")
+    await expect(history).toContainText("Rechargement")
   })
 
   test("bannière annulation visible si payment=cancelled", async ({ membrePage: page }) => {
-    await page.goto("/dashboard?payment=cancelled")
+    await page.goto("/dashboard/recharger?payment=cancelled")
     await expect(page.locator('[data-testid="payment-cancelled-banner"]')).toBeVisible()
   })
 })
@@ -119,7 +119,7 @@ test.describe("Brevo mock log — email de confirmation", () => {
       consoleLogs.push(msg.text())
     })
 
-    await page.goto("/dashboard")
+    await page.goto("/dashboard/recharger")
     await page.click('[data-testid="buy-pack-5"]')
     await expect(page).toHaveURL(/dashboard.*payment=success/, { timeout: 10_000 })
 

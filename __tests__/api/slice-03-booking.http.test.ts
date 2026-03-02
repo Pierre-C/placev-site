@@ -38,7 +38,7 @@ const mockPrisma = prisma as ReturnType<typeof mockDeep<PrismaClient>>
 
 const FUTURE_DATE = (() => {
   const d = new Date()
-  let futureDate = new Date(d.setDate(d.getDate() + 1)) // Start from tomorrow
+  let futureDate = new Date(d.setDate(d.getDate() + 2)) // Start from tomorrow
 
   while (
     futureDate.getUTCDay() !== 1 && // Not Monday

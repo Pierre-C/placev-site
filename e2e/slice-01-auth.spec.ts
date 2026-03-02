@@ -93,13 +93,13 @@ authTest.describe("Dashboard membre", () => {
   })
 
   authTest("affiche l'historique des transactions", async ({ membrePage }) => {
-    await membrePage.goto("/dashboard")
+    await membrePage.goto("/dashboard/historique")
     await expect(membrePage.locator('[data-testid="transaction-history"]')).toBeVisible()
   })
 
-  authTest("affiche le lien vers la page de réservation", async ({ membrePage }) => {
+  authTest("affiche le calendrier de réservation", async ({ membrePage }) => {
     await membrePage.goto("/dashboard")
-    await expect(membrePage.locator('[data-testid="link-booking"]')).toBeVisible()
+    await expect(membrePage.locator('[data-testid="booking-calendar"]')).toBeVisible()
   })
 })
 
