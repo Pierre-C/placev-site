@@ -1,0 +1,311 @@
+feature: user-ux-v1
+slice: "6"
+title: "Dashboard Membre — UX Améliorations"
+parent_slice: "5c"
+estimated_days: 2
+status: ready
+
+dependencies: [slice-05c]
+
+# ─── CONTEXTE ─────────────────────────────────────────────────────────────────
+context: |
+  Refonte UX du dashboard membre pour aligner l'expérience avec le back-office admin.
+  Le dashboard passe d'une page unique monolithique à une navigation tabulaire
+  (3 onglets : Réserver / Recharger / Historique).
+  Le solde de crédits est mis en avant dans le header avec un code couleur d'alerte.
+  Le calendrier de réservation est contenu dans une div scrollable.
+  L'historique des transactions dispose d'un scroll dédié.
+
+# ─── PÉRIMÈTRE ────────────────────────────────────────────────────────────────
+scope:
+  included: |
+    Navigation tabulaire : 3 onglets cliquables (Réserver, Recharger, Historique)
+    Header dashboard : message de bienvenue + solde crédits coloré (orange=1, rouge≤0)
+    Onglet Réserver : calendrier dans une div scrollable à hauteur fixe
+    Onglet Réserver : dates passées grisées (opacity réduite) dans BookingCalendar
+    Onglet Réserver : border ring sur la tuile de la date du jour dans BookingCalendar
+    Onglet Historique : liste des transactions scrollable (max-height + overflow-y)
+    Onglet Historique : labels lisibles pour les types de transaction
+
+  out_of_scope: |
+    Modifications des règles métier (réservation, annulation, paiement)
+    Nouvelles routes API (aucune)
+    Modifications du calendrier admin (déjà traité en slice-05c)
+    Page /booking publique (conservée telle quelle)
+
+# ─── BASE DE DONNÉES ──────────────────────────────────────────────────────────
+database:
+  migration_required: false
+  note: |
+    Aucun changement de schéma. Uniquement des modifications frontend/layout.
+
+# ─── ROUTES API ───────────────────────────────────────────────────────────────
+api_routes:
+  new: []
+  modified: []
+  note: |
+    Les routes existantes sont réutilisées sans modification.
+    /api/availability, /api/booking, /api/booking/mine, /api/booking/[id]/cancel,
+    le paiement Stripe — tout est inchangé.
+
+# ─── ARCHITECTURE FRONTEND ────────────────────────────────────────────────────
+architecture: |
+  Le dashboard devient un layout avec 3 sous-routes, identique au pattern admin.
+
+  Routes finales :
+    /dashboard              → onglet "Réserver" (calendrier + réservations à venir)
+    /dashboard/recharger    → onglet "Recharger" (packs de crédits)
+    /dashboard/historique   → onglet "Historique" (transactions)
+
+  Le header (bienvenue + solde) et la DashboardNav sont dans le layout.
+  La page /booking existante est conservée pour l'accès public (non authentifié).
+
+# ─── RÈGLES MÉTIER / UX ───────────────────────────────────────────────────────
+business_rules:
+
+  navigation:
+    description: |
+      Barre de navigation par onglets, identique au pattern AdminNav.tsx.
+    composant: "DashboardNav.tsx (Client Component)"
+    tabs:
+      - { label: "Réserver", href: "/dashboard", testid: "nav-tab-reserver" }
+      - { label: "Recharger", href: "/dashboard/recharger", testid: "nav-tab-recharger" }
+      - { label: "Historique", href: "/dashboard/historique", testid: "nav-tab-historique" }
+    behavior: |
+      Onglet actif mis en évidence via usePathname() (border-b-2 border-blue-500 ou équivalent).
+      Onglet "Réserver" actif sur /dashboard (pathname === "/dashboard").
+      Onglet "Recharger" actif sur /dashboard/recharger (pathname === "/dashboard/recharger").
+      Onglet "Historique" actif sur /dashboard/historique (pathname === "/dashboard/historique").
+
+  header_balance:
+    description: |
+      Le header du layout affiche le message de bienvenue et le solde de crédits
+      sur la même ligne ou en bloc distinct mais toujours au-dessus des onglets.
+    markup: |
+      <div data-testid="dashboard-header">
+        <h1 data-testid="welcome-message">Bonjour, {user.name ?? user.email}</h1>
+        <span
+          data-testid="header-credit-balance"
+          data-level="{normal|warning|danger}"
+          class="{couleur selon solde}">
+          {user.credits} crédit(s)
+        </span>
+      </div>
+    color_rules: |
+      credits > 1  → data-level="normal"  → classe text-neutral-900 (noir)
+      credits == 1 → data-level="warning" → classe text-orange-500 (orange)
+      credits <= 0 → data-level="danger"  → classe text-red-600 (rouge)
+    note: |
+      Le solde dans le header est calculé côté server (Server Component layout).
+      Il n'a pas besoin d'être réactif en temps réel (pas de CustomEvent).
+      Le BalanceBadge existant (réactif via CustomEvent) reste sur l'onglet Réserver
+      pour être mis à jour après une annulation.
+
+  tab_reserver:
+    description: |
+      Contenu de /dashboard (onglet Réserver).
+      Regroupe : calendrier de réservation + réservations à venir + PaymentStatusBanner.
+    calendar_scroll: |
+      Le composant BookingCalendar est encapsulé dans une div scrollable :
+      <div
+        data-testid="booking-calendar-container"
+        style="max-height: 520px; overflow-y: auto;">
+        <BookingCalendar ... />
+      </div>
+      Résultat : le calendrier ne prend pas toute la hauteur de la page.
+    calendar_past_dates: |
+      Dans BookingCalendar, les cellules de dates passées (day < today) ont :
+        - data-past="true" sur la div wrapper (aujourd'hui déjà géré côté style via bg-neutral-100)
+        - Classe opacity-40 sur la div wrapper de la cellule (jours ouverts ET fermés passés)
+      Les dates passées restent non-cliquables (comportement inchangé).
+    calendar_today: |
+      Dans BookingCalendar, la cellule du jour actuel a :
+        - data-today="true" sur la div wrapper
+        - Classe ring-2 ring-blue-500 rounded-lg sur la div wrapper
+      La cellule today se distingue visuellement des autres cellules.
+
+  tab_recharger:
+    description: |
+      Nouvelle page /dashboard/recharger.
+      Reprend le contenu de CreditPackSection (actuellement dans /dashboard).
+      Ajoute la PaymentStatusBanner (Suspense) pour les retours Stripe.
+    note: |
+      CreditPackSection est un Server Component : la nouvelle page peut l'importer directement.
+
+  tab_historique:
+    description: |
+      Nouvelle page /dashboard/historique.
+      Affiche l'historique complet des transactions de l'utilisateur connecté.
+    scroll: |
+      La liste est dans une div scrollable :
+      <div
+        data-testid="transaction-list-scroll"
+        style="max-height: 480px; overflow-y: auto;">
+        {transactions.map(...)}
+      </div>
+    transaction_labels: |
+      Mapping des types de transaction vers des labels lisibles :
+        WELCOME_CREDIT      → "Crédit de bienvenue"
+        CREDIT_PURCHASE     → "Rechargement"
+        DEBIT_RESERVATION   → "Réservation"
+        REFUND_CANCELLATION → "Remboursement"
+        MANUAL_ADJUSTMENT   → "Ajustement manuel"
+    transaction_display: |
+      Chaque transaction affiche :
+        - Label (ex: "Réservation")
+        - Date (fr-FR)
+        - Montant coloré : vert si creditsAdd ≥ 0, rouge si creditsAdd < 0
+          Format : "+2 crédit(s)" ou "-1 crédit(s)"
+    empty_state: |
+      Si aucune transaction : <p data-testid="transaction-empty">Aucune transaction pour le moment.</p>
+
+# ─── FRONTEND — FICHIERS ──────────────────────────────────────────────────────
+frontend:
+  new_files:
+    - path: "app/(app)/dashboard/DashboardNav.tsx"
+      type: "Client Component"
+      note: |
+        Navigation par onglets du dashboard membre.
+        Pattern identique à AdminNav.tsx.
+        Liens : /dashboard, /dashboard/recharger, /dashboard/historique.
+
+    - path: "app/(app)/dashboard/layout.tsx"
+      type: "Server Component"
+      note: |
+        Layout du dashboard membre.
+        Vérifie l'auth (redirect /login si non connecté).
+        Récupère user.name + user.credits via prisma.
+        Affiche le header (bienvenue + solde coloré) + DashboardNav + {children}.
+        Redirige les ADMIN vers /admin.
+
+    - path: "app/(app)/dashboard/recharger/page.tsx"
+      type: "Server Component"
+      note: |
+        Onglet Recharger. Importe CreditPackSection + PaymentStatusBanner.
+        Récupère user.segment pour CreditPackSection.
+
+    - path: "app/(app)/dashboard/historique/page.tsx"
+      type: "Server Component"
+      note: |
+        Onglet Historique. Récupère les transactions via prisma (orderBy desc, take 50).
+        Affiche dans une div scrollable (transaction-list-scroll).
+
+  modified_files:
+    - path: "app/(app)/dashboard/page.tsx"
+      changes:
+        - "Supprimer la section 'Solde de crédits' (déplacée dans layout.tsx)"
+        - "Supprimer la section 'Packs de recharge' (déplacée dans /recharger)"
+        - "Supprimer la section 'Historique des transactions' (déplacée dans /historique)"
+        - "Conserver : PaymentStatusBanner, UpcomingReservations"
+        - "Ajouter : encapsulation BookingCalendar dans div booking-calendar-container scrollable"
+        - "Récupérer openDays depuis SystemSetting (comme /booking/page.tsx)"
+        - "Passer userId et initialCredits au BookingCalendar"
+
+    - path: "components/booking/BookingCalendar.tsx"
+      changes:
+        - "Ajouter data-past='true' sur la div wrapper des cellules passées (jours ouverts)"
+        - "Ajouter data-past='true' sur la div renderClosedDayCell pour les cellules passées"
+        - "Ajouter data-today='true' + ring-2 ring-blue-500 rounded-lg sur la cellule du jour"
+        - "IMPORTANT : ne pas modifier la logique métier (getHalfSlotState, etc.)"
+
+  data_testids:
+    new:
+      navigation:
+        - "dashboard-nav"          # conteneur nav onglets
+        - "nav-tab-reserver"       # onglet Réserver
+        - "nav-tab-recharger"      # onglet Recharger
+        - "nav-tab-historique"     # onglet Historique
+
+      header:
+        - "dashboard-header"       # conteneur header (bienvenue + solde)
+        - "header-credit-balance"  # span du solde (data-level="normal|warning|danger")
+
+      calendar:
+        - "booking-calendar-container"  # div scrollable encapsulant BookingCalendar
+        # Dans BookingCalendar (attributs sur cellules) :
+        # data-past="true"  → cellule passée
+        # data-today="true" → cellule du jour
+
+      historique:
+        - "transaction-list-scroll"  # div scrollable des transactions
+        - "transaction-empty"        # message si aucune transaction
+
+    preserved:
+      note: "Ces testids existants DOIVENT rester fonctionnels"
+      - "welcome-message"          # h1 bienvenue (existant dans dashboard)
+      - "credit-balance"           # BalanceBadge (existant, reste dans l'onglet Réserver)
+      - "upcoming-reservations"    # section réservations à venir
+      - "cancel-booking-btn"       # bouton annulation réservation
+      - "confirm-cancel"           # confirmation annulation
+      - "cancel-success"           # message succès annulation
+      - "credit-packs"             # grille des packs (dans /recharger)
+      - "transaction-history"      # section historique (conservé comme data-testid du container)
+      - "booking-calendar"         # BookingCalendar root
+      - "slot-tile"                # tuiles du calendrier
+      - "booking-summary"          # panneau récapitulatif
+      - "confirm-booking"          # bouton confirmer réservation
+      - "booking-success"          # message succès réservation
+
+# ─── TESTS ────────────────────────────────────────────────────────────────────
+tests:
+
+  unit:
+    note: "Aucun test unitaire requis (pas de logique métier nouvelle)"
+
+  http:
+    note: "Aucun test HTTP requis (pas de nouvelle route API)"
+
+  e2e:
+    file: "e2e/slice-06-user-ux.spec.ts"
+    tool: playwright
+
+    cases:
+      # Navigation — 3 onglets
+      - "Le dashboard affiche 3 onglets de navigation (Réserver, Recharger, Historique)"
+      - "L'onglet 'Réserver' pointe vers /dashboard"
+      - "L'onglet 'Recharger' pointe vers /dashboard/recharger"
+      - "L'onglet 'Historique' pointe vers /dashboard/historique"
+      - "Clic sur 'Recharger' → navigation vers /dashboard/recharger"
+      - "Clic sur 'Historique' → navigation vers /dashboard/historique"
+      - "Clic sur 'Réserver' → retour vers /dashboard"
+
+      # Header — solde coloré
+      - "Le header affiche le message de bienvenue (welcome-message)"
+      - "Le solde de crédits est affiché dans le header (header-credit-balance)"
+      - "Un solde > 1 a data-level='normal'"
+      - "Un solde = 1 a data-level='warning' et une classe orange"
+      - "Un solde ≤ 0 a data-level='danger' et une classe rouge"
+      - "Le header et les onglets sont visibles sur toutes les pages du dashboard"
+
+      # Onglet Réserver — calendrier scrollable
+      - "L'onglet Réserver affiche le calendrier dans booking-calendar-container"
+      - "booking-calendar-container a overflow-y auto ou scroll"
+      - "Le calendrier (booking-calendar) est visible dans le container"
+
+      # Onglet Réserver — dates dans BookingCalendar
+      - "Les cellules passées ont data-past='true'"
+      - "Les cellules passées ont une opacité réduite"
+      - "La cellule du jour actuel a data-today='true'"
+      - "La cellule du jour actuel a un ring visible"
+
+      # Onglet Recharger
+      - "L'onglet Recharger affiche les packs de crédits (credit-packs)"
+      - "Les 3 packs (5, 10, 20 crédits) sont visibles"
+
+      # Onglet Historique
+      - "L'onglet Historique affiche transaction-list-scroll"
+      - "transaction-list-scroll a overflow-y auto ou scroll"
+      - "Les transactions sont listées avec leur label et montant"
+      - "Un solde positif est affiché en vert"
+      - "Un solde négatif est affiché en rouge"
+      - "Si aucune transaction, transaction-empty est visible"
+
+done_when:
+  - npm run test:e2e:slice6 → tous les scénarios Playwright passent
+  - Dashboard membre : 3 onglets de navigation fonctionnels
+  - Header affiche le solde coloré (orange=1 crédit, rouge≤0 crédit)
+  - Calendrier dans div scrollable sur l'onglet Réserver
+  - Dates passées grisées (opacity-40) dans le calendrier membre
+  - Border ring sur la date du jour dans le calendrier membre
+  - Historique des transactions dans div scrollable sur l'onglet Historique
+  - Tous les data-testid existants restent fonctionnels (non-régression)
