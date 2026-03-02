@@ -67,10 +67,10 @@ authTest.describe("Header — connecté", () => {
     await expect(membrePage).toHaveURL("/dashboard")
   })
 
-  authTest("clic 'Se déconnecter' → déconnexion et redirection /login", async ({ membrePage }) => {
+  authTest("clic 'Se déconnecter' → déconnexion et redirection /", async ({ membrePage }) => {
     await membrePage.goto("/")
     await membrePage.getByTestId("logout-btn").click()
-    await expect(membrePage).toHaveURL(/\/login/)
+    await expect(membrePage).toHaveURL("/")
     // Vérifier que le header affiche maintenant le mode non connecté
     await expect(membrePage.getByTestId("header-login-btn")).toBeVisible()
   })
