@@ -43,6 +43,12 @@ async function main() {
     console.log("  ✓ Réservations futures des comptes de test supprimées")
   }
 
+  // Nettoyer les fermetures futures pour les tests
+  await prisma.closedDate.deleteMany({
+    where: { date: { gte: new Date() } }
+  })
+  console.log("  ✓ Dates de fermeture futures supprimées")
+
   const passwordHash = await bcrypt.hash("TestPassword123!", 12)
 
   // ─── Utilisateurs de test ─────────────────────────────────────────────────

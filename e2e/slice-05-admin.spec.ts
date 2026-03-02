@@ -9,7 +9,7 @@ import { test, expect, futureDateYMD } from "./helpers/fixtures"
 test.describe("Dashboard admin — Membres", () => {
   test("l'admin voit la liste des membres", async ({ adminPage }) => {
     await adminPage.goto("/admin")
-    await expect(adminPage.locator('[data-testid="members-table"]')).toBeVisible()
+    await expect(adminPage.locator('[data-testid="members-table"]')).toBeVisible()   
     // Au moins les utilisateurs seedés doivent apparaître
     await expect(adminPage.locator('[data-testid="member-row"]').first()).toBeVisible()
   })
@@ -39,20 +39,30 @@ test.describe("Dashboard admin — Membres", () => {
     await adminPage.click('[data-testid="save-credits"]')
 
     await expect(adminPage.locator('[data-testid="member-detail-modal"]')).not.toBeVisible()
-    await expect(adminPage.locator('[data-testid="success-toast"]')).toBeVisible()
+    await expect(adminPage.locator('[data-testid="success-toast"]')).toBeVisible()   
   })
 
   test("l'admin peut changer le statut adhérent d'un membre", async ({ adminPage }) => {
     await adminPage.goto("/admin")
 
     const firstRow = adminPage.locator('[data-testid="member-row"]').first()
-    const toggle = firstRow.locator('[data-testid="member-is-member-badge"]')
-    const initialState = await toggle.getAttribute("data-value")
+    const badge = firstRow.locator('[data-testid="member-is-member-badge"]')
+    const initialState = await badge.getAttribute("data-value")
 
-    await toggle.click()
+    // Ouvrir le modal
+    await firstRow.locator('[data-testid="view-edit-btn"]').click()
+    const modal = adminPage.locator('[data-testid="member-detail-modal"]')
+    await expect(modal).toBeVisible()
+
+    // Cliquer sur le toggle
+    await modal.locator('[data-testid="member-toggle"]').click()
+    await modal.locator('[data-testid="save-credits"]').click()
+
+    // Attendre la disparition du modal
+    await expect(modal).not.toBeVisible()
 
     // L'état doit avoir changé
-    await expect(toggle).toHaveAttribute("data-value", initialState === "true" ? "false" : "true")
+    await expect(badge).toHaveAttribute("data-value", initialState === "true" ? "false" : "true")
   })
 })
 
@@ -62,15 +72,15 @@ test.describe("Réservation proxy", () => {
     await adminPage.goto("/admin/bookings/proxy")
 
     // Sélectionner l'utilisateur cible
-    await adminPage.fill('[data-testid="proxy-user-search"]', "externe@test.fr")
-    await adminPage.locator('[data-testid="proxy-user-option"]').first().click()
+    await adminPage.fill('[data-testid="proxy-user-search"]', "externe@test.fr")     
+    await adminPage.locator('[data-testid="proxy-user-option"]').first().click()     
 
     // Sélectionner la date et le créneau
     await adminPage.fill('[data-testid="proxy-date"]', futureDateYMD(14))
     await adminPage.click('[data-value="AM"]')
     await adminPage.click('[data-testid="confirm-proxy"]')
 
-    await expect(adminPage.locator('[data-testid="proxy-success"]')).toBeVisible()
+    await expect(adminPage.locator('[data-testid="proxy-success"]')).toBeVisible()   
   })
 })
 
@@ -79,16 +89,19 @@ test.describe("Fermeture de date", () => {
   test("l'admin peut fermer une date et voit le nombre de réservations impactées", async ({ adminPage }) => {
     await adminPage.goto("/admin/settings")
 
-    await adminPage.fill('[data-testid="close-date-input"]', futureDateYMD(30))
-    await adminPage.fill('[data-testid="close-date-reason"]', "Fermeture test E2E")
+    await adminPage.click('[data-testid="manage-closed-dates-btn"]')
+    await expect(adminPage.locator('[data-testid="closed-dates-modal"]')).toBeVisible()
+
+    await adminPage.fill('[data-testid="close-date-input"]', futureDateYMD(30))      
+    await adminPage.fill('[data-testid="close-date-reason"]', "Fermeture test E2E")  
 
     // Vérifier la preview avant confirmation
     await adminPage.click('[data-testid="preview-closure"]')
-    await expect(adminPage.locator('[data-testid="closure-preview"]')).toBeVisible()
+    await expect(adminPage.locator('[data-testid="closure-preview"]')).toBeVisible() 
 
     // Confirmer
     await adminPage.click('[data-testid="confirm-closure"]')
-    await expect(adminPage.locator('[data-testid="closure-success"]')).toBeVisible()
+    await expect(adminPage.locator('[data-testid="closure-success"]')).toBeVisible() 
   })
 })
 

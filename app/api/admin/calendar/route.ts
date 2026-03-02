@@ -43,9 +43,10 @@ export async function GET(request: Request) {
   const closedDates = await prisma.closedDate.findMany({
     where: { date: { gte: startDate, lte: endDate } },
   });
-  const closedSet = new Set(
-    closedDates.map((cd) => cd.date.toISOString().slice(0, 10)),
-  );
+  const closedMap = new Map<string, string>();
+  for (const cd of closedDates) {
+    closedMap.set(cd.date.toISOString().slice(0, 10), cd.id);
+  }
 
   const reservations = await prisma.reservation.findMany({
     where: {
@@ -74,17 +75,19 @@ export async function GET(request: Request) {
     count: number;
     capacity: number;
     isClosed: boolean;
+    closedDateId: string | null;
   }[] = [];
   let current = new Date(startDate);
 
   while (current <= endDate) {
     const dateStr = current.toISOString().slice(0, 10);
     const isNotOpenDay = !openDays.includes(current.getUTCDay());
-    const isClosed = closedSet.has(dateStr) || isNotOpenDay;
+    const closedDateId = closedMap.get(dateStr) ?? null;
+    const isClosed = closedDateId !== null || isNotOpenDay;
 
     for (const slot of ["AM", "PM"] as const) {
       const count = countMap.get(`${dateStr}|${slot}`) ?? 0;
-      result.push({ date: dateStr, slot, count, capacity, isClosed });
+      result.push({ date: dateStr, slot, count, capacity, isClosed, closedDateId });
     }
 
     current.setUTCDate(current.getUTCDate() + 1);

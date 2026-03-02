@@ -131,5 +131,51 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Date dÃ©jÃ  fermÃ©e" }, { status: 409 })
     }
     return NextResponse.json({ error: "Server Error" }, { status: 500 })
-  }
-}
+    }
+    }
+
+    export async function DELETE(request: Request) {
+    const session = await auth()
+    if (!session?.user || session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+    }
+
+    try {
+    const bodyText = await request.text()
+    if (!bodyText) {
+      return NextResponse.json({ error: "Date manquante" }, { status: 400 })
+    }
+    const body = JSON.parse(bodyText)
+    const result = bodySchema.safeParse(body)
+    if (!result.success) {
+      return NextResponse.json({ error: "DonnÃ©es invalides", details: result.error.flatten() }, { status: 400 })
+    }
+
+    const { date } = result.data
+    const targetDate = new Date(date)
+
+    const closedDate = await prisma.closedDate.findFirst({
+      where: { date: targetDate }
+    })
+
+    if (!closedDate) {
+      return NextResponse.json({ error: "Aucune fermeture pour cette date" }, { status: 404 })
+    }
+
+    await prisma.closedDate.delete({
+      where: { id: closedDate.id }
+    })
+
+    await prisma.reservation.deleteMany({
+      where: {
+        date: targetDate,
+        type: "ORGANIZATION",
+      }
+    })
+
+    return NextResponse.json({ success: true, date: date }, { status: 200 })
+    } catch (error: any) {
+    console.error("Delete closed date error:", error)
+    return NextResponse.json({ error: "Server Error" }, { status: 500 })
+    }
+    }

@@ -15,9 +15,6 @@ export default async function AdminLayout({
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="text-3xl font-bold text-neutral-900">Administration</h1>
-      <p className="mt-2 text-neutral-500">
-        Panneau d'administration Place V — Slice 5.
-      </p>
 
       <AdminNav />
 

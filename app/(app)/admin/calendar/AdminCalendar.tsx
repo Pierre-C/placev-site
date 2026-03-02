@@ -13,6 +13,7 @@ type OccupancyItem = {
   count: number
   capacity: number
   isClosed: boolean
+  closedDateId: string | null
 }
 
 type ReservationDetail = {
@@ -189,7 +190,38 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
     })
   }
 
+  const handleOpenDate = async () => {
+    if (!selectedDate) return
+    setConfirmDialog({
+      isOpen: true,
+      title: "Réouvrir cette date ?",
+      message: "La date redeviendra disponible pour les réservations.",
+      onConfirm: async () => {
+        const res = await fetch(`/api/admin/close-date`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date: selectedDate })
+        })
+        if (res.ok) {
+          setSuccessMessage("Date réouverte avec succès")
+          fetchReservations(selectedDate)
+          fetchOccupancy()
+          setTimeout(() => setSuccessMessage(null), 3000)
+        }
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }))
+      }
+    })
+  }
+
   const monthLabel = `${MONTHS_FR[monthCursor.getMonth()]} ${monthCursor.getFullYear()}`
+
+  // Check if selected date is manually closed
+  const isSelectedDateManuallyClosed = useMemo(() => {
+    if (!selectedDate) return false
+    const am = occMap.get(`${selectedDate}|AM`)
+    const pm = occMap.get(`${selectedDate}|PM`)
+    return (am?.closedDateId != null) || (pm?.closedDateId != null)
+  }, [selectedDate, occMap])
 
   return (
     <div data-testid="admin-calendar" className="space-y-8">
@@ -230,25 +262,33 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
       </div>
 
       {/* GRILLE */}
-      <div className="grid grid-cols-5 gap-2">
-        {WEEKDAY_HEADERS.map(h => (
-          <div key={h} className="text-center text-xs font-bold text-neutral-400 pb-2">{h}</div>
-        ))}
-        {days.map((day, i) => {
-          const dateStr = formatYMD(day)
-          const isCurrentMonth = day.getMonth() === monthCursor.getMonth()
-          const am = occMap.get(`${dateStr}|AM`)
-          const pm = occMap.get(`${dateStr}|PM`)
-          const isClosed = am?.isClosed || pm?.isClosed
-          const isSelected = selectedDate === dateStr
+      <div data-testid="admin-calendar-grid" style={{ maxHeight: "480px", overflowY: "auto" }}>
+        <div className="grid grid-cols-5 gap-2">
+          {WEEKDAY_HEADERS.map(h => (
+            <div key={h} className="text-center text-xs font-bold text-neutral-400 pb-2">{h}</div>
+          ))}
+          {days.map((day, i) => {
+            const dateStr = formatYMD(day)
+            const isCurrentMonth = day.getMonth() === monthCursor.getMonth()
+            const am = occMap.get(`${dateStr}|AM`)
+            const pm = occMap.get(`${dateStr}|PM`)
+            const isClosed = am?.isClosed || pm?.isClosed
+            const isSelected = selectedDate === dateStr
 
-          return (
-            <div
-              key={i}
-              className={`relative aspect-square rounded-xl overflow-hidden transition-all ${
-                isCurrentMonth ? "ring-1 ring-neutral-100" : "opacity-30 grayscale"
-              } ${isSelected ? "ring-2 ring-blue-500 shadow-md" : ""}`}
-            >
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            const isPast = day < today
+            const isToday = day.getTime() === today.getTime()
+
+            return (
+              <div
+                key={i}
+                data-past={isPast ? "true" : "false"}
+                data-today={isToday ? "true" : "false"}
+                className={`relative aspect-square rounded-xl overflow-hidden transition-all ${
+                  isCurrentMonth ? "ring-1 ring-neutral-100" : "opacity-30 grayscale"
+                } ${isSelected ? "ring-2 ring-blue-500 shadow-md" : ""} ${isPast ? "opacity-40" : ""} ${isToday ? "ring-2 ring-blue-500 rounded-lg" : ""}`}
+              >
               <span className="absolute top-1 left-2 z-30 text-xs font-bold text-neutral-400 pointer-events-none">
                 {day.getDate()}
               </span>
@@ -321,6 +361,7 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
             </div>
           )
         })}
+        </div>
       </div>
 
       {/* DETAIL PANEL */}
@@ -346,13 +387,23 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
               >
                 Annuler tout PM
               </button>
-              <button
-                data-testid="admin-close-date-btn"
-                onClick={handleCloseDate}
-                className="px-4 py-2 bg-red-50 text-red-700 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors"
-              >
-                Fermer cette date
-              </button>
+              {isSelectedDateManuallyClosed ? (
+                <button
+                  data-testid="admin-open-date-btn"
+                  onClick={handleOpenDate}
+                  className="px-4 py-2 bg-blue-50 text-blue-700 rounded-xl font-bold text-sm hover:bg-blue-100 transition-colors"
+                >
+                  Réouvrir cette date
+                </button>
+              ) : (
+                <button
+                  data-testid="admin-close-date-btn"
+                  onClick={handleCloseDate}
+                  className="px-4 py-2 bg-red-50 text-red-700 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors"
+                >
+                  Fermer cette date
+                </button>
+              )}
             </div>
           </div>
 

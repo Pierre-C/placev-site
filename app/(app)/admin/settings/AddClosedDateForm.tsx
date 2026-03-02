@@ -70,7 +70,7 @@ export default function AddClosedDateForm() {
           />
         </div>
         <button data-testid="preview-closure" onClick={handlePreview} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm">
-          Prévisualiser
+          Fermer
         </button>
       </div>
       {isPreview && (
