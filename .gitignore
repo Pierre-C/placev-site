@@ -39,7 +39,6 @@ yarn.lock
 
 
 # tests
-e2e/
 playwright-report/
 test-results/
 
