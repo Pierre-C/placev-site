@@ -143,7 +143,7 @@ frontend:
 
       error_balance: |
         data-testid="error-insufficient-balance" visible
-        data-testid="link-buy-credits" → lien vers /credits
+        data-testid="link-buy-credits" → lien vers /dashboard/recharger
 
       error_full: |
         data-testid="error-slot-full" visible
@@ -162,7 +162,7 @@ frontend:
     - "confirm-booking"            # bouton confirmer
     - "booking-success"            # message succès
     - "error-insufficient-balance" # message solde insuffisant
-    - "link-buy-credits"           # lien vers /credits
+    - "link-buy-credits"           # lien vers /dashboard/recharger
     - "error-slot-full"            # message créneau pris
 
   dashboard_integration:

@@ -690,7 +690,7 @@ export default function BookingCalendar({
                   >
                     Solde insuffisant pour cette réservation.{" "}
                     <Link
-                      href="/credits"
+                      href="/dashboard/recharger"
                       data-testid="link-buy-credits"
                       className="font-medium underline"
                     >
