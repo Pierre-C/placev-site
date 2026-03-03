@@ -22,9 +22,9 @@ type Reservation = {
 }
 
 const SLOT_LABELS: Record<string, string> = {
-  AM: "Matin (09h–13h)",
-  PM: "Après-midi (14h–18h)",
-  FULL: "Journée (09h–18h)",
+  AM: "Matin (08h30–13h)",
+  PM: "Après-midi (13h–18h)",
+  FULL: "Journée (08h30–18h)",
 }
 
 interface Props {

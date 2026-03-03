@@ -125,7 +125,7 @@ frontend:
     step_2_summary: |
       Le panneau affiche :
         - Date lisible ("Lundi 15 mars 2025")
-        - Créneau ("Matin 09h–13h" / "Après-midi 14h–18h" / "Journée 09h–18h")
+        - Créneau ("Matin 08h30–13h" / "Après-midi 13h–18h" / "Journée 08h30–18h")
         - Coût : "1 crédit" ou "2 crédits"
         - Solde après réservation (si authentifié) : "Votre solde : 4 → 3 crédits"
         - Si non authentifié : "Connectez-vous pour réserver" + lien /login
