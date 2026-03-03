@@ -17,6 +17,10 @@ export async function GET() {
       name: true,
       credits: true,
       isMember: true,
+      transactions: {
+        where: { creditsAdd: { gt: 0 } },
+        select: { creditsAdd: true },
+      },
       _count: {
         select: {
           reservations: {
@@ -35,6 +39,7 @@ export async function GET() {
 
   const members = users.map((user) => {
     const reservationCount = user._count.reservations
+    const lifetimeCredits = user.transactions?.reduce((acc, tx) => acc + tx.creditsAdd, 0) ?? 0
     return {
       id: user.id,
       email: user.email,
@@ -42,6 +47,7 @@ export async function GET() {
       credits: user.credits,
       isMember: user.isMember,
       reservationCount,
+      lifetimeCredits,
       alertFlag: shouldShowMemberAlert({
         isMember: user.isMember,
         reservationCount,

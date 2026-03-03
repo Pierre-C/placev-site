@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
     const slotsToCheck = slot === "FULL" ? (["AM", "PM"] as const) : ([slot] as const)
     for (const halfSlot of slotsToCheck) {
-      const conflictingSlots = halfSlot === "AM" ? { in: ["AM", "FULL"] as const } : { in: ["PM", "FULL"] as const }
+      const conflictingSlots = halfSlot === "AM" ? { in: ["AM", "FULL"] as import("@prisma/client").Slot[] } : { in: ["PM", "FULL"] as import("@prisma/client").Slot[] }
       const count = await prisma.reservation.count({
         where: {
           date: reservationDate,

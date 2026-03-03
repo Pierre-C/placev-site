@@ -36,10 +36,10 @@ export async function POST(
     },
   });
 
-  let newBalance = reservation.user.credits;
+  let newBalance = reservation.user?.credits ?? null;
 
   // Remboursement uniquement pour OPENSPACE et si des crédits ont été dépensés
-  if (reservation.type === "OPENSPACE" && reservation.creditsCost && reservation.creditsCost > 0) {
+  if (reservation.userId && reservation.user && reservation.type === "OPENSPACE" && reservation.creditsCost && reservation.creditsCost > 0) {
     const updatedUser = await prisma.user.update({
       where: { id: reservation.userId },
       data: {
@@ -61,7 +61,7 @@ export async function POST(
   }
 
   // Envoi d'email via Brevo
-  if (reservation.user.email) {
+  if (reservation.user?.email) {
     await brevo.sendEmail({
       to: reservation.user.email,
       template: "annulation-par-admin",

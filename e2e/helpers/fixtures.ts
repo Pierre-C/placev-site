@@ -4,17 +4,17 @@
  * Chaque fixture charge une session pré-authentifiée → pas de re-login à chaque test.
  */
 
-import { test as base } from "@playwright/test"
+import { test as base, Page } from "@playwright/test"
 import { SESSIONS } from "./session-paths"
 
 // Types des fixtures custom
 type PlaceVFixtures = {
-  membrePage: ReturnType<typeof base.extend> // Page connectée en tant que membre
-  adminPage: ReturnType<typeof base.extend>  // Page connectée en tant qu'admin
-  pauvreMembrePage: ReturnType<typeof base.extend> // Page membre avec crédits insuffisants
+  membrePage: Page // Page connectée en tant que membre
+  adminPage: Page  // Page connectée en tant qu'admin
+  pauvreMembrePage: Page // Page membre avec crédits insuffisants
 }
 
-export const test = base.extend({
+export const test = base.extend<PlaceVFixtures>({
   // Page pré-authentifiée en tant que membre normal
   membrePage: async ({ browser }, use) => {
     const context = await browser.newContext({ storageState: SESSIONS.membre })
@@ -81,7 +81,7 @@ export function futureOpenDateYMD(nthOpenDay = 1): string {
 /**
  * Lit le solde de crédits affiché sur le dashboard.
  */
-export async function getDisplayedBalance(page: Parameters<typeof base>[0]): Promise<number> {
+export async function getDisplayedBalance(page: Page): Promise<number> {
   const text = await page.locator('[data-testid="credit-balance"]').textContent()
   const match = text?.match(/(-?\d+)/)
   return match ? parseInt(match[1]) : 0

@@ -62,8 +62,10 @@ test.describe("Inscription enrichie", () => {
     await page.goto("/register")
     await page.fill('[name="email"]', `nocgu-${Date.now()}@test.fr`)
     await page.fill('[name="password"]', "TestPassword123!")
-    await page.click('[data-testid="toggle-bouliacais-non"]')
-    // Ne pas cocher CGU
+    // Bouliacais=Oui pour éviter le champ city (aussi required) qui bloquerait avant la CGU
+    await page.click('[data-testid="toggle-bouliacais-oui"]')
+    // Ne pas cocher CGU — bypass la validation HTML5 native pour atteindre le Server Action
+    await page.evaluate(() => document.querySelector('form')!.setAttribute('novalidate', ''))
     await page.click('[type="submit"]')
 
     await expect(page).toHaveURL("/register")
@@ -101,6 +103,8 @@ test.describe("Réinitialisation de mot de passe", () => {
   test("soumettre un email invalide affiche une erreur de validation", async ({ page }) => {
     await page.goto("/forgot-password")
     await page.fill('[name="email"]', "pas-un-email")
+    // Bypass la validation HTML5 native (type="email") pour atteindre la validation Zod côté serveur
+    await page.evaluate(() => document.querySelector('form')!.setAttribute('novalidate', ''))
     await page.click('[type="submit"]')
 
     await expect(page.locator('[data-testid="error-message"]')).toBeVisible()

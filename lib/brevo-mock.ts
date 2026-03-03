@@ -28,12 +28,15 @@ export type BrevoTemplate =
   | "confirmation-reservation"
   | "confirmation-annulation"
   | "annulation-par-admin"
+  | "reset-password"
+  | "confirmation-reservation-multiple"
+  | "nouvelle-demande-devis"
 
 export interface SendEmailParams {
   template: BrevoTemplate
   to: string
   toName?: string
-  variables: Record<string, string | number>
+  variables: Record<string, any>
 }
 
 export interface SendEmailResult {

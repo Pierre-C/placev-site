@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const result = bodySchema.safeParse(body)
     if (!result.success) {
-      return NextResponse.json({ error: "DonnÃ©es invalides", details: result.error.flatten() }, { status: 422 })
+      return NextResponse.json({ error: "Données invalides", details: result.error.flatten() }, { status: 422 })
     }
 
     const { targetUserId, date, slot } = result.data
@@ -32,64 +32,59 @@ export async function POST(request: Request) {
     }
 
     const cost = slot === "FULL" ? 2 : 1
-    
-    // Balance threshold check: credits - cost >= -3
-    if (targetUser.credits - cost < -3) {
-      return NextResponse.json({ error: "Solde insuffisant pour le proxy (-3 max)" }, { status: 403 })
+
+    // Balance threshold check: credits - cost >= 0
+    if (targetUser.credits - cost < 0) {
+      return NextResponse.json({ error: "Solde insuffisant pour le proxy" }, { status: 403 })
     }
 
-    // Atomic $transaction
-    const txResult = await prisma.$transaction(async (tx) => {
-      // Re-check capacity
-      const capacitySetting = await tx.systemSetting.findUnique({ where: { key: "DESK_CAPACITY" } })
-      const capacity = capacitySetting ? parseInt(capacitySetting.value, 10) : 15
+    // Re-check capacity
+    const capacitySetting = await prisma.systemSetting.findUnique({ where: { key: "DESK_CAPACITY" } })
+    const capacity = capacitySetting ? parseInt(capacitySetting.value, 10) : 15
 
-      const slotsToCheck = slot === "FULL" ? (["AM", "PM"] as const) : ([slot] as const)
-      for (const halfSlot of slotsToCheck) {
-        const conflictingSlots = halfSlot === "AM" ? { in: ["AM", "FULL"] as const } : { in: ["PM", "FULL"] as const }
-        const count = await tx.reservation.count({
-          where: {
-            date: reservationDate,
-            status: "CONFIRMED",
-            type: "OPENSPACE",
-            slot: conflictingSlots,
-          },
-        })
-        if (count >= capacity) {
-          throw new Error(`CrÃ©neau ${halfSlot} complet`)
-        }
-      }
-
-      // create Reservation
-      const reservation = await tx.reservation.create({
-        data: {
-          userId: targetUser.id,
+    const slotsToCheck = slot === "FULL" ? (["AM", "PM"] as const) : ([slot] as const)
+    for (const halfSlot of slotsToCheck) {
+      const conflictingSlots = halfSlot === "AM" ? { in: ["AM", "FULL"] as import("@prisma/client").Slot[] } : { in: ["PM", "FULL"] as import("@prisma/client").Slot[] }
+      const count = await prisma.reservation.count({
+        where: {
           date: reservationDate,
-          slot,
-          type: "OPENSPACE",
           status: "CONFIRMED",
-          creditsCost: cost,
-          isProxy: true,
-          proxyAdminId: session.user.id,
+          type: "OPENSPACE",
+          slot: conflictingSlots,
         },
       })
+      if (count >= capacity) {
+        return NextResponse.json({ error: `Créneau ${halfSlot} complet` }, { status: 409 })
+      }
+    }
 
-      // debit targetUser.credits
-      const updatedUser = await tx.user.update({
-        where: { id: targetUser.id },
-        data: { credits: { decrement: cost } },
-      })
+    // create Reservation
+    const reservation = await prisma.reservation.create({
+      data: {
+        userId: targetUser.id,
+        date: reservationDate,
+        slot,
+        type: "OPENSPACE",
+        status: "CONFIRMED",
+        creditsCost: cost,
+        isProxy: true,
+        proxyAdminId: session.user.id,
+      },
+    })
 
-      await tx.transaction.create({
-        data: {
-          userId: targetUser.id,
-          type: "DEBIT_RESERVATION",
-          creditsAdd: -cost,
-          creditsBefore: targetUser.credits,
-        },
-      })
+    // debit targetUser.credits
+    const updatedUser = await prisma.user.update({
+      where: { id: targetUser.id },
+      data: { credits: { decrement: cost } },
+    })
 
-      return { reservation, updatedUser }
+    await prisma.transaction.create({
+      data: {
+        userId: targetUser.id,
+        type: "DEBIT_RESERVATION",
+        creditsAdd: -cost,
+        creditsBefore: targetUser.credits,
+      },
     })
 
     // Brevo email confirmation-reservation sent to the target with isProxy=true
@@ -101,16 +96,13 @@ export async function POST(request: Request) {
         slot,
         costCredits: cost,
         date,
-        newBalance: txResult.updatedUser.credits,
-        isProxy: true,
+        newBalance: updatedUser.credits,
+        isProxy: "true",
       },
     })
 
-    return NextResponse.json({ reservation: txResult.reservation, newBalance: txResult.updatedUser.credits }, { status: 201 })
+    return NextResponse.json({ reservation, newBalance: updatedUser.credits }, { status: 201 })
   } catch (error: any) {
-    if (error.message.includes("complet")) {
-      return NextResponse.json({ error: error.message }, { status: 409 })
-    }
     console.error("Proxy error:", error)
     return NextResponse.json({ error: "Server Error" }, { status: 500 })
   }

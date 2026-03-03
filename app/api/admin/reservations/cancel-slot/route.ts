@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
   const targetDate = new Date(date);
 
-  const targetSlots = slot === "AM" ? ["AM", "FULL"] : ["PM", "FULL"];
+  const targetSlots: import("@prisma/client").Slot[] = slot === "AM" ? ["AM", "FULL"] : ["PM", "FULL"];
 
   const reservationsToCancel = await prisma.reservation.findMany({
     where: {
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       },
     });
 
-    if (reservation.creditsCost && reservation.creditsCost > 0) {
+    if (reservation.userId && reservation.user && reservation.creditsCost && reservation.creditsCost > 0) {
       await prisma.user.update({
         where: { id: reservation.userId },
         data: {
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       });
     }
 
-    if (reservation.user.email) {
+    if (reservation.user?.email) {
       await brevo.sendEmail({
         to: reservation.user.email,
         template: "annulation-par-admin",

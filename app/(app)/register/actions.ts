@@ -13,13 +13,13 @@ import { prisma } from "@/lib/prisma"
 import { createUser } from "@/lib/services/user"
 
 const registerSchema = z.object({
-  name: z
-    .string()
-    .optional()
-    .transform((v) => (v && v.length > 0 ? v : undefined)),
+  name: z.string().optional().transform(v => v && v.length > 0 ? v : undefined),
   email: z.string().email("Email invalide"),
   password: z.string().min(8, "Le mot de passe doit contenir au moins 8 caractères"),
-  segment: z.enum(["BOULIACAIS", "EXTERNE", "REDUIT"]).default("EXTERNE"),
+  isBouliacais: z.enum(["true", "false"]).transform(v => v === "true"),
+  city: z.string().optional().transform(v => v && v.length > 0 ? v : undefined),
+  tarifReduit: z.enum(["true", "false"]).transform(v => v === "true"),
+  cgu: z.string().refine(val => val === "true", "Vous devez accepter les CGU"),
 })
 
 export type RegisterState = { error: string }
@@ -29,10 +29,13 @@ export async function registerAction(
   formData: FormData
 ): Promise<RegisterState> {
   const parsed = registerSchema.safeParse({
-    name: formData.get("name"),
-    email: formData.get("email"),
-    password: formData.get("password"),
-    segment: formData.get("segment") || "EXTERNE",
+    name: formData.get("name") ?? undefined,
+    email: formData.get("email") ?? "",
+    password: formData.get("password") ?? "",
+    isBouliacais: formData.get("isBouliacais") ?? "false",
+    city: formData.get("city") ?? undefined,
+    tarifReduit: formData.get("tarifReduit") ?? "false",
+    cgu: formData.get("cgu") ?? "",
   })
 
   if (!parsed.success) {
@@ -40,7 +43,7 @@ export async function registerAction(
     return { error: firstError ?? "Données invalides" }
   }
 
-  const { email, name, password, segment } = parsed.data
+  const { email, name, password, isBouliacais, city, tarifReduit, cgu } = parsed.data
 
   // Vérifier si l'email est déjà utilisé
   const existing = await prisma.user.findUnique({ where: { email } })
@@ -48,9 +51,9 @@ export async function registerAction(
     return { error: "Cet email est déjà utilisé" }
   }
 
-  // Créer l'utilisateur (hash + transaction WELCOME_CREDIT + email Brevo mock)
+  // Créer l'utilisateur (hash + email Brevo mock)
   try {
-    await createUser({ email, name, password, segment })
+    await createUser({ email, name: name ?? "", password, isBouliacais, city: city ?? "", tarifReduit, cguAccepted: cgu === "true" })
   } catch {
     return { error: "Erreur lors de la création du compte" }
   }

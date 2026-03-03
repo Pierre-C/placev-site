@@ -17,11 +17,6 @@ import { brevo } from "@/lib/brevo"
 import { prisma } from "@/lib/prisma"
 import { env } from "@/lib/env"
 
-// Désactiver le body parsing automatique de Next.js (Stripe envoie du raw text)
-export const config = {
-  api: { bodyParser: false },
-}
-
 type StripeEvent = {
   type: string
   data: {

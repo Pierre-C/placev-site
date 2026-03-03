@@ -27,6 +27,9 @@ const TEMPLATE_IDS: Record<string, number> = {
   "confirmation-reservation": 1,     // TODO: remplacer par l'ID réel
   "confirmation-annulation": 1,      // TODO: remplacer par l'ID réel
   "annulation-par-admin": 1,         // TODO: remplacer par l'ID réel
+  "reset-password": 2,
+  "confirmation-reservation-multiple": 3,
+  "nouvelle-demande-devis": 4,
 }
 
 // ─── Client réel (appel API Brevo) ────────────────────────────────────────────

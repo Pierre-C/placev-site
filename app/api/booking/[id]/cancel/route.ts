@@ -55,7 +55,7 @@ export async function POST(
 
   // Calculer le remboursement (creditsCost peut être null pour d'anciennes réservations)
   const creditsRefunded = reservation.creditsCost ?? 0
-  const creditsBefore = reservation.user.credits
+  const creditsBefore = reservation.user?.credits ?? 0
 
   // Mettre à jour la réservation
   await prisma.reservation.update({
@@ -83,17 +83,19 @@ export async function POST(
   })
 
   // Email de confirmation d'annulation
-  await brevo.sendEmail({
-    template: "confirmation-annulation",
-    to: reservation.user.email,
-    toName: reservation.user.name ?? undefined,
-    variables: {
-      date: reservation.date.toISOString().slice(0, 10),
-      slot: reservation.slot,
-      creditsRefunded,
-      newBalance: updatedUser.credits,
-    },
-  })
+  if (reservation.user?.email) {
+    await brevo.sendEmail({
+      template: "confirmation-annulation",
+      to: reservation.user.email,
+      toName: reservation.user.name ?? undefined,
+      variables: {
+        date: reservation.date.toISOString().slice(0, 10),
+        slot: reservation.slot,
+        creditsRefunded,
+        newBalance: updatedUser.credits,
+      },
+    })
+  }
 
   return NextResponse.json({
     cancelled: true,

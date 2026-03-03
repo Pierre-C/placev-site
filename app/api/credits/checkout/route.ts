@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
   const parsed = checkoutSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ errors: parsed.error.errors }, { status: 422 })
+    return NextResponse.json({ errors: parsed.error.issues }, { status: 422 })
   }
 
   const { creditsAmount } = parsed.data

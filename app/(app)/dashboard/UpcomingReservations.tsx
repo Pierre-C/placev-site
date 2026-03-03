@@ -10,14 +10,15 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { formatYMD } from "@/lib/calendar-utils"
+import { ReservationType, ReservationStatus, Slot } from "@prisma/client"
 
 type Reservation = {
   id: string
   date: Date
-  slot: "AM" | "PM" | "FULL"
-  type: "OPENSPACE" | "MEETING_ROOM"
+  slot: Slot
+  type: ReservationType
   creditsCost: number | null
-  status: "CONFIRMED" | "CANCELLED"
+  status: ReservationStatus
   canCancel: boolean
 }
 

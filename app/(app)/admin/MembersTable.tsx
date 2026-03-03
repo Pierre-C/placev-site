@@ -1,6 +1,6 @@
 'use client'
 
-import { User } from "@prisma/client"
+import { User, Segment } from "@prisma/client"
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { updateCredits, toggleMember } from "./actions"
@@ -107,7 +107,7 @@ export default function MembersTable({ users: initialUsers }: { users: User[] })
           ...u,
           credits: u.credits + (creditsChanged ? creditsDelta : 0),
           isMember: isMemberChanged ? isMemberEdit : u.isMember,
-          segment: segmentChanged ? segmentEdit : u.segment
+          segment: segmentChanged ? (segmentEdit as Segment) : u.segment
         }
       }
       return u

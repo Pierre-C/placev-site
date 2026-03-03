@@ -7,40 +7,31 @@ import type { User } from "@prisma/client"
 import bcrypt from "bcrypt"
 import { prisma } from "@/lib/prisma"
 import { brevo } from "@/lib/brevo"
-import { createWelcomeCredit } from "@/lib/services/credits"
-
 export type UserWithoutHash = Omit<User, "passwordHash">
 
 export interface CreateUserInput {
   email: string
-  name?: string
+  name: string
   password: string
-  segment?: "BOULIACAIS" | "EXTERNE" | "REDUIT"
+  isBouliacais: boolean
+  city: string
+  tarifReduit: boolean
+  cguAccepted: boolean
 }
 
 export interface CreateUserResult {
   user: UserWithoutHash
-  transaction: {
-    id: string
-    userId: string
-    type: string
-    creditsAdd: number
-    creditsBefore: number
-    createdAt: Date
-  }
 }
 
 /**
- * Crée un nouvel utilisateur avec son crédit de bienvenue.
- * Hash le mot de passe, crée l'utilisateur puis la transaction de bienvenue,
- * puis envoie l'email de bienvenue via Brevo.
- *
- * Note : opérations séquentielles (PrismaNeonHttp ne supporte pas $transaction callback).
+ * Crée un nouvel utilisateur.
+ * Hash le mot de passe, crée l'utilisateur.
  */
 export async function createUser(input: CreateUserInput): Promise<CreateUserResult> {
-  const { email, name, password, segment = "EXTERNE" } = input
+  const { email, name, password, isBouliacais, city, tarifReduit, cguAccepted } = input
 
   const passwordHash = await bcrypt.hash(password, 12)
+  const segment = isBouliacais ? "BOULIACAIS" : "EXTERNE"
 
   const user = await prisma.user.create({
     data: {
@@ -48,11 +39,12 @@ export async function createUser(input: CreateUserInput): Promise<CreateUserResu
       name,
       passwordHash,
       segment,
-      credits: 1,
+      credits: 0,
+      city,
+      tarifReduitRequested: tarifReduit,
+      cguAccepted,
     },
   })
-
-  const transaction = await createWelcomeCredit(user.id)
 
   await brevo.sendEmail({
     template: "bienvenue-validation",
@@ -60,7 +52,7 @@ export async function createUser(input: CreateUserInput): Promise<CreateUserResu
     toName: user.name ?? undefined,
     variables: {
       name: user.name ?? email,
-      credits: 1,
+      credits: 0,
     },
   })
 
@@ -68,7 +60,6 @@ export async function createUser(input: CreateUserInput): Promise<CreateUserResu
 
   return {
     user: userWithoutHash,
-    transaction,
   }
 }
 

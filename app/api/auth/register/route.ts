@@ -40,8 +40,16 @@ export async function POST(request: Request) {
       )
     }
 
-    // Créer l'utilisateur (hash password + transaction WELCOME_CREDIT + email Brevo)
-    const { user } = await createUser({ email, name, password, segment })
+    // Créer l'utilisateur (hash password + email Brevo)
+    const { user } = await createUser({ 
+      email, 
+      name: name ?? "", 
+      password, 
+      isBouliacais: segment === "BOULIACAIS",
+      city: "",
+      tarifReduit: segment === "REDUIT",
+      cguAccepted: true
+    })
 
     return NextResponse.json({ user }, { status: 201 })
   } catch {

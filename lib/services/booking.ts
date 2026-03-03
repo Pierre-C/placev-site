@@ -15,11 +15,11 @@ export function calculateCost(slot: Slot): number {
 }
 
 /**
- * Vérifie si une réservation est possible au regard du seuil de solde.
- * Règle : user.credits - cost >= -3.
+ * Vérifie si une réservation est possible au regard du solde.
+ * Règle : user.credits - cost >= 0.
  */
 export function canBook({ credits, cost }: { credits: number; cost: number }): boolean {
-  return credits - cost >= -3
+  return credits - cost >= 0
 }
 
 /**

@@ -1,17 +1,10 @@
-/**
- * app/(app)/register/page.tsx
- * Page d'inscription — Client Component.
- * Utilise un Server Action (registerAction) via useFormState.
- * Auth.js v5 : la création de compte, la session et la redirection sont côté serveur.
- */
-
 "use client"
 
 import { useState } from "react"
 import { useFormState, useFormStatus } from "react-dom"
 import { registerAction } from "./actions"
 import Link from "next/link"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, Info } from "lucide-react"
 
 function SubmitButton() {
   const { pending } = useFormStatus()
@@ -19,7 +12,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-60"
+      className="w-full rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-60 mt-6"
     >
       {pending ? "Création en cours…" : "Créer mon compte"}
     </button>
@@ -29,10 +22,13 @@ function SubmitButton() {
 export default function RegisterPage() {
   const [state, formAction] = useFormState(registerAction, { error: "" })
   const [showPassword, setShowPassword] = useState(false)
+  const [isBouliacais, setIsBouliacais] = useState(false)
+  const [tarifReduit, setTarifReduit] = useState(false)
+  const [showTooltip, setShowTooltip] = useState(false)
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6 rounded-2xl bg-white p-8 shadow-sm">
+    <div className="flex min-h-screen items-center justify-center p-4 bg-neutral-50">
+      <div className="w-full max-w-md space-y-6 rounded-2xl bg-white p-8 shadow-sm my-8">
         <h1 className="text-2xl font-bold text-neutral-900">Créer un compte</h1>
 
         {state.error && (
@@ -97,20 +93,125 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          <div>
-            <label htmlFor="segment" className="mb-1 block text-sm font-medium text-neutral-700">
-              Tarif
-            </label>
-            <select
-              id="segment"
-              name="segment"
-              defaultValue="EXTERNE"
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
-            >
-              <option value="EXTERNE">Externe (8 € / crédit)</option>
-              <option value="BOULIACAIS">Bouliacais (7 € / crédit)</option>
-              <option value="REDUIT">Tarif réduit (4 € / crédit)</option>
-            </select>
+          <div className="space-y-3 pt-2">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-neutral-700">
+                Êtes-vous Bouliacais ?
+              </label>
+              <input type="hidden" name="isBouliacais" value={isBouliacais ? "true" : "false"} />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  data-testid="toggle-bouliacais-oui"
+                  onClick={() => setIsBouliacais(true)}
+                  className={`flex-1 rounded-lg border py-2 text-sm transition-colors ${
+                    isBouliacais 
+                      ? "border-neutral-900 bg-neutral-900 text-white" 
+                      : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
+                  }`}
+                >
+                  Oui
+                </button>
+                <button
+                  type="button"
+                  data-testid="toggle-bouliacais-non"
+                  onClick={() => setIsBouliacais(false)}
+                  className={`flex-1 rounded-lg border py-2 text-sm transition-colors ${
+                    !isBouliacais 
+                      ? "border-neutral-900 bg-neutral-900 text-white" 
+                      : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
+                  }`}
+                >
+                  Non
+                </button>
+              </div>
+            </div>
+
+            {!isBouliacais && (
+              <div>
+                <label htmlFor="city" className="mb-1 block text-sm font-medium text-neutral-700">
+                  Ville d'origine
+                </label>
+                <input
+                  id="city"
+                  name="city"
+                  data-testid="city-input"
+                  type="text"
+                  required
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+              </div>
+            )}
+
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <label className="block text-sm font-medium text-neutral-700">
+                  Souhaitez-vous bénéficier du tarif réduit ?
+                </label>
+                <div className="relative flex items-center">
+                  <button
+                    type="button"
+                    data-testid="tooltip-tarif-reduit-trigger"
+                    onMouseEnter={() => setShowTooltip(true)}
+                    onMouseLeave={() => setShowTooltip(false)}
+                    onClick={() => setShowTooltip(!showTooltip)}
+                    className="text-neutral-400 hover:text-neutral-600 focus:outline-none"
+                  >
+                    <Info className="h-4 w-4" />
+                  </button>
+                  {showTooltip && (
+                    <div 
+                      data-testid="tooltip-tarif-reduit"
+                      className="absolute bottom-full left-1/2 z-10 mb-2 w-64 -translate-x-1/2 rounded-lg bg-neutral-900 p-2 text-xs text-white shadow-lg"
+                    >
+                      Le tarif réduit (4€/demi-journée) s'applique aux étudiants et demandeurs d'emploi sur présentation d'un justificatif à votre arrivée.
+                      <div className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-neutral-900"></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <input type="hidden" name="tarifReduit" value={tarifReduit ? "true" : "false"} />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  data-testid="toggle-tarif-reduit-oui"
+                  onClick={() => setTarifReduit(true)}
+                  className={`flex-1 rounded-lg border py-2 text-sm transition-colors ${
+                    tarifReduit 
+                      ? "border-neutral-900 bg-neutral-900 text-white" 
+                      : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
+                  }`}
+                >
+                  Oui
+                </button>
+                <button
+                  type="button"
+                  data-testid="toggle-tarif-reduit-non"
+                  onClick={() => setTarifReduit(false)}
+                  className={`flex-1 rounded-lg border py-2 text-sm transition-colors ${
+                    !tarifReduit 
+                      ? "border-neutral-900 bg-neutral-900 text-white" 
+                      : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
+                  }`}
+                >
+                  Non
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2 pt-2">
+              <input
+                id="cgu"
+                name="cgu"
+                type="checkbox"
+                value="true"
+                required
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-neutral-900 focus:ring-neutral-900"
+              />
+              <label htmlFor="cgu" className="text-sm text-neutral-600">
+                J'accepte les CGU et la politique de confidentialité <span className="text-red-500">*</span>
+              </label>
+            </div>
           </div>
 
           <SubmitButton />

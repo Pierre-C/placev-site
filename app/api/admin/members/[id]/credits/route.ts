@@ -26,7 +26,7 @@ export async function PUT(
 
     if (!result.success) {
       return NextResponse.json(
-        { error: result.error.errors?.[0]?.message || "Données invalides" },
+        { error: result.error.issues?.[0]?.message || "Données invalides" },
         { status: 422 }
       )
     }

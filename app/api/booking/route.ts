@@ -2,8 +2,8 @@
  * app/api/booking/route.ts
  * POST /api/booking
  *
- * Crée une réservation de poste open-space pour l'utilisateur connecté.
- * Auth requise. Valide le solde, la date, la capacité, puis débite les crédits.
+ * Crée une ou plusieurs réservations de postes open-space pour l'utilisateur connecté.
+ * Auth requise. Valide le solde global, les dates, la capacité, puis débite les crédits.
  *
  * Note : Le Neon HTTP adapter ne supporte pas les transactions interactives
  * ($transaction callback). On utilise des opérations séquentielles avec un
@@ -17,9 +17,13 @@ import { prisma } from "@/lib/prisma"
 import { brevo } from "@/lib/brevo"
 import { calculateCost, canBook } from "@/lib/services/booking"
 
-const bodySchema = z.object({
+const bookingItemSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format YYYY-MM-DD requis"),
   slot: z.enum(["AM", "PM", "FULL"]),
+})
+
+const bodySchema = z.object({
+  bookings: z.array(bookingItemSchema).min(1, "Panier vide"),
 })
 
 export async function POST(request: Request) {
@@ -39,140 +43,151 @@ export async function POST(request: Request) {
 
   const parse = bodySchema.safeParse(body)
   if (!parse.success) {
-    return NextResponse.json({ error: "Données invalides", details: parse.error.flatten() }, { status: 400 })
+    return NextResponse.json({ error: "Données invalides", details: parse.error.flatten() }, { status: 422 })
   }
 
-  const { date, slot } = parse.data
-  // new Date("YYYY-MM-DD") parse en UTC midnight — cohérent avec la DB
-  const reservationDate = new Date(date)
+  const { bookings } = parse.data
 
-  // Vérifier que la date est future (ou aujourd'hui)
+  // PRE-CHECKS
+
   const today = new Date()
   today.setUTCHours(0, 0, 0, 0)
-  if (reservationDate < today) {
-    return NextResponse.json({ error: "La date de réservation est dans le passé" }, { status: 422 })
-  }
 
-  // Vérifier que le jour est ouvert (OPEN_DAYS)
+  let totalCost = 0
+
   const openDaysSetting = await prisma.systemSetting.findUnique({
     where: { key: "OPEN_DAYS" },
   })
   const openDays = openDaysSetting?.key === "OPEN_DAYS"
     ? openDaysSetting.value.split(",").map(Number)
     : [1, 2, 3]
-  if (!openDays.includes(reservationDate.getUTCDay())) {
-    return NextResponse.json(
-      { error: "Ce jour n'est pas ouvert à la réservation" },
-      { status: 422 }
-    )
-  }
 
-  // Vérifier si la date est fermée
-  const closedDate = await prisma.closedDate.findFirst({
-    where: { date: reservationDate },
+  const capacitySetting = await prisma.systemSetting.findUnique({
+    where: { key: "DESK_CAPACITY" },
   })
-  if (closedDate) {
-    return NextResponse.json({ error: "Ce jour est fermé" }, { status: 422 })
+  const capacity = capacitySetting ? parseInt(capacitySetting.value, 10) : 15
+
+  // Valider chaque date du panier
+  for (const item of bookings) {
+    const reservationDate = new Date(item.date)
+
+    if (reservationDate < today) {
+      return NextResponse.json({ error: "Une date de réservation est dans le passé" }, { status: 422 })
+    }
+
+    if (!openDays.includes(reservationDate.getUTCDay())) {
+      return NextResponse.json(
+        { error: "Un jour n'est pas ouvert à la réservation" },
+        { status: 422 }
+      )
+    }
+
+    const closedDate = await prisma.closedDate.findFirst({
+      where: { date: reservationDate },
+    })
+    if (closedDate) {
+      return NextResponse.json({ error: "Un jour est fermé" }, { status: 422 })
+    }
+
+    // Capacity check
+    const slotsToCheck = item.slot === "FULL" ? (["AM", "PM"] as const) : ([item.slot] as const)
+
+    for (const halfSlot of slotsToCheck) {
+      const conflictingSlots = halfSlot === "AM"
+        ? { in: ["AM", "FULL"] as import("@prisma/client").Slot[] }
+        : { in: ["PM", "FULL"] as import("@prisma/client").Slot[] }
+
+      const count = await prisma.reservation.count({
+        where: {
+          date: reservationDate,
+          status: "CONFIRMED",
+          type: "OPENSPACE",
+          slot: conflictingSlots,
+        },
+      })
+
+      if (count >= capacity) {
+        return NextResponse.json(
+          { error: `Créneau ${halfSlot} complet pour la date ${item.date}` },
+          { status: 409 }
+        )
+      }
+    }
+
+    totalCost += calculateCost(item.slot)
   }
 
-  // Récupérer l'utilisateur et son solde courant
+  // Vérifier le solde
   const user = await prisma.user.findUnique({ where: { id: session.user.id } })
   if (!user) {
     return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 })
   }
 
-  // Vérifier le seuil de solde (credits - cost >= -3)
-  const cost = calculateCost(slot)
-  if (!canBook({ credits: user.credits, cost })) {
+  if (!canBook({ credits: user.credits, cost: totalCost })) {
     return NextResponse.json(
       { error: "Solde insuffisant pour effectuer cette réservation" },
       { status: 403 }
     )
   }
 
-  // Lire DESK_CAPACITY depuis SystemSetting
-  const capacitySetting = await prisma.systemSetting.findUnique({
-    where: { key: "DESK_CAPACITY" },
-  })
-  const capacity = capacitySetting ? parseInt(capacitySetting.value, 10) : 15
+  // EXECUTION DES RESERVATIONS
+  const createdReservations = []
+  
+  for (const item of bookings) {
+    const reservationDate = new Date(item.date)
+    const cost = calculateCost(item.slot)
 
-  // Vérifier la capacité disponible
-  // Pour AM : compter les réservations AM + FULL sur ce créneau
-  // Pour PM : compter les réservations PM + FULL sur ce créneau
-  // Pour FULL : vérifier les deux demi-journées
-  const slotsToCheck = slot === "FULL" ? (["AM", "PM"] as const) : ([slot] as const)
-
-  for (const halfSlot of slotsToCheck) {
-    const conflictingSlots = halfSlot === "AM"
-      ? { in: ["AM", "FULL"] as const }
-      : { in: ["PM", "FULL"] as const }
-
-    const count = await prisma.reservation.count({
-      where: {
+    const reservation = await prisma.reservation.create({
+      data: {
+        userId: user.id,
         date: reservationDate,
-        status: "CONFIRMED",
+        slot: item.slot,
         type: "OPENSPACE",
-        slot: conflictingSlots,
+        status: "CONFIRMED",
+        creditsCost: cost,
       },
     })
-
-    if (count >= capacity) {
-      return NextResponse.json(
-        { error: `Créneau ${halfSlot} complet pour cette date` },
-        { status: 409 }
-      )
-    }
+    
+    createdReservations.push({
+      id: reservation.id,
+      status: reservation.status,
+      date: reservation.date.toISOString().slice(0, 10),
+      slot: reservation.slot,
+      costCredits: cost,
+    })
   }
 
-  // Créer la réservation et débiter les crédits (opérations séquentielles)
-  const reservation = await prisma.reservation.create({
-    data: {
-      userId: user.id,
-      date: reservationDate,
-      slot,
-      type: "OPENSPACE",
-      status: "CONFIRMED",
-      creditsCost: cost,
-    },
-  })
-
+  // Debit and transaction
   const updatedUser = await prisma.user.update({
     where: { id: user.id },
-    data: { credits: { decrement: cost } },
+    data: { credits: { decrement: totalCost } },
   })
 
   await prisma.transaction.create({
     data: {
       userId: user.id,
       type: "DEBIT_RESERVATION",
-      creditsAdd: -cost,
+      creditsAdd: -totalCost,
       creditsBefore: user.credits,
     },
   })
 
-  // Email de confirmation (après les opérations DB)
+  // Send single email for the whole cart
   await brevo.sendEmail({
-    template: "confirmation-reservation",
+    template: "confirmation-reservation-multiple",
     to: user.email,
     toName: user.name ?? undefined,
     variables: {
-      slot,
-      costCredits: cost,
-      date,
+      totalCost,
       newBalance: updatedUser.credits,
+      bookings: createdReservations.map(r => ({ date: r.date, slot: r.slot })),
     },
   })
 
   return NextResponse.json(
     {
-      reservation: {
-        id: reservation.id,
-        status: reservation.status,
-        date: reservation.date.toISOString().slice(0, 10),
-        slot: reservation.slot,
-        costCredits: cost,
-        newBalance: updatedUser.credits,
-      },
+      reservations: createdReservations,
+      totalCost,
     },
     { status: 201 }
   )

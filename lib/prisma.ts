@@ -15,7 +15,7 @@ function createPrismaClient(): PrismaClient {
   if (!connectionString) {
     throw new Error("DATABASE_URL est requis pour initialiser le client Prisma")
   }
-  const adapter = new PrismaNeonHttp(connectionString)
+  const adapter = new PrismaNeonHttp(connectionString, {} as any)
   return new PrismaClient({ adapter })
 }
 

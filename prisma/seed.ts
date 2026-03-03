@@ -16,7 +16,7 @@ if (!connectionString) {
   )
 }
 
-const adapter = new PrismaNeonHttp(connectionString)
+const adapter = new PrismaNeonHttp(connectionString, {} as any)
 const prisma = new PrismaClient({ adapter })
 
 async function main() {
