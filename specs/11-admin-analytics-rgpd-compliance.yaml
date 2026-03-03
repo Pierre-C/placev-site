@@ -1,0 +1,43 @@
+feature: admin-compliance
+slice: 11
+title: "Analytics Admin & Conformité RGPD"
+estimated_days: 1.5
+status: ready
+
+dependencies: [slice-08-auth-business-rules]
+
+context: |
+  Affichage des crédits "à vie" pour identifier les gros clients, et mise en place
+  du flux de suppression de compte (soft delete par anonymisation pour conserver l'historique comptable).
+
+database:
+  migration_required: true
+  schema_changes:
+    User:
+      - "Ajout: deletionRequestedAt DateTime? (null par défaut)"
+
+api_routes:
+  modified:
+    - path: GET /api/admin/members
+      logic: |
+        - Utiliser `prisma.transaction.aggregate` ou inclure un `_sum: { creditsAdd }` avec filtre `type: CREDIT_PURCHASE`.
+        - Ajouter `lifetimeCredits` au payload de retour pour chaque utilisateur.
+  new:
+    - path: POST /api/profile/request-deletion
+      logic: "Met à jour `deletionRequestedAt = new Date()`. Notifie l'admin."
+    - path: POST /api/admin/members/[id]/anonymize
+      logic: |
+        - Action réservée à l'admin.
+        - Remplace les PII (Personally Identifiable Information) :
+          - `email` = `deleted_${id}@anonymized.local`
+          - `name` = `Utilisateur Supprimé`
+          - `passwordHash` = chaîne vide ou aléatoire.
+          - `city` = null.
+        - Conserve l'ID, les Transactions et les Réservations intactes pour les stats.
+
+frontend:
+  app_changes:
+    - path: "app/(app)/admin/MembersTable.tsx"
+      change: "Nouvelle colonne 'Crédits cumulés (À vie)'. Mise en évidence des membres ayant demandé la suppression."
+    - path: "app/(app)/profile/page.tsx" # (A créer si inexistant, ou mettre dans Dashboard > Settings)
+      change: "Zone 'Zone de danger' -> Bouton 'Demander la suppression de mon compte'."

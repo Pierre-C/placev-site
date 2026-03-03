@@ -1,6 +1,7 @@
 /**
  * __tests__/auth.test.ts
  * Tests unitaires — Slice 1 : Fondations & Authentification
+ * Mis à jour Slice 8 : suppression du WELCOME_CREDIT, credits=0 par défaut.
  *
  * À lancer avec : npm run test
  * Prisma et Brevo sont mockés — aucun appel DB ou email réel.
@@ -22,7 +23,6 @@ vi.mock("@/lib/brevo")
 // ─── Imports après les mocks ──────────────────────────────────────────────────
 
 import { createUser, getUserByEmail } from "@/lib/services/user"
-import { createWelcomeCredit } from "@/lib/services/credits"
 import { buildJwtPayload } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { brevo } from "@/lib/brevo"
@@ -38,19 +38,10 @@ const fakeUser = {
   passwordHash: "$2b$12$fakehashedpassword",
   role: "USER" as const,
   segment: "EXTERNE" as const,
-  credits: 1,
+  credits: 0,
   isMember: false,
   createdAt: new Date(),
   updatedAt: new Date(),
-}
-
-const fakeTransaction = {
-  id: "cltx123",
-  userId: fakeUser.id,
-  type: "WELCOME_CREDIT" as const,
-  creditsAdd: 1,
-  creditsBefore: 0,
-  createdAt: new Date(),
 }
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
@@ -59,12 +50,7 @@ beforeEach(() => {
   mockReset(mockPrisma)
   vi.clearAllMocks()
 
-  // Comportement par défaut de $transaction : exécute le callback
-  mockPrisma.$transaction.mockImplementation(
-    async (fn: (tx: PrismaClient) => Promise<unknown>) => fn(mockPrisma)
-  )
   mockPrisma.user.create.mockResolvedValue(fakeUser)
-  mockPrisma.transaction.create.mockResolvedValue(fakeTransaction)
   mockPrisma.user.findUnique.mockResolvedValue(null)
 })
 
@@ -76,9 +62,9 @@ describe("User Registration", () => {
     expect(user.segment).toBe("EXTERNE")
   })
 
-  it("should initialize credits to 1 (welcome credit)", async () => {
+  it("should initialize credits to 0 (no welcome credit — Slice 8)", async () => {
     const { user } = await createUser({ email: "test2@test.fr", password: "Password123!" })
-    expect(user.credits).toBe(1)
+    expect(user.credits).toBe(0)
   })
 
   it("should hash the password and not store plain text", async () => {
@@ -92,14 +78,12 @@ describe("User Registration", () => {
     expect(hash).toMatch(/^\$2b\$12\$/)
   })
 
-  it("should create a WELCOME_CREDIT transaction on registration", async () => {
-    const { transaction } = await createUser({
+  it("should NOT create any transaction on registration (no WELCOME_CREDIT — Slice 8)", async () => {
+    await createUser({
       email: "test3@test.fr",
       password: "Password123!",
     })
-    expect(transaction.type).toBe("WELCOME_CREDIT")
-    expect(transaction.creditsAdd).toBe(1)
-    expect(transaction.userId).toBe(fakeUser.id)
+    expect(mockPrisma.transaction.create).not.toHaveBeenCalled()
   })
 
   it("should call brevo.sendEmail with bienvenue-validation template", async () => {

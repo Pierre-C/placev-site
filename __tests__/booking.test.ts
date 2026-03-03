@@ -31,30 +31,31 @@ describe("calculateCost", () => {
   })
 })
 
-// ─── Validation du solde (seuil -3) ──────────────────────────────────────────
+// ─── Validation du solde (seuil 0 — Slice 8) ─────────────────────────────────
+// Règle : credits - cost >= 0. Aucun découvert autorisé.
 describe("canBook — balance threshold", () => {
-  it("should ALLOW booking when credits=5 and cost=1 (result: 4)", () => {
+  it("should ALLOW booking when credits=5 and cost=1 (result: 4 >= 0)", () => {
     expect(canBook({ credits: 5, cost: 1 })).toBe(true)
   })
 
-  it("should ALLOW booking when credits=0 and cost=1 (result: -1)", () => {
-    expect(canBook({ credits: 0, cost: 1 })).toBe(true)
+  it("should ALLOW booking when credits=1 and cost=1 (result: 0 >= 0) — LIMITE EXACTE", () => {
+    expect(canBook({ credits: 1, cost: 1 })).toBe(true)
   })
 
-  it("should ALLOW booking when credits=-2 and cost=1 (result: -3) — LIMITE AUTORISÉE", () => {
-    expect(canBook({ credits: -2, cost: 1 })).toBe(true)
+  it("should ALLOW booking when credits=2 and cost=2 (result: 0 >= 0) — LIMITE EXACTE FULL", () => {
+    expect(canBook({ credits: 2, cost: 2 })).toBe(true)
   })
 
-  it("should BLOCK booking when credits=-2 and cost=2 (result: -4) — LIMITE REFUSÉE", () => {
-    expect(canBook({ credits: -2, cost: 2 })).toBe(false)
+  it("should BLOCK booking when credits=0 and cost=1 (result: -1 < 0)", () => {
+    expect(canBook({ credits: 0, cost: 1 })).toBe(false)
   })
 
-  it("should BLOCK booking when credits=-3 and cost=1 (result: -4)", () => {
-    expect(canBook({ credits: -3, cost: 1 })).toBe(false)
+  it("should BLOCK booking when credits=0 and cost=2 (result: -2 < 0)", () => {
+    expect(canBook({ credits: 0, cost: 2 })).toBe(false)
   })
 
-  it("should BLOCK booking when credits=-3 and cost=2 (result: -5)", () => {
-    expect(canBook({ credits: -3, cost: 2 })).toBe(false)
+  it("should BLOCK booking when credits=1 and cost=2 (result: -1 < 0)", () => {
+    expect(canBook({ credits: 1, cost: 2 })).toBe(false)
   })
 })
 

@@ -1,0 +1,52 @@
+feature: calendar-multibooking
+slice: 9
+title: "Calendrier Multi-sélection & UX Vitrine"
+estimated_days: 3
+status: ready
+
+dependencies: [slice-08-auth-business-rules]
+
+context: |
+  Refonte majeure du calendrier (grille rectangulaire au lieu de tuiles), 
+  possibilité de sélectionner plusieurs créneaux (panier de réservation), 
+  et mise à jour des appels à l'action de la vitrine.
+
+database:
+  migration_required: false
+
+api_routes:
+  modified:
+    - path: POST /api/booking
+      input: "{ bookings: Array<{ date: string, slot: 'AM' | 'PM' | 'FULL' }> }"
+      logic: |
+        1. Calculer le coût total du panier.
+        2. Vérifier si (user.credits - totalCost) >= 0. Sinon 403.
+        3. Pré-vérifier la capacité de TOUS les créneaux demandés. Si un seul échoue, abort avec 409.
+        4. Exécuter séquentiellement (Neon HTTP) : création des N réservations, création de la transaction globale, débit des crédits.
+        5. Envoyer UN SEUL email Brevo récapitulatif du panier.
+
+frontend:
+  vitrine_changes:
+    - path: "components/sections/Hero.tsx"
+      change: "Renommer bouton 'Contactez-nous' -> 'Venez tester'"
+    - path: "components/sections/Plans.tsx"
+      change: "Diviser en 2 lignes (Ligne 1: Coworking, Ligne 2: Salle de Réunion avec bouton 'Réserver la salle' -> lien vers /booking/meeting-room)"
+  
+  app_changes:
+    - path: "app/(app)/dashboard/CreditPackSection.tsx"
+      change: "Mettre à jour la constante PACKS pour inclure [1, 5, 10, 20]"
+    
+    - path: "components/booking/BookingCalendar.tsx"
+      architecture: |
+        - Refonte UI: Passer d'un aspect-square avec clip-path (triangles) à une structure flex col/row rectangulaire.
+        - En-tête: "mar. 3" (formatDate court).
+        - Corps: Divisé en 2 (AM / PM). Texte "X/15 dispo".
+        - Couleurs Tailwind: 
+          - Dispo: bg-green-100 text-green-800
+          - Complet: bg-red-100 text-red-800
+          - Sélectionné: bg-placev-blue text-white
+          - Passé/Fermé: bg-neutral-200 text-neutral-400
+        - State Management: Remplacer `selectedSlot` (objet) par `selectedSlots` (Array).
+        - Toggle logic: Clic sur un dispo -> ajoute au tableau. Re-clic -> retire.
+        - Blocage Client: Désactiver les tuiles dispos si `(totalCostBasket >= user.credits)`.
+        - Sticky Panel: Le `<div data-testid="booking-summary">` doit recevoir la classe `sticky bottom-4` pour suivre le scroll.

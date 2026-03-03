@@ -1,0 +1,69 @@
+feature: auth-business-rules
+slice: 8
+title: "Règles Métier de Base, Inscription & Reset Password"
+estimated_days: 1.5
+status: ready
+
+dependencies: [slice-01-foundations-auth]
+
+context: |
+  Implémentation des changements fondamentaux sur le modèle User et les règles métiers.
+  Retrait du crédit de bienvenue, modification du seuil de réservation,
+  nouveaux champs à l'inscription et flux de réinitialisation de mot de passe.
+
+database:
+  migration_required: true
+  schema_changes:
+    User:
+      - "Ajout: city String? (Ville d'origine, nullable)"
+      - "Ajout: tarifReduitRequested Boolean @default(false)"
+      - "Ajout: cguAccepted Boolean @default(false)"
+    PasswordResetToken:
+      - "Création du modèle:"
+      - "id String @id @default(cuid())"
+      - "token String @unique"
+      - "userId String"
+      - "expiresAt DateTime"
+      - "Relation: user User @relation(fields: [userId], references: [id], onDelete: Cascade)"
+
+mocks:
+  brevo:
+    emails_triggered:
+      - template: "reset-password"
+        variables: [resetLink]
+
+api_routes:
+  modified:
+    - path: POST /api/auth/register
+      changes:
+        - "Ajout validation Zod: isBouliacais (boolean), city (string optionnel), tarifReduit (boolean), cgu (boolean literal true)"
+        - "Si isBouliacais=true -> segment=BOULIACAIS, sinon -> vérifier city"
+        - "Si tarifReduit=true -> flag tarifReduitRequested=true (L'admin devra valider manuellement plus tard)"
+        - "SUPPRESSION : Ne plus créer la Transaction WELCOME_CREDIT"
+        - "SUPPRESSION : Ne plus donner credits=1 par défaut (credits=0)"
+  new:
+    - path: POST /api/auth/forgot-password
+      logic: "Génère token (crypto.randomBytes), save dans PasswordResetToken (expire = now + 1h), send Brevo mail"
+    - path: POST /api/auth/reset-password
+      logic: "Reçoit {token, newPassword}, valide token, bcrypt hash, update User, delete token"
+
+business_rules:
+  booking_threshold:
+    - "MODIFICATION: Le solde ne peut plus être négatif. La limite passe de -3 à 0."
+    - "Impact: Modifier `canBook` dans `lib/services/booking.ts` -> `credits - cost >= 0`"
+  test_impacts:
+    - "CRITIQUE: Mettre à jour `__tests__/booking.test.ts` (les assertions sur -2 et -3 doivent échouer désormais)"
+    - "CRITIQUE: Mettre à jour `__tests__/auth.test.ts` (retirer les tests sur WELCOME_CREDIT)"
+
+frontend:
+  modified_files:
+    - path: "app/(app)/register/page.tsx"
+      changes:
+        - "Toggle 'Êtes-vous Bouliacais ?' (Oui/Non) + champ conditionnel 'Ville d'origine' si Non"
+        - "Toggle 'Souhaitez-vous bénéficier du tarif réduit ?' (Oui/Non) + infobulle : 'Le tarif réduit (4 EUR/demi-journée) s'applique aux étudiants et demandeurs d'emploi sur présentation d'un justificatif à votre arrivée.'"
+        - "Checkbox CGU obligatoire (cguAccepted=true requis pour valider)"
+        - "SUPPRESSION : <select name=segment> remplacé par les toggles isBouliacais/tarifReduit"
+        - "RÈGLE : tarifReduit=true -> tarifReduitRequested=true UNIQUEMENT. segment=REDUIT assigné manuellement par l'admin après vérification du justificatif."
+  new_files:
+    - path: "app/(app)/forgot-password/page.tsx"
+    - path: "app/(app)/reset-password/page.tsx"

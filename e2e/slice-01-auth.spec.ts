@@ -1,6 +1,7 @@
 /**
  * e2e/slice-01-auth.spec.ts
  * Tests E2E — Slice 1 : Inscription, connexion, dashboard membre
+ * Mis à jour Slice 8 : nouveaux champs inscription, balance=0, reset password.
  *
  * Ces tests valident les parcours utilisateur complets dans un vrai navigateur.
  * Prérequis : serveur Next.js lancé + DB seedée (via global.setup.ts)
@@ -11,7 +12,7 @@ import { test as authTest } from "./helpers/fixtures"
 
 // ─── Inscription ──────────────────────────────────────────────────────────────
 test.describe("Inscription", () => {
-  test("un nouvel utilisateur peut créer un compte", async ({ page }) => {
+  test("un nouvel utilisateur peut créer un compte avec les nouveaux champs", async ({ page }) => {
     const uniqueEmail = `test-${Date.now()}@test.fr`
 
     await page.goto("/register")
@@ -20,12 +21,23 @@ test.describe("Inscription", () => {
     await page.fill('[name="name"]', "Jean Test")
     await page.fill('[name="email"]', uniqueEmail)
     await page.fill('[name="password"]', "TestPassword123!")
-    await page.selectOption('[name="segment"]', "EXTERNE")
+
+    // Toggle isBouliacais → Non (affiche le champ ville)
+    await page.click('[data-testid="toggle-bouliacais-non"]')
+    await page.fill('[name="city"]', "Bordeaux")
+
+    // Toggle tarif réduit → Non
+    await page.click('[data-testid="toggle-tarif-reduit-non"]')
+
+    // Accepter les CGU
+    await page.check('[name="cgu"]')
+
     await page.click('[type="submit"]')
 
     // Redirigé vers le dashboard après inscription
     await expect(page).toHaveURL("/dashboard")
-    await expect(page.locator('[data-testid="credit-balance"]')).toContainText("1")
+    // Slice 8 : plus de crédit de bienvenue → balance = 0
+    await expect(page.locator('[data-testid="credit-balance"]')).toContainText("0")
     await expect(page.locator('[data-testid="welcome-message"]')).toContainText("Jean Test")
   })
 
@@ -34,6 +46,8 @@ test.describe("Inscription", () => {
     await page.fill('[name="name"]', "Doublon")
     await page.fill('[name="email"]', "externe@test.fr") // email déjà seedé
     await page.fill('[name="password"]', "TestPassword123!")
+    await page.click('[data-testid="toggle-bouliacais-non"]')
+    await page.check('[name="cgu"]')
     await page.click('[type="submit"]')
 
     await expect(page.locator('[data-testid="error-message"]')).toBeVisible()
@@ -44,10 +58,65 @@ test.describe("Inscription", () => {
     await page.goto("/register")
     await page.fill('[name="email"]', "nouveau@test.fr")
     await page.fill('[name="password"]', "court") // trop court
+    await page.check('[name="cgu"]')
     await page.click('[type="submit"]')
 
     await expect(page.locator('[data-testid="error-message"]')).toBeVisible()
     await expect(page).toHaveURL("/register")
+  })
+
+  test("inscription sans accepter les CGU affiche une erreur de validation", async ({ page }) => {
+    await page.goto("/register")
+    await page.fill('[name="email"]', `nocgu-${Date.now()}@test.fr`)
+    await page.fill('[name="password"]', "TestPassword123!")
+    await page.click('[data-testid="toggle-bouliacais-non"]')
+    // Ne pas cocher la checkbox CGU
+    await page.click('[type="submit"]')
+
+    await expect(page.locator('[data-testid="error-message"]')).toBeVisible()
+    await expect(page).toHaveURL("/register")
+  })
+
+  test("l'infobulle tarif réduit affiche le bon texte", async ({ page }) => {
+    await page.goto("/register")
+    // Déclencher l'affichage de l'infobulle (hover ou clic sur l'icône)
+    await page.hover('[data-testid="tooltip-tarif-reduit-trigger"]')
+    await expect(page.locator('[data-testid="tooltip-tarif-reduit"]')).toBeVisible()
+    await expect(page.locator('[data-testid="tooltip-tarif-reduit"]')).toContainText("4")
+    await expect(page.locator('[data-testid="tooltip-tarif-reduit"]')).toContainText("justificatif")
+  })
+
+  test("isBouliacais=Oui masque le champ ville", async ({ page }) => {
+    await page.goto("/register")
+    // Par défaut, le toggle doit être visible
+    await page.click('[data-testid="toggle-bouliacais-oui"]')
+    // Le champ ville doit être masqué quand Bouliacais=Oui
+    await expect(page.locator('[name="city"]')).not.toBeVisible()
+  })
+
+  test("isBouliacais=Non affiche le champ ville", async ({ page }) => {
+    await page.goto("/register")
+    await page.click('[data-testid="toggle-bouliacais-non"]')
+    await expect(page.locator('[name="city"]')).toBeVisible()
+  })
+
+  test("tarifReduit=Oui ne donne pas segment=REDUIT automatiquement", async ({ page }) => {
+    const uniqueEmail = `tarif-${Date.now()}@test.fr`
+    await page.goto("/register")
+    await page.fill('[name="name"]', "Étudiant Test")
+    await page.fill('[name="email"]', uniqueEmail)
+    await page.fill('[name="password"]', "TestPassword123!")
+    await page.click('[data-testid="toggle-bouliacais-non"]')
+    await page.fill('[name="city"]', "Bordeaux")
+    // Demander le tarif réduit
+    await page.click('[data-testid="toggle-tarif-reduit-oui"]')
+    await page.check('[name="cgu"]')
+    await page.click('[type="submit"]')
+
+    await expect(page).toHaveURL("/dashboard")
+    // Le segment dans le dashboard doit être EXTERNE (pas REDUIT automatique)
+    // L'admin devra valider manuellement le justificatif
+    await expect(page.locator('[data-testid="credit-balance"]')).toContainText("0")
   })
 })
 

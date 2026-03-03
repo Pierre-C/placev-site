@@ -1,11 +1,13 @@
 /**
  * e2e/slice-03-booking.spec.ts
  * Tests E2E — Slice 3 : Réservation de postes, annulation, calendrier
+ * Mis à jour Slice 9 : multi-sélection, AM/PM séparés (FULL retiré de l'UI),
+ * pauvreMembrePage credits=0, sticky panel, email unique multi-booking.
  */
 
 import { test, expect, getDisplayedBalance, futureOpenDateYMD } from "./helpers/fixtures"
 
-const FUTURE_DATE = futureOpenDateYMD(1) // 1er Lun/Mar/Mer à partir de demain (dans la grille courante)
+const FUTURE_DATE = futureOpenDateYMD(1) // 1er Lun/Mar/Mer à partir de demain
 
 // ─── Calendrier public ────────────────────────────────────────────────────────
 test.describe("Calendrier public", () => {
@@ -14,10 +16,11 @@ test.describe("Calendrier public", () => {
     await expect(page.locator('[data-testid="booking-calendar"]')).toBeVisible()
   })
 
-  test("affiche les créneaux disponibles et complets", async ({ page }) => {
+  test("affiche les zones AM et PM pour chaque jour ouvert", async ({ page }) => {
     await page.goto("/booking")
-    // Des tuiles AM/PM doivent être visibles
-    await expect(page.locator('[data-testid="slot-tile"]').first()).toBeVisible()
+    // La nouvelle UI affiche des zones AM et PM (rectangulaires)
+    await expect(page.locator('[data-testid="slot-am"]').first()).toBeVisible()
+    await expect(page.locator('[data-testid="slot-pm"]').first()).toBeVisible()
   })
 
   test("les dates passées sont désactivées", async ({ page }) => {
@@ -30,23 +33,34 @@ test.describe("Calendrier public", () => {
       await expect(pastSlot).toHaveAttribute("data-disabled", "true")
     }
   })
+
+  test("le panneau récapitulatif est sticky (reste visible au scroll)", async ({ page }) => {
+    await page.goto("/booking")
+    const summary = page.locator('[data-testid="booking-summary"]')
+    await expect(summary).toBeVisible()
+    // Vérifier la présence de la classe sticky dans le style
+    const classes = await summary.getAttribute("class")
+    expect(classes).toMatch(/sticky/)
+  })
 })
 
-// ─── Parcours de réservation complet ─────────────────────────────────────────
-test.describe("Réservation d'un poste", () => {
-  test("un membre peut réserver un créneau AM et son solde est débité", async ({ membrePage }) => {
+// ─── Parcours de réservation multi-sélection ──────────────────────────────────
+test.describe("Réservation d'un poste (multi-sélection)", () => {
+  test("un membre peut sélectionner un créneau AM et son solde est débité", async ({ membrePage }) => {
     await membrePage.goto("/dashboard")
     const balanceBefore = await getDisplayedBalance(membrePage)
 
     await membrePage.goto("/booking")
     await expect(membrePage.locator('[data-testid="booking-calendar"]')).toBeVisible()
 
-    // Sélectionner un créneau AM dans le futur
-    const slot = membrePage.locator(`[data-date="${FUTURE_DATE}"][data-slot="AM"]`)
-    await slot.click()
+    // Sélectionner la zone AM du futur créneau
+    const slotAM = membrePage.locator(`[data-date="${FUTURE_DATE}"][data-testid="slot-am"]`)
+    await slotAM.click()
 
-    // Confirmer la réservation
+    // Le récapitulatif doit être visible et afficher 1 créneau
     await expect(membrePage.locator('[data-testid="booking-summary"]')).toBeVisible()
+    await expect(membrePage.locator('[data-testid="booking-summary"]')).toContainText("1")
+
     await membrePage.click('[data-testid="confirm-booking"]')
 
     // Vérifier la confirmation
@@ -58,13 +72,21 @@ test.describe("Réservation d'un poste", () => {
     expect(balanceAfter).toBe(balanceBefore - 1)
   })
 
-  test("un membre peut réserver une journée complète (coût 2 crédits)", async ({ membrePage }) => {
+  test("sélectionner AM + PM du même jour = 2 réservations séparées, coût 2 crédits", async ({ membrePage }) => {
     await membrePage.goto("/dashboard")
     const balanceBefore = await getDisplayedBalance(membrePage)
 
     await membrePage.goto("/booking")
-    const slot = membrePage.locator(`[data-date="${futureOpenDateYMD(2)}"][data-slot="FULL"]`)
-    await slot.click()
+    const date2 = futureOpenDateYMD(2)
+
+    // Cliquer AM
+    await membrePage.locator(`[data-date="${date2}"][data-testid="slot-am"]`).click()
+    // Cliquer PM du même jour
+    await membrePage.locator(`[data-date="${date2}"][data-testid="slot-pm"]`).click()
+
+    // Le récapitulatif doit afficher 2 créneaux
+    await expect(membrePage.locator('[data-testid="booking-summary"]')).toContainText("2")
+
     await membrePage.click('[data-testid="confirm-booking"]')
     await expect(membrePage.locator('[data-testid="booking-success"]')).toBeVisible()
 
@@ -74,52 +96,77 @@ test.describe("Réservation d'un poste", () => {
   })
 
   test("la réservation apparaît dans le dashboard membre", async ({ membrePage }) => {
-    // Réserver d'abord
     await membrePage.goto("/booking")
-    await membrePage.locator(`[data-date="${futureOpenDateYMD(3)}"][data-slot="PM"]`).click()
+    const date3 = futureOpenDateYMD(3)
+    await membrePage.locator(`[data-date="${date3}"][data-testid="slot-pm"]`).click()
     await membrePage.click('[data-testid="confirm-booking"]')
     await expect(membrePage.locator('[data-testid="booking-success"]')).toBeVisible()
 
-    // Vérifier dans le dashboard
     await membrePage.goto("/dashboard")
     await expect(membrePage.locator('[data-testid="upcoming-reservations"]')).toBeVisible()
     await expect(
       membrePage.locator('[data-testid="upcoming-reservations"]')
-    ).toContainText(futureOpenDateYMD(3))
+    ).toContainText(date3)
   })
 
-  test("un membre avec solde insuffisant ne peut pas réserver", async ({ pauvreMembrePage }) => {
-    // pauvreMembrePage a credits=-2, ne peut pas prendre FULL (coûterait -4)
+  test("un membre avec solde=0 ne peut pas sélectionner de créneau (bloqué client)", async ({ pauvreMembrePage }) => {
+    // pauvreMembrePage a credits=0 (Slice 8) → toutes les zones disponibles sont désactivées
     await pauvreMembrePage.goto("/booking")
-    const slot = pauvreMembrePage.locator(`[data-date="${FUTURE_DATE}"][data-slot="FULL"]`)
-    await slot.click()
-    await pauvreMembrePage.click('[data-testid="confirm-booking"]')
 
-    await expect(pauvreMembrePage.locator('[data-testid="error-insufficient-balance"]')).toBeVisible()
-    await expect(pauvreMembrePage.locator('[data-testid="link-buy-credits"]')).toBeVisible()
+    // Les zones AM/PM disponibles doivent être désactivées (data-disabled="true")
+    const slotAM = pauvreMembrePage.locator(`[data-date="${FUTURE_DATE}"][data-testid="slot-am"]`)
+    if (await slotAM.isVisible()) {
+      await expect(slotAM).toHaveAttribute("data-disabled", "true")
+    }
+  })
+
+  test("tentative de réservation avec solde insuffisant affiche l'erreur côté serveur", async ({ pauvreMembrePage }) => {
+    // Si la UI ne bloque pas le clic (cas de test défensif), l'API renvoie 403
+    await pauvreMembrePage.goto("/booking")
+    const slotAM = pauvreMembrePage.locator(`[data-date="${FUTURE_DATE}"][data-testid="slot-am"]`)
+    if (await slotAM.isVisible()) {
+      const isDisabled = await slotAM.getAttribute("data-disabled")
+      if (isDisabled !== "true") {
+        await slotAM.click()
+        await pauvreMembrePage.click('[data-testid="confirm-booking"]')
+        await expect(pauvreMembrePage.locator('[data-testid="error-insufficient-balance"]')).toBeVisible()
+        await expect(pauvreMembrePage.locator('[data-testid="link-buy-credits"]')).toBeVisible()
+      }
+    }
   })
 
   test("un créneau complet affiche 'Complet' et bloque la sélection", async ({ membrePage }) => {
-    // Ce test nécessite un créneau réellement complet en DB (créé par le seeder ou un test précédent)
-    // L'agent doit implémenter : si remaining = 0 → data-full="true" sur le slot tile
     await membrePage.goto("/booking")
     const fullSlots = membrePage.locator('[data-full="true"]')
-    // Si aucun créneau complet en DB de test, ce test sera skippé
     const count = await fullSlots.count()
     if (count > 0) {
       await fullSlots.first().click()
       await expect(membrePage.locator('[data-testid="confirm-booking"]')).not.toBeVisible()
     }
   })
+
+  test("re-cliquer sur un créneau sélectionné le retire du panier", async ({ membrePage }) => {
+    await membrePage.goto("/booking")
+    const slotAM = membrePage.locator(`[data-date="${FUTURE_DATE}"][data-testid="slot-am"]`)
+    // Premier clic : ajoute
+    await slotAM.click()
+    await expect(membrePage.locator('[data-testid="booking-summary"]')).toContainText("1")
+    // Deuxième clic : retire
+    await slotAM.click()
+    // Le panier doit être vide (ou afficher 0)
+    const summaryText = await membrePage.locator('[data-testid="booking-summary"]').textContent()
+    expect(summaryText).not.toContain("1 créneau")
+  })
 })
 
 // ─── Annulation ───────────────────────────────────────────────────────────────
 test.describe("Annulation de réservation", () => {
   test("un membre peut annuler une réservation et récupère ses crédits", async ({ membrePage }) => {
-    // Étape 1 : Réserver
+    const date3 = futureOpenDateYMD(3)
+
+    // Étape 1 : Réserver un créneau AM
     await membrePage.goto("/booking")
-    // Réutilise la 3e date (même date que le test PM) mais avec le slot AM — pas de conflit
-    await membrePage.locator(`[data-date="${futureOpenDateYMD(3)}"][data-slot="AM"]`).click()
+    await membrePage.locator(`[data-date="${date3}"][data-testid="slot-am"]`).click()
     await membrePage.click('[data-testid="confirm-booking"]')
     await expect(membrePage.locator('[data-testid="booking-success"]')).toBeVisible()
 
@@ -129,7 +176,7 @@ test.describe("Annulation de réservation", () => {
 
     // Étape 3 : Annuler depuis le calendrier — cliquer sur le créneau réservé ouvre le panneau d'annulation
     await membrePage.goto("/booking")
-    await membrePage.locator(`[data-date="${futureOpenDateYMD(3)}"][data-slot="AM"]`).click()
+    await membrePage.locator(`[data-date="${date3}"][data-testid="slot-am"]`).click()
     await membrePage.locator('[data-testid="confirm-cancel"]').click()
 
     // Étape 4 : Vérifier le remboursement

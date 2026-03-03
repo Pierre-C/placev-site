@@ -75,11 +75,12 @@ const fakeUser = {
   updatedAt: new Date(),
 }
 
+// Slice 8 : seuil = 0. credits=0 → 0 - cost < 0 → 403.
 const fakePoorUser = {
   ...fakeUser,
   id: "user-pauvre-456",
   email: "pauvre@test.fr",
-  credits: -2,
+  credits: 0,
 }
 
 const fakeCapacitySetting = { key: "DESK_CAPACITY", value: "15" }
@@ -212,24 +213,27 @@ describe("GET /api/availability", () => {
   })
 })
 
-// ─── POST /api/booking ────────────────────────────────────────────────────────
+// ─── POST /api/booking (multi-booking — Slice 9) ─────────────────────────────
+// Nouveau format : { bookings: [{ date, slot }] }
+// Brevo envoie UN SEUL email "confirmation-reservation-multiple" pour tout le panier.
 
 describe("POST /api/booking", () => {
-  it("201 — réservation AM valide, solde débité, brevo appelé", async () => {
+  it("201 — panier avec 1 créneau AM valide, solde débité, brevo appelé 1 fois", async () => {
     await testApiHandler({
       appHandler: bookingHandler,
       test: async ({ fetch }) => {
         const res = await fetch({
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date: FUTURE_DATE, slot: "AM" }),
+          body: JSON.stringify({ bookings: [{ date: FUTURE_DATE, slot: "AM" }] }),
         })
         expect(res.status).toBe(201)
         const body = await res.json()
-        expect(body.reservation.status).toBe("CONFIRMED")
-        expect(body.reservation.costCredits).toBe(1)
+        expect(body.reservations).toHaveLength(1)
+        expect(body.reservations[0].status).toBe("CONFIRMED")
+        expect(body.totalCost).toBe(1)
 
-        // Vérifier le débit crédits
+        // Débit crédits global (totalCost = 1)
         expect(mockPrisma.user.update).toHaveBeenCalledWith(
           expect.objectContaining({
             where: { id: fakeUser.id },
@@ -237,7 +241,8 @@ describe("POST /api/booking", () => {
           })
         )
 
-        // Vérifier la Transaction créée
+        // 1 seule Transaction globale pour tout le panier
+        expect(mockPrisma.transaction.create).toHaveBeenCalledTimes(1)
         expect(mockPrisma.transaction.create).toHaveBeenCalledWith(
           expect.objectContaining({
             data: expect.objectContaining({
@@ -248,17 +253,68 @@ describe("POST /api/booking", () => {
           })
         )
 
-        // Brevo appelé avec le bon template
+        // Brevo appelé 1 seule fois avec le template multi-booking
+        expect(vi.mocked(brevo.sendEmail)).toHaveBeenCalledTimes(1)
         expect(vi.mocked(brevo.sendEmail)).toHaveBeenCalledWith(
           expect.objectContaining({
-            template: "confirmation-reservation",
+            template: "confirmation-reservation-multiple",
             to: fakeUser.email,
             variables: expect.objectContaining({
-              slot: "AM",
-              costCredits: 1,
+              totalCost: 1,
+              bookings: expect.any(Array),
             }),
           })
         )
+      },
+    })
+  })
+
+  it("201 — panier avec AM + PM du même jour = 2 réservations séparées, coût total 2", async () => {
+    // Configurer le mock pour créer 2 réservations successives
+    mockPrisma.reservation.create
+      .mockResolvedValueOnce(fakeReservation) // AM
+      .mockResolvedValueOnce({ ...fakeReservation, id: "resa-456", slot: "PM" as const }) // PM
+    mockPrisma.user.update.mockResolvedValue({ ...fakeUser, credits: 3 })
+    mockPrisma.transaction.create.mockResolvedValue({
+      id: "tx-multi",
+      userId: fakeUser.id,
+      type: "DEBIT_RESERVATION" as const,
+      creditsAdd: -2,
+      creditsBefore: 5,
+      stripeId: null,
+      createdAt: new Date(),
+    })
+
+    await testApiHandler({
+      appHandler: bookingHandler,
+      test: async ({ fetch }) => {
+        const res = await fetch({
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bookings: [
+              { date: FUTURE_DATE, slot: "AM" },
+              { date: FUTURE_DATE, slot: "PM" },
+            ],
+          }),
+        })
+        expect(res.status).toBe(201)
+        const body = await res.json()
+        expect(body.reservations).toHaveLength(2)
+        expect(body.totalCost).toBe(2)
+
+        // Débit total de 2 crédits
+        expect(mockPrisma.user.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: { credits: { decrement: 2 } },
+          })
+        )
+
+        // 1 seule transaction globale (pas 2)
+        expect(mockPrisma.transaction.create).toHaveBeenCalledTimes(1)
+
+        // Brevo appelé 1 seule fois (pas 2)
+        expect(vi.mocked(brevo.sendEmail)).toHaveBeenCalledTimes(1)
       },
     })
   })
@@ -272,7 +328,7 @@ describe("POST /api/booking", () => {
         const res = await fetch({
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date: FUTURE_DATE, slot: "AM" }),
+          body: JSON.stringify({ bookings: [{ date: FUTURE_DATE, slot: "AM" }] }),
         })
         expect(res.status).toBe(401)
         expect(vi.mocked(brevo.sendEmail)).not.toHaveBeenCalled()
@@ -280,7 +336,7 @@ describe("POST /api/booking", () => {
     })
   })
 
-  it("403 — solde insuffisant (credits=-2, slot=FULL, coût=2 → -4) → brevo NON appelé", async () => {
+  it("403 — solde insuffisant pour le total du panier (credits=0, totalCost=1 → -1 < 0) → brevo NON appelé", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(fakePoorUser as typeof fakeUser)
 
     await testApiHandler({
@@ -289,18 +345,20 @@ describe("POST /api/booking", () => {
         const res = await fetch({
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date: FUTURE_DATE, slot: "FULL" }),
+          body: JSON.stringify({ bookings: [{ date: FUTURE_DATE, slot: "AM" }] }),
         })
         expect(res.status).toBe(403)
         const body = await res.json()
         expect(body.error).toMatch(/solde/i)
         expect(vi.mocked(brevo.sendEmail)).not.toHaveBeenCalled()
+        // Aucune réservation créée
+        expect(mockPrisma.reservation.create).not.toHaveBeenCalled()
       },
     })
   })
 
-  it("409 — créneau complet (capacity atteinte) → brevo NON appelé", async () => {
-    // Simuler capacité pleine : count retourne 15 (= capacity)
+  it("409 — pre-check : un créneau du panier est complet → abort total, brevo NON appelé", async () => {
+    // Le pre-check sur count retourne 15 (capacité pleine) pour le créneau demandé
     mockPrisma.reservation.count.mockResolvedValue(15)
     mockPrisma.systemSetting.findUnique.mockResolvedValue({ key: "DESK_CAPACITY", value: "15" })
 
@@ -310,15 +368,17 @@ describe("POST /api/booking", () => {
         const res = await fetch({
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date: FUTURE_DATE, slot: "AM" }),
+          body: JSON.stringify({ bookings: [{ date: FUTURE_DATE, slot: "AM" }] }),
         })
         expect(res.status).toBe(409)
         expect(vi.mocked(brevo.sendEmail)).not.toHaveBeenCalled()
+        // Aucune réservation créée (abort avant tout insert)
+        expect(mockPrisma.reservation.create).not.toHaveBeenCalled()
       },
     })
   })
 
-  it("422 — date fermée (ClosedDate) → brevo NON appelé", async () => {
+  it("422 — une date du panier est fermée (ClosedDate) → abort total, brevo NON appelé", async () => {
     mockPrisma.closedDate.findFirst.mockResolvedValue({
       id: "cd-1",
       date: new Date(FUTURE_DATE),
@@ -333,7 +393,23 @@ describe("POST /api/booking", () => {
         const res = await fetch({
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date: FUTURE_DATE, slot: "AM" }),
+          body: JSON.stringify({ bookings: [{ date: FUTURE_DATE, slot: "AM" }] }),
+        })
+        expect(res.status).toBe(422)
+        expect(vi.mocked(brevo.sendEmail)).not.toHaveBeenCalled()
+        expect(mockPrisma.reservation.create).not.toHaveBeenCalled()
+      },
+    })
+  })
+
+  it("422 — une date du panier est passée → abort total, brevo NON appelé", async () => {
+    await testApiHandler({
+      appHandler: bookingHandler,
+      test: async ({ fetch }) => {
+        const res = await fetch({
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bookings: [{ date: "2020-01-01", slot: "AM" }] }),
         })
         expect(res.status).toBe(422)
         expect(vi.mocked(brevo.sendEmail)).not.toHaveBeenCalled()
@@ -341,14 +417,14 @@ describe("POST /api/booking", () => {
     })
   })
 
-  it("422 — date passée → brevo NON appelé", async () => {
+  it("422 — panier vide → rejeté", async () => {
     await testApiHandler({
       appHandler: bookingHandler,
       test: async ({ fetch }) => {
         const res = await fetch({
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date: "2020-01-01", slot: "AM" }),
+          body: JSON.stringify({ bookings: [] }),
         })
         expect(res.status).toBe(422)
         expect(vi.mocked(brevo.sendEmail)).not.toHaveBeenCalled()

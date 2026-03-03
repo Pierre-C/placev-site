@@ -1,0 +1,47 @@
+feature: meeting-quotes-events
+slice: 10
+title: "Devis Salle de Réunion & Événements Admin"
+estimated_days: 2
+status: ready
+
+dependencies: [slice-09-calendar-multibooking]
+
+context: |
+  Remplacement du flux de paiement Stripe direct pour la salle de réunion par 
+  un flux de demande de devis manuel. L'admin peut également créer des "Événements" 
+  qui bloquent des places de coworking.
+
+database:
+  migration_required: true
+  schema_changes:
+    ReservationStatus:
+      - "Ajout enum value: PENDING_QUOTE"
+    Reservation:
+      - "Ajout: companyName String? (Nom entreprise pour devis)"
+      - "Ajout: message String? (Message accompagnant le devis — NOTE: Prisma n'a pas de type Text, String mappe sur text en PostgreSQL)"
+
+api_routes:
+  new:
+    - path: POST /api/booking/quote
+      input: "{ date, start, end, companyName, message }"
+      logic: |
+        - Accessible sans authentification (formulaire vitrine public). Si session active, associe userId.
+        - Crée une Reservation `type="MEETING_ROOM"`, `status="PENDING_QUOTE"`.
+        - Cette réservation NE DÉDUIT PAS la disponibilité tant qu'elle n'est pas CONFIRMED.
+          (Le filtre `status: CONFIRMED` dans availability exclut déjà PENDING_QUOTE — aucun changement requis.)
+        - Envoi email Brevo template "nouvelle-demande-devis" à l'admin.
+  
+  modified:
+    - path: POST /api/admin/bookings/organisation
+      logic: |
+        - Étendu pour gérer l'US 4.5 (événements).
+        - Ajout paramètre `seatsBlocked: number` (défaut: 1 si absent, rétrocompatible).
+        - Insère `seatsBlocked` enregistrements `type=ORGANIZATION` distincts (pas de changement à la logique de count existante).
+        - Chaque enregistrement : userId=null, creditsCost=null, slot=AM ou PM selon l'heure de l'événement.
+
+frontend:
+  app_changes:
+    - path: "app/(app)/booking/meeting-room/page.tsx"
+      change: "Formulaire de demande de devis (Date, Heure début, Heure fin, Nom entreprise, Message). Retire l'intégration Stripe Elements."
+    - path: "app/(app)/admin/quotes/page.tsx"
+      change: "Nouvel onglet admin pour lister les devis en attente et les passer en CONFIRMED (ce qui bloque alors la salle dans le calendrier)."

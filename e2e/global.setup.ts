@@ -59,5 +59,6 @@ setup("créer et authentifier les utilisateurs de test", async ({ page }) => {
   // prête quand les tests commencent (sinon l'expect(slot).toBeVisible()
   // à 20 s time out systématiquement).
   await page.goto("/booking")
-  await page.waitForSelector('[data-testid="slot-tile"]', { timeout: 60_000 })
+  // Slice 9 : la nouvelle UI utilise data-testid="slot-am" (plus "slot-tile")
+  await page.waitForSelector('[data-testid="slot-am"], [data-testid="booking-calendar"]', { timeout: 60_000 })
 })

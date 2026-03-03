@@ -87,7 +87,7 @@ async function main() {
       name: "Pauvre Test",
       role: "USER" as const,
       segment: "EXTERNE" as const,
-      credits: -2,
+      credits: 0, // Slice 8 : seuil = 0, crédits=0 → toute réservation refusée
     },
   ]
 

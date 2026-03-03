@@ -82,12 +82,12 @@ const fakeTargetUser = {
   updatedAt: new Date(),
 }
 
-// credits=-3, cost=1 → -4 → below threshold
+// Slice 8 : seuil = 0. credits=0, cost=1 → -1 → below threshold (< 0)
 const fakePoorUser = {
   ...fakeTargetUser,
   id: "user-pauvre-456",
   email: "pauvre@test.fr",
-  credits: -3,
+  credits: 0,
 }
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
@@ -109,10 +109,14 @@ beforeEach(() => {
 // ─── GET /api/admin/members ───────────────────────────────────────────────────
 
 describe("GET /api/admin/members", () => {
-  it("200 — admin voit la liste des membres avec reservationCount et alertFlag", async () => {
+  it("200 — admin voit la liste des membres avec reservationCount, alertFlag et lifetimeCredits (Slice 11)", async () => {
     mockPrisma.user.findMany.mockResolvedValue([
       { ...fakeTargetUser, _count: { reservations: 2 } } as unknown as typeof fakeTargetUser,
     ])
+    // Mock de l'agrégat lifetimeCredits (prisma.transaction.aggregate ou groupBy)
+    mockPrisma.transaction.aggregate.mockResolvedValue({
+      _sum: { creditsAdd: 20 },
+    } as Awaited<ReturnType<typeof mockPrisma.transaction.aggregate>>)
 
     await testApiHandler({
       appHandler: membersHandler,
@@ -128,6 +132,7 @@ describe("GET /api/admin/members", () => {
           isMember: fakeTargetUser.isMember,
           reservationCount: 2,
           alertFlag: false, // 2 ≤ 3, pas d'alerte
+          lifetimeCredits: expect.any(Number), // Slice 11 : crédits cumulés depuis création du compte
         })
       },
     })
@@ -137,6 +142,9 @@ describe("GET /api/admin/members", () => {
     mockPrisma.user.findMany.mockResolvedValue([
       { ...fakeTargetUser, isMember: false, _count: { reservations: 4 } } as unknown as typeof fakeTargetUser,
     ])
+    mockPrisma.transaction.aggregate.mockResolvedValue({
+      _sum: { creditsAdd: 5 },
+    } as Awaited<ReturnType<typeof mockPrisma.transaction.aggregate>>)
 
     await testApiHandler({
       appHandler: membersHandler,
@@ -145,6 +153,29 @@ describe("GET /api/admin/members", () => {
         expect(res.status).toBe(200)
         const body = await res.json()
         expect(body[0].alertFlag).toBe(true)
+      },
+    })
+  })
+
+  it("200 — badge deletionRequested visible si deletionRequestedAt non null (Slice 11)", async () => {
+    mockPrisma.user.findMany.mockResolvedValue([
+      {
+        ...fakeTargetUser,
+        deletionRequestedAt: new Date(),
+        _count: { reservations: 1 },
+      } as unknown as typeof fakeTargetUser,
+    ])
+    mockPrisma.transaction.aggregate.mockResolvedValue({
+      _sum: { creditsAdd: 0 },
+    } as Awaited<ReturnType<typeof mockPrisma.transaction.aggregate>>)
+
+    await testApiHandler({
+      appHandler: membersHandler,
+      test: async ({ fetch }) => {
+        const res = await fetch({ method: "GET" })
+        expect(res.status).toBe(200)
+        const body = await res.json()
+        expect(body[0].deletionRequestedAt).not.toBeNull()
       },
     })
   })
@@ -332,7 +363,7 @@ describe("POST /api/admin/bookings/proxy", () => {
     })
   })
 
-  it("403 — solde cible insuffisant (credits=-3, cost=1 → -4 < -3), brevo NON appelé", async () => {
+  it("403 — solde cible insuffisant (credits=0, cost=1 → -1 < 0), brevo NON appelé", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(fakePoorUser)
 
     await testApiHandler({
