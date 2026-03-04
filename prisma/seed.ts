@@ -60,6 +60,7 @@ async function main() {
       role: "ADMIN" as const,
       segment: "BOULIACAIS" as const,
       credits: 99,
+      emailVerified: new Date(),
     },
     {
       email: "externe@test.fr",
@@ -67,6 +68,7 @@ async function main() {
       role: "USER" as const,
       segment: "EXTERNE" as const,
       credits: 5,
+      emailVerified: new Date(),
     },
     {
       email: "bouliacais@test.fr",
@@ -74,6 +76,7 @@ async function main() {
       role: "USER" as const,
       segment: "BOULIACAIS" as const,
       credits: 3,
+      emailVerified: new Date(),
     },
     {
       email: "reduit@test.fr",
@@ -81,6 +84,7 @@ async function main() {
       role: "USER" as const,
       segment: "REDUIT" as const,
       credits: 2,
+      emailVerified: new Date(),
     },
     {
       email: "pauvre@test.fr",
@@ -88,16 +92,27 @@ async function main() {
       role: "USER" as const,
       segment: "EXTERNE" as const,
       credits: 0, // Slice 8 : seuil = 0, crédits=0 → toute réservation refusée
+      emailVerified: new Date(),
+    },
+    {
+      email: "unverified@test.fr",
+      name: "Unverified Test",
+      role: "USER" as const,
+      segment: "EXTERNE" as const,
+      credits: 0,
+      cguAccepted: true,
+      emailVerified: null,
     },
   ]
 
   for (const userData of users) {
-    await prisma.user.upsert({
+    const createdUser = await prisma.user.upsert({
       where: { email: userData.email },
       update: {
         credits: userData.credits,
         role: userData.role,
         segment: userData.segment,
+        emailVerified: userData.emailVerified,
       },
       create: {
         ...userData,
@@ -105,6 +120,20 @@ async function main() {
       },
     })
     console.log(`  ✓ ${userData.email}`)
+
+    if (userData.email === "unverified@test.fr") {
+      await prisma.emailVerificationToken.deleteMany({
+        where: { userId: createdUser.id },
+      })
+      await prisma.emailVerificationToken.create({
+        data: {
+          token: "seed-valid-ev-token-001",
+          userId: createdUser.id,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      })
+      console.log(`  ✓ Token généré pour unverified@test.fr`)
+    }
   }
 
   // ─── SystemSettings ───────────────────────────────────────────────────────

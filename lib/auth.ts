@@ -26,14 +26,43 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
   providers: [
     Credentials({
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Mot de passe", type: "password" },
+        verifiedUserToken: { label: "Token", type: "text" },
+      },
       async authorize(credentials) {
+        console.log("[AUTH] Authorize called with credentials:", credentials);
+        // CAS 1 : Auto-login post-vérification email (via VerifiedUserToken)
+        if (credentials?.verifiedUserToken) {
+          console.log("[AUTH] CAS 1: VerifiedUserToken found");
+          const vut = await prisma.verifiedUserToken.findUnique({
+            where: { token: credentials.verifiedUserToken as string },
+            include: { user: true },
+          })
+          console.log("[AUTH] vut query result:", vut);
+          if (!vut || vut.expiresAt < new Date()) {
+             console.log("[AUTH] Invalid or expired vut");
+             return null
+          }
+          await prisma.verifiedUserToken.delete({ where: { id: vut.id } }) // single-use
+          const u = vut.user
+          return { id: u.id, email: u.email, name: u.name, role: u.role, segment: u.segment, credits: u.credits }
+        }
+
+        // CAS 2 : Login normal email + password
+        console.log("[AUTH] CAS 2: Normal login");
         const parsed = loginSchema.safeParse(credentials)
-        if (!parsed.success) return null
+        if (!parsed.success) {
+           console.log("[AUTH] CAS 2: loginSchema parse failed", parsed.error);
+           return null
+        }
 
         const user = await prisma.user.findUnique({
           where: { email: parsed.data.email },
         })
         if (!user) return null
+        if (!user.emailVerified) return null  // filet de sécurité (déjà détecté dans loginAction)
 
         const isValid = await bcrypt.compare(parsed.data.password, user.passwordHash)
         if (!isValid) return null

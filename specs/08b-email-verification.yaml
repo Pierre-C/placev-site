@@ -1,0 +1,234 @@
+feature: email-verification
+slice: 8b
+title: "Vérification d'adresse email à l'inscription"
+estimated_days: 1.0
+status: ready
+
+dependencies: [slice-08-auth-business-rules]
+
+context: |
+  À l'inscription, l'utilisateur doit vérifier son adresse email avant de pouvoir
+  se connecter. Un email est envoyé via Brevo (template "bienvenue-validation",
+  déjà déclaré dans lib/brevo.ts avec l'ID 1).
+  Sans vérification, la connexion est bloquée avec un message d'erreur et un lien
+  pour renvoyer l'email de validation.
+  Après clic sur le lien : auto-login automatique → /dashboard (sans reconnexion manuelle).
+
+# ─── Base de données ───────────────────────────────────────────────────────────
+
+database:
+  migration_required: true
+  schema_changes:
+    User:
+      - "Ajout: emailVerified DateTime? (null = adresse non vérifiée)"
+      - "⚠️ DATA MIGRATION: SET emailVerified = NOW() pour tous les users existants en DB"
+      - "  → Évite de bloquer les comptes créés avant cette slice (admins, membres de test)"
+      - "  → Script : prisma/migrations/set-existing-emails-verified.sql ou via seed"
+
+    EmailVerificationToken:
+      - "id        String   @id @default(cuid())"
+      - "token     String   @unique  // crypto.randomBytes(32).toString('hex')"
+      - "userId    String"
+      - "expiresAt DateTime  // now + 24h"
+      - "user      User @relation(fields: [userId], references: [id], onDelete: Cascade)"
+
+    VerifiedUserToken:
+      - "# Token court-vécu (5 min) pour l'auto-login post-vérification"
+      - "# Créé par /api/auth/verify-email, consommé par la Server Action autoLoginAction"
+      - "id        String   @id @default(cuid())"
+      - "token     String   @unique  // crypto.randomBytes(16).toString('hex')"
+      - "userId    String"
+      - "expiresAt DateTime  // now + 5 min"
+      - "user      User @relation(fields: [userId], references: [id], onDelete: Cascade)"
+
+# ─── Brevo ────────────────────────────────────────────────────────────────────
+
+brevo:
+  templates:
+    - name: "bienvenue-validation"
+      id: 1  # Déjà déclaré dans lib/brevo.ts — aucune modification de lib/brevo.ts requise
+      variables:
+        - verifyLink  # URL complète : https://<domain>/api/auth/verify-email?token=<token>
+
+# ─── Routes API ───────────────────────────────────────────────────────────────
+
+api_routes:
+  modified:
+    - path: "Server Action — app/(app)/register/actions.ts"
+      changes:
+        - "SUPPRIMER l'appel signIn() après createUser()"
+        - "AJOUTER après createUser():"
+        - "  1. crypto.randomBytes(32).toString('hex') → token"
+        - "  2. prisma.emailVerificationToken.create({ userId, token, expiresAt: now+24h })"
+        - "  3. brevo.sendEmail({ template: 'bienvenue-validation', to: email, toName: name, variables: { verifyLink } })"
+        - "  → verifyLink = process.env.NEXTAUTH_URL + '/api/auth/verify-email?token=' + token"
+        - "RETOURNER { success: true, error: '' } (pas d'auto-login)"
+        - "La page register détecte state.success et affiche le message / redirige"
+        - "Étendre RegisterState: { error: string, success?: boolean }"
+
+    - path: "Server Action — app/(app)/login/actions.ts"
+      changes:
+        - "AVANT d'appeler signIn() : vérifier si l'utilisateur existe avec emailVerified=null"
+        - "  → const user = await prisma.user.findUnique({ where: { email } })"
+        - "  → if (user && !user.emailVerified) return { error: 'EMAIL_NOT_VERIFIED', email }"
+        - "Étendre LoginState: { error: string, emailNotVerified?: boolean, email?: string }"
+        - "La page login affiche une UI spécifique si error === 'EMAIL_NOT_VERIFIED'"
+
+    - path: "lib/auth.ts — fonction authorize()"
+      changes:
+        - "AJOUTER support du credential verifiedUserToken (auto-login post-vérification) :"
+        - "  if (credentials.verifiedUserToken) {"
+        - "    const vut = await prisma.verifiedUserToken.findUnique({ where: { token }, include: { user: true } })"
+        - "    if (!vut || vut.expiresAt < new Date()) return null"
+        - "    await prisma.verifiedUserToken.delete({ where: { id: vut.id } })  // single-use"
+        - "    return { id: vut.user.id, email: vut.user.email, ... }  // auto-login réussi"
+        - "  }"
+        - "AJOUTER dans le flow normal (email+password) après bcrypt.compare :"
+        - "  if (!user.emailVerified) return null  // bloque les comptes non vérifiés"
+        - "NOTE : la détection 'EMAIL_NOT_VERIFIED' est faite en amont dans loginAction"
+        - "  → le return null ici est un filet de sécurité en cas d'appel direct"
+
+  new:
+    - path: GET /api/auth/verify-email
+      params: "?token=<hex-token>"
+      runtime: nodejs  # crypto + Prisma — pas Edge
+      logic: |
+        1. token = searchParams.get('token')
+        2. vt = await prisma.emailVerificationToken.findUnique({ where: { token }, include: { user: true } })
+        3. if (!vt) → redirect('/verify-email-error?reason=invalid')
+        4. if (vt.expiresAt < new Date()) → delete token + redirect('/verify-email-error?reason=expired')
+        5. await prisma.user.update({ where: { id: vt.userId }, data: { emailVerified: new Date() } })
+        6. await prisma.emailVerificationToken.delete({ where: { id: vt.id } })
+        7. autoLoginToken = crypto.randomBytes(16).toString('hex')
+        8. await prisma.verifiedUserToken.create({ data: { token: autoLoginToken, userId: vt.userId, expiresAt: new Date(Date.now() + 5 * 60 * 1000) } })
+        9. redirect('/verify-email/callback?vt=' + autoLoginToken)
+
+    - path: POST /api/auth/resend-verification
+      body: "{ email: string }"
+      logic: |
+        1. Parse + validate body avec Zod { email: z.string().email() }
+        2. if invalid → 422
+        3. user = await prisma.user.findUnique({ where: { email } })
+        4. if (user && !user.emailVerified) :
+           a. await prisma.emailVerificationToken.deleteMany({ where: { userId: user.id } })
+           b. token = crypto.randomBytes(32).toString('hex')
+           c. await prisma.emailVerificationToken.create({ ... expiresAt: now+24h })
+           d. await brevo.sendEmail({ template: 'bienvenue-validation', ... })
+        5. TOUJOURS retourner 200 { success: true }  // ne pas révéler si l'email existe
+
+# ─── Frontend ─────────────────────────────────────────────────────────────────
+
+frontend:
+  modified_files:
+    - path: "app/(app)/register/page.tsx"
+      changes:
+        - "Étendre useFormState avec le type { error: string, success?: boolean }"
+        - "Si state.success === true : afficher message 'Email de vérification envoyé !'"
+        - "  Ou rediriger vers /verify-email-sent via router.push() dans useEffect"
+        - "Option recommandée : redirection automatique (meilleure UX)"
+
+    - path: "app/(app)/login/page.tsx"
+      changes:
+        - "Étendre LoginState avec emailNotVerified et email"
+        - "Si state.emailNotVerified === true : afficher bloc spécifique :"
+        - "  'Votre adresse email n'a pas encore été vérifiée.'"
+        - "  + Bouton 'Renvoyer l'email de vérification' → POST /api/auth/resend-verification"
+        - "  + Feedback 'Email renvoyé !' après succès du renvoi"
+
+  new_files:
+    - path: "app/(app)/verify-email-sent/page.tsx"
+      type: Server Component (statique)
+      description: |
+        Affiche : "Vérifiez votre boîte mail"
+        Explique que l'email peut arriver dans les spams.
+        Bouton "Renvoyer l'email de vérification" (Client Component imbriqué)
+          → appelle POST /api/auth/resend-verification avec l'email passé en query param
+          → ou demande à l'utilisateur de saisir son email si non passé en query
+        data-testid: "verify-email-sent-message", "resend-btn", "resend-success"
+
+    - path: "app/api/auth/verify-email/route.ts"
+      description: |
+        Route handler GET (runtime nodejs — pas Edge).
+        Voir la logique complète dans api_routes.new ci-dessus.
+        Exports : { GET }
+
+    - path: "app/(app)/verify-email/callback/page.tsx"
+      type: Client Component
+      description: |
+        Lit le param ?vt= depuis useSearchParams().
+        useEffect au montage → appelle le Server Action autoLoginAction(vt).
+        Le Server Action appelle signIn("credentials", { verifiedUserToken: vt, redirectTo: "/dashboard" })
+          → Sur succès : Next.js redirige vers /dashboard.
+          → Sur échec (token expiré/invalide) : catch → router.push('/login?verified=1')
+        Affiche un spinner "Connexion en cours…" pendant l'opération.
+        data-testid: "autologin-spinner"
+
+    - path: "app/(app)/verify-email/callback/actions.ts"
+      description: |
+        "use server"
+        export async function autoLoginAction(vt: string): Promise<void> {
+          await signIn("credentials", { verifiedUserToken: vt, redirectTo: "/dashboard" })
+          // Throws NEXT_REDIRECT sur succès — géré par Next.js
+          // Throws AuthError sur échec — à catch dans le Client Component
+        }
+
+    - path: "app/(app)/verify-email-error/page.tsx"
+      type: Server Component
+      description: |
+        Lit ?reason= depuis searchParams.
+        "invalid" → "Ce lien est invalide. Contactez le support."
+        "expired"  → "Ce lien a expiré (validité 24h)." + Bouton "Renvoyer un email"
+        data-testid: "verify-error-message", "resend-from-error-btn"
+
+# ─── Migration data ───────────────────────────────────────────────────────────
+
+migration_note: |
+  CRITIQUE : Après prisma db push, exécuter manuellement :
+    UPDATE "User" SET "emailVerified" = NOW() WHERE "emailVerified" IS NULL;
+  OU via prisma/seed.ts en ajoutant emailVerified: new Date() sur tous les users de test.
+  Sans cette étape, les comptes existants (admin, membres de test) seront bloqués au login.
+
+seed_changes:
+  - "Ajouter emailVerified: new Date() sur tous les users existants dans prisma/seed.ts"
+  - "Ajouter un user de test 'unverified@test.fr' avec emailVerified: null pour les tests E2E"
+
+# ─── Tests ────────────────────────────────────────────────────────────────────
+
+tests:
+  http:
+    file: "__tests__/api/slice-08b-email-verification.http.test.ts (NOUVEAU)"
+    cases:
+      verify_email_route:
+        - "302 → /verify-email/callback?vt=xxx  — token valide et non expiré"
+        - "302 → /verify-email-error?reason=invalid  — token inexistant"
+        - "302 → /verify-email-error?reason=expired  — token expiré (expiresAt < now)"
+        - "user.emailVerified est mis à jour en DB sur succès"
+        - "EmailVerificationToken est supprimé après usage (single-use)"
+        - "VerifiedUserToken est créé avec expiresAt dans ~5 min"
+      resend_verification:
+        - "200 { success: true }  — email existant et non vérifié → nouveau token créé"
+        - "200 { success: true }  — email inexistant → aucune action, même réponse"
+        - "200 { success: true }  — email déjà vérifié → aucune action, même réponse"
+        - "422  — email invalide (format incorrect)"
+        - "L'ancien EmailVerificationToken est supprimé avant d'en créer un nouveau"
+      login_blocked:
+        - "loginAction retourne { error: 'EMAIL_NOT_VERIFIED' } si user.emailVerified === null"
+        - "loginAction retourne { error: 'Email ou mot de passe incorrect' } si credentials invalides"
+
+  e2e:
+    file: "e2e/slice-08b-email-verification.spec.ts (NOUVEAU)"
+    cases:
+      inscription:
+        - "Inscription complète → redirect /verify-email-sent (PAS /dashboard)"
+        - "Page /verify-email-sent : message visible, bouton renvoi visible"
+        - "Bouton 'Renvoyer' sur /verify-email-sent → data-testid='resend-success' visible"
+      login_bloque:
+        - "Connexion avec email non vérifié → message spécifique visible (data-testid='email-not-verified-msg')"
+        - "Lien/bouton 'Renvoyer l'email' sur la page login → message confirmation"
+      verification_url:
+        - "/api/auth/verify-email?token=token-invalide → redirect /verify-email-error?reason=invalid"
+        - "(Avec seed token expiré en DB) → redirect /verify-email-error?reason=expired"
+        - "Page /verify-email-error affiche le bon message selon ?reason="
+      auto_login:
+        - "(Avec token valide seedé en DB) → /api/auth/verify-email?token=xxx → /dashboard auto-login"
+        - "VerifiedUserToken est single-use : le même lien une 2ème fois → /verify-email-error"

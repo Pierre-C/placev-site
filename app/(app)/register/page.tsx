@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useFormState, useFormStatus } from "react-dom"
 import { registerAction } from "./actions"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Info } from "lucide-react"
 
 function SubmitButton() {
@@ -25,6 +26,13 @@ export default function RegisterPage() {
   const [isBouliacais, setIsBouliacais] = useState(false)
   const [tarifReduit, setTarifReduit] = useState(false)
   const [showTooltip, setShowTooltip] = useState(false)
+  
+  const router = useRouter()
+  useEffect(() => {
+    if (state.success) {
+      router.push("/verify-email-sent")
+    }
+  }, [state.success, router])
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4 bg-neutral-50">

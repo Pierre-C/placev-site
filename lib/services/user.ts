@@ -46,16 +46,6 @@ export async function createUser(input: CreateUserInput): Promise<CreateUserResu
     },
   })
 
-  await brevo.sendEmail({
-    template: "bienvenue-validation",
-    to: user.email,
-    toName: user.name ?? undefined,
-    variables: {
-      name: user.name ?? email,
-      credits: 0,
-    },
-  })
-
   const { passwordHash: _, ...userWithoutHash } = user
 
   return {

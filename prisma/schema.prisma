@@ -62,15 +62,34 @@ model User {
   city                 String?
   tarifReduitRequested Boolean              @default(false)
   cguAccepted          Boolean              @default(false)
+  emailVerified        DateTime?
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
 
-  transactions        Transaction[]
-  reservations        Reservation[]
-  passwordResetTokens PasswordResetToken[]
+  transactions            Transaction[]
+  reservations            Reservation[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  verifiedUserTokens      VerifiedUserToken[]
 }
 
 model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerifiedUserToken {
   id        String   @id @default(cuid())
   token     String   @unique
   userId    String

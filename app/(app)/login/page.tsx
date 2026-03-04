@@ -13,6 +13,8 @@ import { loginAction } from "./actions"
 import Link from "next/link"
 import { Eye, EyeOff } from "lucide-react"
 
+import { ResendVerificationButton } from "./ResendVerificationButton"
+
 function SubmitButton() {
   const { pending } = useFormStatus()
   return (
@@ -35,14 +37,19 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-6 rounded-2xl bg-white p-8 shadow-sm">
         <h1 className="text-2xl font-bold text-neutral-900">Se connecter</h1>
 
-        {state.error && (
+        {state.emailNotVerified ? (
+          <div data-testid="email-not-verified-msg" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+            <p className="mb-2">Votre adresse email n'a pas encore été vérifiée.</p>
+            <ResendVerificationButton email={state.email ?? ""} />
+          </div>
+        ) : state.error ? (
           <p
             data-testid="error-message"
             className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
           >
             {state.error}
           </p>
-        )}
+        ) : null}
 
         <form action={formAction} className="space-y-4">
           <div>

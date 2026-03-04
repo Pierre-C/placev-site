@@ -35,11 +35,9 @@ test.describe("Inscription", () => {
     await page.click('[type="submit"]')
 
     // Redirigé vers le dashboard après inscription
-    await expect(page).toHaveURL("/dashboard")
-    // Slice 8 : plus de crédit de bienvenue → balance = 0
-    await expect(page.locator('[data-testid="credit-balance"]')).toContainText("0")
-    await expect(page.locator('[data-testid="welcome-message"]')).toContainText("Jean Test")
-  })
+    await expect(page).toHaveURL(/.*\/verify-email-sent.*/)
+    await expect(page.locator('[data-testid="verify-email-sent-message"]')).toBeVisible()
+    })
 
   test("un email déjà utilisé affiche une erreur", async ({ page }) => {
     await page.goto("/register")
@@ -113,10 +111,8 @@ test.describe("Inscription", () => {
     await page.check('[name="cgu"]')
     await page.click('[type="submit"]')
 
-    await expect(page).toHaveURL("/dashboard")
-    // Le segment dans le dashboard doit être EXTERNE (pas REDUIT automatique)
-    // L'admin devra valider manuellement le justificatif
-    await expect(page.locator('[data-testid="credit-balance"]')).toContainText("0")
+    await expect(page).toHaveURL(/.*\/verify-email-sent.*/)
+    await expect(page.locator('[data-testid="verify-email-sent-message"]')).toBeVisible()
   })
 })
 

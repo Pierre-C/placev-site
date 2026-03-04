@@ -12,6 +12,9 @@ import { AuthError } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { createUser } from "@/lib/services/user"
 
+import { brevo } from "@/lib/brevo"
+import crypto from "crypto"
+
 const registerSchema = z.object({
   name: z.string().optional().transform(v => v && v.length > 0 ? v : undefined),
   email: z.string().email("Email invalide"),
@@ -22,7 +25,7 @@ const registerSchema = z.object({
   cgu: z.string().refine(val => val === "true", "Vous devez accepter les CGU"),
 })
 
-export type RegisterState = { error: string }
+export type RegisterState = { error: string; success?: boolean; email?: string }
 
 export async function registerAction(
   _prevState: RegisterState,
@@ -51,22 +54,31 @@ export async function registerAction(
     return { error: "Cet email est déjà utilisé" }
   }
 
-  // Créer l'utilisateur (hash + email Brevo mock)
+  // Créer l'utilisateur (hash + sauvegarde en DB)
+  let createdUserId: string
   try {
-    await createUser({ email, name: name ?? "", password, isBouliacais, city: city ?? "", tarifReduit, cguAccepted: cgu === "true" })
+    const { user } = await createUser({ email, name: name ?? "", password, isBouliacais, city: city ?? "", tarifReduit, cguAccepted: cgu === "true" })
+    createdUserId = user.id
   } catch {
     return { error: "Erreur lors de la création du compte" }
   }
 
-  // Connecter l'utilisateur et rediriger vers /dashboard
-  try {
-    await signIn("credentials", { email, password, redirectTo: "/dashboard" })
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return { error: "Compte créé. Veuillez vous connecter." }
-    }
-    throw error // Re-throw redirect errors pour que Next.js gère la navigation
-  }
+  // 1. Générer le token de vérification
+  const token = crypto.randomBytes(32).toString("hex")
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // +24h
+  await prisma.emailVerificationToken.create({
+    data: { token, userId: createdUserId, expiresAt }
+  })
 
-  return { error: "" }
+  // 2. Envoyer l'email de vérification via Brevo
+  const verifyLink = `${process.env.NEXTAUTH_URL ?? "http://localhost:3000"}/api/auth/verify-email?token=${token}`
+  await brevo.sendEmail({
+    template: "bienvenue-validation",
+    to: email,
+    toName: name ?? undefined,
+    variables: { verifyLink },
+  })
+
+  // 3. Retourner succès — PAS d'auto-login, PAS de signIn()
+  return { error: "", success: true, email }
 }
