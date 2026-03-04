@@ -7,7 +7,8 @@
 import { prisma } from "@/lib/prisma"
 import { CreditPackButton } from "./CreditPackButton"
 
-const PACKS: Array<{ credits: "5" | "10" | "20" }> = [
+const PACKS: Array<{ credits: "1" | "5" | "10" | "20" }> = [
+  { credits: "1" },
   { credits: "5" },
   { credits: "10" },
   { credits: "20" },
@@ -30,7 +31,7 @@ export async function CreditPackSection({ segment }: Props) {
         Recharger des crédits
       </h2>
       <div
-        className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+        className="grid grid-cols-1 gap-3 sm:grid-cols-4"
         data-testid="credit-packs"
       >
         {PACKS.map(({ credits }) => {

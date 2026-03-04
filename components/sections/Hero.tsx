@@ -40,7 +40,7 @@ export function Hero() {
                 data-testid="hero-cta-contact"
                 className="rounded-2xl bg-gradient-to-r from-placev-blue to-placev-mint px-5 py-3 font-medium text-white inline-flex items-center gap-2 shadow-cta hover:opacity-90 transition"
               >
-                Contactez-nous
+                Venez tester
                 <ArrowRight className="h-4 w-4" />
               </a>
               <a
