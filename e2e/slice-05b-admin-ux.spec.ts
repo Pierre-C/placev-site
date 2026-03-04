@@ -65,10 +65,10 @@ test.describe("Calendrier Coworking", () => {
   test("les tuiles affichent un comptage X/Y (pas le remaining de l'API publique)", async ({ adminPage }) => {
     await adminPage.goto("/admin/calendar")
     // Attendre que le chargement se termine
-    await adminPage.waitForSelector('[data-testid="admin-calendar-slot-tile"]', { timeout: 10000 })
+    await adminPage.waitForSelector('[data-testid="admin-slot-am"]', { timeout: 10000 })
 
-    // Au moins une tuile doit être visible
-    const tiles = adminPage.locator('[data-testid="admin-calendar-slot-tile"]')
+    // Au moins une tuile AM doit être visible
+    const tiles = adminPage.locator('[data-testid="admin-slot-am"]')
     await expect(tiles.first()).toBeVisible()
 
     // Chaque tuile doit avoir les attributs data-count et data-capacity
@@ -81,28 +81,28 @@ test.describe("Calendrier Coworking", () => {
 
   test("clic sur une date ouvre le panneau de détail sous le calendrier", async ({ adminPage }) => {
     await adminPage.goto("/admin/calendar")
-    await adminPage.waitForSelector('[data-testid="admin-calendar-slot-tile"]', { timeout: 10000 })
+    await adminPage.waitForSelector('[data-testid="admin-slot-am"]', { timeout: 10000 })
 
-    // Cliquer sur la tuile d'un jour ouvert
+    // Cliquer sur la cellule AM d'un jour ouvert
     const openDateStr = futureOpenDateYMD(1)
-    const dateTile = adminPage.locator(`[data-testid="admin-calendar-slot-tile"][data-date="${openDateStr}"]`).first()
+    const dateTile = adminPage.locator(`[data-testid="admin-slot-am"][data-date="${openDateStr}"]`)
     await dateTile.click()
 
     // Le panneau de détail doit s'ouvrir
-    await expect(adminPage.locator('[data-testid="admin-calendar-date-panel"]')).toBeVisible()
+    await expect(adminPage.locator('[data-testid="admin-slots-panel"]')).toBeVisible()
     await expect(adminPage.locator('[data-testid="admin-reservations-table"]')).toBeVisible()
   })
 
-  test("le panneau de détail affiche les boutons 'Annuler tout AM' et 'Annuler tout PM'", async ({ adminPage }) => {
+  test("le panneau de détail affiche les boutons 'Annuler tout' et 'Fermer la journée'", async ({ adminPage }) => {
     await adminPage.goto("/admin/calendar")
-    await adminPage.waitForSelector('[data-testid="admin-calendar-slot-tile"]', { timeout: 10000 })
+    await adminPage.waitForSelector('[data-testid="admin-slot-am"]', { timeout: 10000 })
 
     const openDateStr = futureOpenDateYMD(2)
-    const dateTile = adminPage.locator(`[data-testid="admin-calendar-slot-tile"][data-date="${openDateStr}"]`).first()
+    const dateTile = adminPage.locator(`[data-testid="admin-slot-am"][data-date="${openDateStr}"]`)
     await dateTile.click()
 
-    await expect(adminPage.locator('[data-testid="admin-calendar-date-panel"]')).toBeVisible()
-    // Les boutons d'annulation par demi-journée doivent être présents
+    await expect(adminPage.locator('[data-testid="admin-slots-panel"]')).toBeVisible()
+    // Le bouton d'annulation du créneau sélectionné doit être présent
     await expect(adminPage.locator('[data-testid="admin-cancel-slot-btn"]').first()).toBeVisible()
     // Le bouton de fermeture de date
     await expect(adminPage.locator('[data-testid="admin-close-date-btn"]')).toBeVisible()
@@ -110,15 +110,15 @@ test.describe("Calendrier Coworking", () => {
 
   test("annulation individuelle d'une réservation : dialog de confirmation puis succès", async ({ adminPage }) => {
     await adminPage.goto("/admin/calendar")
-    await adminPage.waitForSelector('[data-testid="admin-calendar-slot-tile"]', { timeout: 10000 })
+    await adminPage.waitForSelector('[data-testid="admin-slot-am"]', { timeout: 10000 })
 
     const openDateStr = futureOpenDateYMD(1)
-    const dateTile = adminPage.locator(`[data-testid="admin-calendar-slot-tile"][data-date="${openDateStr}"]`).first()
+    const dateTile = adminPage.locator(`[data-testid="admin-slot-am"][data-date="${openDateStr}"]`)
     await dateTile.click()
 
     // Étape 1 : attendre que le panneau de gestion s'ouvre.
     // Le panneau s'affiche dès le clic, indépendamment des réservations.
-    await expect(adminPage.locator('[data-testid="admin-calendar-date-panel"]')).toBeVisible({ timeout: 10000 })
+    await expect(adminPage.locator('[data-testid="admin-slots-panel"]')).toBeVisible({ timeout: 10000 })
 
     // Vérifier que les boutons d'action par demi-journée sont présents (structure minimale).
     await expect(adminPage.locator('[data-testid="admin-cancel-slot-btn"]').first()).toBeVisible({ timeout: 5000 })
@@ -158,14 +158,14 @@ test.describe("Calendrier Coworking", () => {
 
   test("le dialog de confirmation peut être annulé (confirm-no)", async ({ adminPage }) => {
     await adminPage.goto("/admin/calendar")
-    await adminPage.waitForSelector('[data-testid="admin-calendar-slot-tile"]', { timeout: 10000 })
+    await adminPage.waitForSelector('[data-testid="admin-slot-am"]', { timeout: 10000 })
 
     const openDateStr = futureOpenDateYMD(1)
-    const dateTile = adminPage.locator(`[data-testid="admin-calendar-slot-tile"][data-date="${openDateStr}"]`).first()
+    const dateTile = adminPage.locator(`[data-testid="admin-slot-am"][data-date="${openDateStr}"]`)
     await dateTile.click()
 
     // Attendre l'ouverture du panneau avant de chercher le tableau (cf. commentaire test précédent)
-    await expect(adminPage.locator('[data-testid="admin-calendar-date-panel"]')).toBeVisible({ timeout: 10000 })
+    await expect(adminPage.locator('[data-testid="admin-slots-panel"]')).toBeVisible({ timeout: 10000 })
 
     const reservationsTable = adminPage.locator('[data-testid="admin-reservations-table"]')
     const tableVisible = await reservationsTable.isVisible().catch(() => false)
@@ -206,12 +206,12 @@ test.describe("Calendrier Coworking", () => {
       await adminPage.locator('[data-testid="calendar-next-month"]').click()
     }
 
-    await adminPage.waitForSelector('[data-testid="admin-calendar-slot-tile"]', { timeout: 10000 })
+    await adminPage.waitForSelector('[data-testid="admin-slot-am"]', { timeout: 10000 })
 
-    const dateTile = adminPage.locator(`[data-testid="admin-calendar-slot-tile"][data-date="${closeDateStr}"]`).first()
+    const dateTile = adminPage.locator(`[data-testid="admin-slot-am"][data-date="${closeDateStr}"]`)
     if (await dateTile.isVisible()) {
       await dateTile.click()
-      await adminPage.waitForSelector('[data-testid="admin-calendar-date-panel"]')
+      await adminPage.waitForSelector('[data-testid="admin-slots-panel"]')
       await adminPage.locator('[data-testid="admin-close-date-btn"]').click()
 
       await expect(adminPage.locator('[data-testid="admin-confirm-dialog"]')).toBeVisible()

@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { formatYMD, addDays, getMonthGridWeekdays } from "@/lib/calendar-utils"
-import { useRouter } from "next/navigation"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,10 +29,19 @@ type ReservationDetail = {
   } | null
 }
 
+type SelectedAdminSlot = {
+  date: string
+  slot: "AM" | "PM"
+}
+
 const WEEKDAY_HEADERS = ["Lun", "Mar", "Mer", "Jeu", "Ven"]
 const MONTHS_FR = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+]
+
+const WEEKDAYS_FR = [
+  "Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi",
 ]
 
 function startOfMonth(d = new Date()): Date {
@@ -42,18 +50,23 @@ function startOfMonth(d = new Date()): Date {
   return x
 }
 
+function formatDayShort(d: Date): string {
+  const dayName = WEEKDAYS_FR[d.getDay()].substring(0, 3).toLowerCase()
+  return `${dayName}. ${d.getDate()}`
+}
+
 interface AdminCalendarProps {
   capacity: number
   openDays: number[]
 }
 
 export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps) {
-  const router = useRouter()
   const [monthCursor, setMonthCursor] = useState(() => startOfMonth())
   const [occupancy, setOccupancy] = useState<OccupancyItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [reservations, setReservations] = useState<ReservationDetail[]>([])
+  
+  const [selectedSlots, setSelectedSlots] = useState<SelectedAdminSlot[]>([])
+  const [reservationsByDate, setReservationsByDate] = useState<Map<string, ReservationDetail[]>>(new Map())
   const [loadingReservations, setLoadingReservations] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
@@ -93,25 +106,37 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
     fetchOccupancy()
   }, [fetchOccupancy])
 
-  const fetchReservations = async (date: string) => {
+  const fetchReservationsForSlots = useCallback(async (slots: SelectedAdminSlot[]) => {
+    if (slots.length === 0) {
+      setReservationsByDate(new Map())
+      return
+    }
+    
     try {
       setLoadingReservations(true)
-      const res = await fetch(`/api/admin/reservations?date=${date}`)
-      if (res.ok) {
-        const data = await res.json()
-        setReservations(data)
-      }
+      const dates = [...new Set(slots.map(s => s.date))]
+      const newMap = new Map<string, ReservationDetail[]>()
+      
+      await Promise.all(dates.map(async (d) => {
+        const res = await fetch(`/api/admin/reservations?date=${d}`)
+        if (res.ok) {
+          const data = await res.json()
+          newMap.set(d, data)
+        }
+      }))
+      
+      setReservationsByDate(newMap)
       setLoadingReservations(false)
     } catch (err) {
       console.error("Failed to fetch reservations", err)
       setLoadingReservations(false)
     }
-  }
+  }, [])
 
-  const handleDateClick = (date: string) => {
-    setSelectedDate(date)
-    fetchReservations(date)
-  }
+  // When selectedSlots changes, fetch reservations
+  useEffect(() => {
+    fetchReservationsForSlots(selectedSlots)
+  }, [selectedSlots, fetchReservationsForSlots])
 
   const occMap = useMemo(() => {
     const m = new Map<string, OccupancyItem>()
@@ -120,6 +145,15 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
     }
     return m
   }, [occupancy])
+
+  function handleSlotToggle(date: string, slot: "AM" | "PM") {
+    const exists = selectedSlots.some(s => s.date === date && s.slot === slot)
+    if (exists) {
+      setSelectedSlots(prev => prev.filter(s => !(s.date === date && s.slot === slot)))
+    } else {
+      setSelectedSlots(prev => [...prev, { date, slot }])
+    }
+  }
 
   const handleCancelIndividual = async (resId: string) => {
     setConfirmDialog({
@@ -130,8 +164,8 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
         const res = await fetch(`/api/admin/reservations/${resId}/cancel`, { method: "POST" })
         if (res.ok) {
           setSuccessMessage("Réservation annulée avec succès")
-          if (selectedDate) fetchReservations(selectedDate)
-          fetchOccupancy()
+          await fetchReservationsForSlots(selectedSlots)
+          await fetchOccupancy()
           setTimeout(() => setSuccessMessage(null), 3000)
         }
         setConfirmDialog(prev => ({ ...prev, isOpen: false }))
@@ -139,27 +173,21 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
     })
   }
 
-  const handleCancelSlot = async (slot: "AM" | "PM") => {
-    if (!selectedDate) return
-    const count = reservations.filter(r => {
-        if (slot === "AM") return r.slot === "AM" || r.slot === "FULL"
-        return r.slot === "PM" || r.slot === "FULL"
-    }).length
-
+  const handleCancelSlotForDate = async (date: string, slot: "AM" | "PM", count: number) => {
     setConfirmDialog({
       isOpen: true,
-      title: `Annuler toutes les réservations ${slot} ?`,
+      title: `Annuler toutes les réservations ${slot} du ${date} ?`,
       message: `Cela annulera ${count} réservation(s). Les utilisateurs seront remboursés.`,
       onConfirm: async () => {
         const res = await fetch(`/api/admin/reservations/cancel-slot`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date: selectedDate, slot })
+          body: JSON.stringify({ date, slot })
         })
         if (res.ok) {
           setSuccessMessage(`${count} réservation(s) annulée(s)`)
-          fetchReservations(selectedDate)
-          fetchOccupancy()
+          await fetchReservationsForSlots(selectedSlots)
+          await fetchOccupancy()
           setTimeout(() => setSuccessMessage(null), 3000)
         }
         setConfirmDialog(prev => ({ ...prev, isOpen: false }))
@@ -167,8 +195,7 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
     })
   }
 
-  const handleCloseDate = async () => {
-    if (!selectedDate) return
+  const handleCloseDate = async (date: string) => {
     setConfirmDialog({
       isOpen: true,
       title: "Fermer cette date ?",
@@ -177,12 +204,13 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
         const res = await fetch(`/api/admin/close-date`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date: selectedDate, reason: "Fermeture administrative" })
+          body: JSON.stringify({ date, reason: "Fermeture administrative" })
         })
         if (res.ok) {
           setSuccessMessage("Date fermée et réservations annulées")
-          fetchReservations(selectedDate)
-          fetchOccupancy()
+          // Retirer les créneaux de cette date de la sélection
+          setSelectedSlots(prev => prev.filter(s => s.date !== date))
+          await fetchOccupancy()
           setTimeout(() => setSuccessMessage(null), 3000)
         }
         setConfirmDialog(prev => ({ ...prev, isOpen: false }))
@@ -190,8 +218,7 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
     })
   }
 
-  const handleOpenDate = async () => {
-    if (!selectedDate) return
+  const handleOpenDate = async (date: string) => {
     setConfirmDialog({
       isOpen: true,
       title: "Réouvrir cette date ?",
@@ -200,12 +227,12 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
         const res = await fetch(`/api/admin/close-date`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date: selectedDate })
+          body: JSON.stringify({ date })
         })
         if (res.ok) {
           setSuccessMessage("Date réouverte avec succès")
-          fetchReservations(selectedDate)
-          fetchOccupancy()
+          await fetchReservationsForSlots(selectedSlots)
+          await fetchOccupancy()
           setTimeout(() => setSuccessMessage(null), 3000)
         }
         setConfirmDialog(prev => ({ ...prev, isOpen: false }))
@@ -215,13 +242,42 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
 
   const monthLabel = `${MONTHS_FR[monthCursor.getMonth()]} ${monthCursor.getFullYear()}`
 
-  // Check if selected date is manually closed
-  const isSelectedDateManuallyClosed = useMemo(() => {
-    if (!selectedDate) return false
-    const am = occMap.get(`${selectedDate}|AM`)
-    const pm = occMap.get(`${selectedDate}|PM`)
-    return (am?.closedDateId != null) || (pm?.closedDateId != null)
-  }, [selectedDate, occMap])
+  const filteredReservations = useMemo(() => {
+    const merged: (ReservationDetail & { _date: string })[] = []
+    
+    for (const { date, slot } of selectedSlots) {
+      const resForDate = reservationsByDate.get(date) || []
+      const matching = resForDate.filter(r => 
+        r.slot === slot || (r.slot === "FULL" && (slot === "AM" || slot === "PM"))
+      )
+      for (const r of matching) {
+        if (!merged.some(m => m.id === r.id)) {
+          merged.push({ ...r, _date: date })
+        }
+      }
+    }
+    
+    return merged.sort((a, b) => {
+      if (a._date !== b._date) return a._date.localeCompare(b._date)
+      const order = { AM: 1, FULL: 2, PM: 3 }
+      return order[a.slot] - order[b.slot]
+    })
+  }, [selectedSlots, reservationsByDate])
+
+  const today = useMemo(() => {
+    const t = new Date()
+    t.setHours(0, 0, 0, 0)
+    return t
+  }, [])
+
+  function getAdminClasses(item: OccupancyItem | undefined, isSelected: boolean, isPast: boolean, isClosed: boolean) {
+    if (isPast || isClosed) return "bg-neutral-200 text-neutral-400 cursor-default"
+    if (isSelected) return "bg-placev-blue text-white ring-2 ring-placev-blue z-10"
+    if (!item) return "bg-green-50 text-green-600 hover:bg-green-100"
+    if (item.count >= item.capacity) return "bg-red-100 text-red-800 hover:bg-red-200"
+    if (item.count === 0) return "bg-green-50 text-green-600 hover:bg-green-100"
+    return "bg-green-100 text-green-800 hover:bg-green-200"
+  }
 
   return (
     <div data-testid="admin-calendar" className="space-y-8">
@@ -262,194 +318,195 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
       </div>
 
       {/* GRILLE */}
-      <div data-testid="admin-calendar-grid" style={{ maxHeight: "480px", overflowY: "auto" }}>
+      <div data-testid="admin-calendar-grid" style={{ maxHeight: "480px", overflowY: "auto" }} className="pr-2">
         <div className="grid grid-cols-5 gap-2">
           {WEEKDAY_HEADERS.map(h => (
             <div key={h} className="text-center text-xs font-bold text-neutral-400 pb-2">{h}</div>
           ))}
-          {days.map((day, i) => {
-            const dateStr = formatYMD(day)
-            const isCurrentMonth = day.getMonth() === monthCursor.getMonth()
-            const am = occMap.get(`${dateStr}|AM`)
-            const pm = occMap.get(`${dateStr}|PM`)
-            const isClosed = am?.isClosed || pm?.isClosed
-            const isSelected = selectedDate === dateStr
-
-            const today = new Date()
-            today.setHours(0, 0, 0, 0)
-            const isPast = day < today
-            const isToday = day.getTime() === today.getTime()
-
-            return (
-              <div
-                key={i}
-                data-past={isPast ? "true" : "false"}
-                data-today={isToday ? "true" : "false"}
-                className={`relative aspect-square rounded-xl overflow-hidden transition-all ${
-                  !isCurrentMonth ? "opacity-30 grayscale" : ""
-                } ${isPast ? "opacity-40" : ""}`}
-              >
-              <span className="absolute top-1 left-2 z-30 text-xs font-bold text-neutral-400 pointer-events-none">
-                {day.getDate()}
-              </span>
-
-              {/* TRIANGLES */}
-              <div
-                className={`absolute inset-0 ${isClosed ? "bg-neutral-50" : "bg-white"}`}
-                style={{ pointerEvents: "none" }}
-              >
-                 {/* AM */}
-                 <div
-                    className={`absolute inset-0 ${isClosed ? "bg-neutral-100" : "bg-emerald-50"}`}
-                    style={{ clipPath: "polygon(0% 0%, 100% 0%, 0% 100%)" }}
-                 />
-                 {/* PM */}
-                 <div
-                    className={`absolute inset-0 ${isClosed ? "bg-neutral-100" : "bg-emerald-50"}`}
-                    style={{ clipPath: "polygon(100% 0%, 100% 100%, 0% 100%)" }}
-                 />
-              </div>
-
-              {/* Overlay sélection — fond bleu translucide sur la tuile cliquée */}
-              {isSelected && (
-                <div className="absolute inset-0 bg-blue-500/10 pointer-events-none z-35" />
-              )}
-
-              {/* Indicateur aujourd'hui — bordure bleue permanente */}
-              {isToday && (
-                <div className="absolute inset-0 border-2 border-blue-500 pointer-events-none z-40" />
-              )}
-
-              {/* COUNTERS / CLICKABLE TILES */}
-              <button
-                type="button"
-                data-testid="admin-calendar-slot-tile"
-                data-date={dateStr}
-                data-slot="AM"
-                data-count={am?.count ?? 0}
-                data-capacity={am?.capacity ?? capacity}
-                onClick={(e) => {
-                    e.stopPropagation()
-                    handleDateClick(dateStr)
-                }}
-                className="absolute top-0 left-0 w-1/2 h-1/2 z-10 appearance-none bg-transparent border-none p-0 cursor-pointer"
-              >
-                {!isClosed && am && (
-                  <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-bold text-emerald-700 pointer-events-none">
-                    {am.count}/{am.capacity}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                data-testid="admin-calendar-slot-tile"
-                data-date={dateStr}
-                data-slot="PM"
-                data-count={pm?.count ?? 0}
-                data-capacity={pm?.capacity ?? capacity}
-                onClick={(e) => {
-                    e.stopPropagation()
-                    handleDateClick(dateStr)
-                }}
-                className="absolute bottom-0 right-0 w-1/2 h-1/2 z-10 appearance-none bg-transparent border-none p-0 cursor-pointer"
-              >
-                {!isClosed && pm && (
-                  <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-bold text-emerald-700 pointer-events-none">
-                    {pm.count}/{pm.capacity}
-                  </span>
-                )}
-              </button>
-
-              {/* FULL BUTTON (CENTER) */}
-              {!isClosed && (
-                <div
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 bg-white/80 backdrop-blur-sm px-1.5 py-0.5 rounded-full text-[8px] font-black text-neutral-600 shadow-sm border border-neutral-100 pointer-events-none"
-                >
-                    JOURNÉE
-                </div>
-              )}
+          {loading ? (
+            <div className="col-span-5 flex h-64 items-center justify-center text-sm text-neutral-400">
+              Chargement du calendrier...
             </div>
-          )
-        })}
+          ) : (
+            days.map((day, i) => {
+              const dateStr = formatYMD(day)
+              const isCurrentMonth = day.getMonth() === monthCursor.getMonth()
+              
+              const isPast = day < today
+              const isToday = formatYMD(day) === formatYMD(today)
+
+              if (!openDays.includes(day.getDay()) || (!isCurrentMonth)) {
+                return (
+                  <div key={i} className={`flex flex-col rounded-lg overflow-hidden border border-neutral-100 bg-neutral-50 ${isPast ? "opacity-30" : (isCurrentMonth ? "opacity-50" : "opacity-30")}`}>
+                    <div className="px-1 py-0.5 text-center text-[10px] text-neutral-400 bg-neutral-100 border-b border-neutral-200">
+                      {formatDayShort(day)}
+                    </div>
+                    <div className="flex-1 flex items-center justify-center"><span className="text-neutral-300 text-xs">—</span></div>
+                  </div>
+                )
+              }
+
+              const am = occMap.get(`${dateStr}|AM`)
+              const pm = occMap.get(`${dateStr}|PM`)
+              const isClosed = am?.isClosed || pm?.isClosed
+              const isAmSelected = selectedSlots.some(s => s.date === dateStr && s.slot === "AM")
+              const isPmSelected = selectedSlots.some(s => s.date === dateStr && s.slot === "PM")
+
+              const amDisabled = isPast
+              const pmDisabled = isPast
+
+              return (
+                <div
+                  key={i}
+                  data-today={isToday ? "true" : "false"}
+                  data-past={isPast ? "true" : "false"}
+                  className={`flex flex-col rounded-lg overflow-hidden border ${isToday ? "border-blue-500" : "border-neutral-100"} ${isPast ? "opacity-50" : ""}`}
+                >
+                  <div className="px-1 py-0.5 text-center text-[10px] font-semibold text-neutral-500 bg-white border-b border-neutral-100">
+                    {formatDayShort(day)}
+                  </div>
+
+                  <button
+                    type="button"
+                    data-testid="admin-slot-am"
+                    data-date={dateStr}
+                    data-count={am?.count ?? 0}
+                    data-capacity={am?.capacity ?? capacity}
+                    data-disabled={amDisabled ? "true" : "false"}
+                    data-selected={isAmSelected ? "true" : "false"}
+                    disabled={amDisabled}
+                    onClick={() => !amDisabled && handleSlotToggle(dateStr, "AM")}
+                    className={`flex-1 px-1 py-1.5 text-center text-[10px] leading-tight transition-colors ${getAdminClasses(am, isAmSelected, isPast, !!isClosed)}`}
+                  >
+                    AM<br/>
+                    {am && !isClosed && !isPast ? `${am.count}/${am.capacity}` : "—"}
+                  </button>
+
+                  <div className="h-[1px] bg-neutral-100" />
+
+                  <button
+                    type="button"
+                    data-testid="admin-slot-pm"
+                    data-date={dateStr}
+                    data-count={pm?.count ?? 0}
+                    data-capacity={pm?.capacity ?? capacity}
+                    data-disabled={pmDisabled ? "true" : "false"}
+                    data-selected={isPmSelected ? "true" : "false"}
+                    disabled={pmDisabled}
+                    onClick={() => !pmDisabled && handleSlotToggle(dateStr, "PM")}
+                    className={`flex-1 px-1 py-1.5 text-center text-[10px] leading-tight transition-colors ${getAdminClasses(pm, isPmSelected, isPast, !!isClosed)}`}
+                  >
+                    PM<br/>
+                    {pm && !isClosed && !isPast ? `${pm.count}/${pm.capacity}` : "—"}
+                  </button>
+                </div>
+              )
+            })
+          )}
         </div>
       </div>
 
       {/* DETAIL PANEL */}
-      {selectedDate && (
-        <div data-testid="admin-calendar-date-panel" className="bg-white rounded-2xl shadow-xl ring-1 ring-neutral-100 p-6 space-y-6">
-          <div className="flex items-center justify-between border-b pb-4">
-            <div>
-              <h4 className="text-2xl font-black text-neutral-900">{selectedDate}</h4>
-              <p className="text-neutral-500 font-medium">Gestion des réservations pour cette journée</p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                data-testid="admin-cancel-slot-btn"
-                onClick={() => handleCancelSlot("AM")}
-                className="px-4 py-2 bg-amber-50 text-amber-700 rounded-xl font-bold text-sm hover:bg-amber-100 transition-colors"
-              >
-                Annuler tout AM
-              </button>
-              <button
-                data-testid="admin-cancel-slot-btn"
-                onClick={() => handleCancelSlot("PM")}
-                className="px-4 py-2 bg-amber-50 text-amber-700 rounded-xl font-bold text-sm hover:bg-amber-100 transition-colors"
-              >
-                Annuler tout PM
-              </button>
-              {isSelectedDateManuallyClosed ? (
-                <button
-                  data-testid="admin-open-date-btn"
-                  onClick={handleOpenDate}
-                  className="px-4 py-2 bg-blue-50 text-blue-700 rounded-xl font-bold text-sm hover:bg-blue-100 transition-colors"
+      {selectedSlots.length > 0 && (
+        <div data-testid="admin-slots-panel" className="bg-white rounded-2xl shadow-xl ring-1 ring-neutral-100 p-6 space-y-6">
+          {/* EN-TÊTE */}
+          <div className="border-b pb-4">
+            <p className="text-neutral-500 font-medium mb-3">
+              Gestion des réservations pour les créneaux sélectionnés
+            </p>
+            {/* Chips des créneaux sélectionnés */}
+            <div className="flex flex-wrap gap-2">
+              {selectedSlots.map(({ date, slot }) => (
+                <span
+                  key={`${date}|${slot}`}
+                  data-testid="admin-selected-slot-chip"
+                  data-date={date}
+                  data-slot={slot}
+                  className="flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-bold"
                 >
-                  Réouvrir cette date
-                </button>
-              ) : (
-                <button
-                  data-testid="admin-close-date-btn"
-                  onClick={handleCloseDate}
-                  className="px-4 py-2 bg-red-50 text-red-700 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors"
-                >
-                  Fermer cette date
-                </button>
-              )}
+                  {formatDayShort(new Date(date + "T00:00:00"))} {slot}
+                  <button
+                    onClick={() => handleSlotToggle(date, slot)}
+                    className="ml-1 hover:text-blue-600 font-black"
+                    aria-label={`Retirer ${date} ${slot}`}
+                  >×</button>
+                </span>
+              ))}
             </div>
           </div>
 
+          {/* ACTIONS PAR CRÉNEAU */}
+          <div className="space-y-2">
+            {selectedSlots.map(({ date, slot }) => {
+              const isDateClosed = occMap.get(`${date}|AM`)?.closedDateId != null || occMap.get(`${date}|PM`)?.closedDateId != null
+              const slotReservations = (reservationsByDate.get(date) ?? []).filter(r =>
+                r.slot === slot || (r.slot === "FULL" && (slot === "AM" || slot === "PM"))
+              )
+              const count = slotReservations.length
+              return (
+                <div key={`${date}|${slot}`} className="flex items-center gap-3 p-3 bg-neutral-50 rounded-xl">
+                  <span className="text-sm font-bold text-neutral-700 flex-1">
+                    {formatDayShort(new Date(date + "T00:00:00"))} — {slot}
+                  </span>
+                  <button
+                    data-testid="admin-cancel-slot-btn"
+                    onClick={() => handleCancelSlotForDate(date, slot, count)}
+                    className="px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg font-bold text-xs hover:bg-amber-100 transition-colors"
+                  >
+                    Annuler tout ({count})
+                  </button>
+                  {isDateClosed ? (
+                    <button
+                      data-testid="admin-open-date-btn"
+                      onClick={() => handleOpenDate(date)}
+                      className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg font-bold text-xs hover:bg-blue-100 transition-colors"
+                    >
+                      Réouvrir
+                    </button>
+                  ) : (
+                    <button
+                      data-testid="admin-close-date-btn"
+                      onClick={() => handleCloseDate(date)}
+                      className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg font-bold text-xs hover:bg-red-100 transition-colors"
+                    >
+                      Fermer la journée
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* TABLEAU FUSIONNÉ */}
           {loadingReservations ? (
-            <div className="text-center py-12 text-neutral-400 font-medium italic">Chargement des réservations...</div>
+            <div className="text-center py-8 text-neutral-400 italic">Chargement...</div>
           ) : (
             <div className="overflow-x-auto">
               <table data-testid="admin-reservations-table" className="w-full text-left">
                 <thead>
                   <tr className="border-b text-neutral-400 text-xs font-bold uppercase tracking-wider">
+                    <th className="px-4 py-3">Créneau</th>
                     <th className="px-4 py-3">Membre</th>
                     <th className="px-4 py-3">Email</th>
-                    <th className="px-4 py-3">Créneau</th>
                     <th className="px-4 py-3">Statut</th>
                     <th className="px-4 py-3 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {reservations.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-12 text-center text-neutral-400 font-medium italic">
-                        Aucune réservation pour ce jour.
-                      </td>
-                    </tr>
+                  {filteredReservations.length === 0 ? (
+                    <tr><td colSpan={5} className="py-12 text-center text-neutral-400 italic">Aucune réservation pour les créneaux sélectionnés.</td></tr>
                   ) : (
-                    reservations.map(res => (
+                    filteredReservations.map(res => (
                       <tr key={res.id} data-testid="admin-reservation-row" className="hover:bg-neutral-50 transition-colors">
-                        <td className="px-4 py-4 font-bold text-neutral-900">{res.user?.name || "N/A"}</td>
-                        <td className="px-4 py-4 text-neutral-500 text-sm font-medium">{res.user?.email || "N/A"}</td>
                         <td className="px-4 py-4">
                           <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase ${
                             res.slot === "FULL" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
                           }`}>
-                            {res.slot}
+                            {res.slot === "FULL" ? "FULL" : res.slot} – {formatDayShort(new Date(res._date + "T00:00:00"))}
                           </span>
                         </td>
+                        <td className="px-4 py-4 font-bold text-neutral-900">{res.user?.name || "N/A"}</td>
+                        <td className="px-4 py-4 text-neutral-500 text-sm font-medium">{res.user?.email || "N/A"}</td>
                         <td className="px-4 py-4">
                           <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase ${
                             res.status === "CONFIRMED" ? "bg-green-100 text-green-700" : "bg-neutral-100 text-neutral-700"

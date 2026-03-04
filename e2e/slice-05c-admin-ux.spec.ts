@@ -237,19 +237,19 @@ test.describe("Calendrier — grille scrollable", () => {
     expect(["auto", "scroll"]).toContain(styles.overflowY)
   })
 
-  test("le panneau admin-calendar-date-panel est en dehors de la grille scrollable", async ({ adminPage }) => {
+  test("le panneau admin-slots-panel est en dehors de la grille scrollable", async ({ adminPage }) => {
     await adminPage.goto("/admin/calendar")
-    await adminPage.waitForSelector('[data-testid="admin-calendar-slot-tile"]', { timeout: 10000 })
+    await adminPage.waitForSelector('[data-testid="admin-slot-am"]', { timeout: 10000 })
 
-    // Cliquer une date pour ouvrir le panneau
-    const tile = adminPage.locator('[data-testid="admin-calendar-slot-tile"]').first()
+    // Cliquer la première cellule AM non-disabled (évite les dates passées)
+    const tile = adminPage.locator('[data-testid="admin-slot-am"][data-disabled="false"]').first()
     await tile.click()
 
-    await expect(adminPage.locator('[data-testid="admin-calendar-date-panel"]')).toBeVisible({ timeout: 10000 })
+    await expect(adminPage.locator('[data-testid="admin-slots-panel"]')).toBeVisible({ timeout: 10000 })
 
     // Le panneau ne doit pas être enfant de la grille scrollable
     const isInsideGrid = await adminPage.locator('[data-testid="admin-calendar-grid"]')
-      .locator('[data-testid="admin-calendar-date-panel"]')
+      .locator('[data-testid="admin-slots-panel"]')
       .count()
     expect(isInsideGrid).toBe(0)
   })
@@ -260,25 +260,26 @@ test.describe("Calendrier — grille scrollable", () => {
 test.describe("Calendrier — date du jour et dates passées", () => {
   test("la cellule du jour actuel a data-today='true'", async ({ adminPage }) => {
     await adminPage.goto("/admin/calendar")
-    await adminPage.waitForSelector('[data-testid="admin-calendar-slot-tile"]', { timeout: 10000 })
+    await adminPage.waitForSelector('[data-testid="admin-slot-am"]', { timeout: 10000 })
 
     const todayCell = adminPage.locator('[data-today="true"]')
     await expect(todayCell).toBeVisible()
   })
 
-  test("la cellule du jour actuel est visuellement distincte (ring visible)", async ({ adminPage }) => {
+  test("la cellule du jour actuel est visuellement distincte (bordure bleue)", async ({ adminPage }) => {
     await adminPage.goto("/admin/calendar")
-    await adminPage.waitForSelector('[data-testid="admin-calendar-slot-tile"]', { timeout: 10000 })
+    await adminPage.waitForSelector('[data-testid="admin-slot-am"]', { timeout: 10000 })
 
     const todayCell = adminPage.locator('[data-today="true"]')
     await expect(todayCell).toBeVisible()
-    const todayIndicator = todayCell.locator("div.border-blue-500")
-    await expect(todayIndicator).toBeVisible()
+    // La bordure bleue est sur le conteneur lui-même (border-blue-500)
+    const className = await todayCell.getAttribute("class")
+    expect(className).toMatch(/border-blue-500/)
   })
 
   test("les cellules passées ont data-past='true'", async ({ adminPage }) => {
     await adminPage.goto("/admin/calendar")
-    await adminPage.waitForSelector('[data-testid="admin-calendar-slot-tile"]', { timeout: 10000 })
+    await adminPage.waitForSelector('[data-testid="admin-slot-am"]', { timeout: 10000 })
 
     // Il doit y avoir au moins quelques dates passées dans le mois (si on n'est pas le 1er du mois)
     const pastCells = adminPage.locator('[data-past="true"]')
@@ -291,7 +292,7 @@ test.describe("Calendrier — date du jour et dates passées", () => {
 
   test("les cellules passées ont une opacité réduite", async ({ adminPage }) => {
     await adminPage.goto("/admin/calendar")
-    await adminPage.waitForSelector('[data-testid="admin-calendar-slot-tile"]', { timeout: 10000 })
+    await adminPage.waitForSelector('[data-testid="admin-slot-am"]', { timeout: 10000 })
 
     const pastCells = adminPage.locator('[data-past="true"]')
     const count = await pastCells.count()
@@ -321,7 +322,7 @@ test.describe("Calendrier — réouverture d'une date fermée", () => {
 
     // Aller sur le calendrier et naviguer vers le mois de la date cible
     await adminPage.goto("/admin/calendar")
-    await adminPage.waitForSelector('[data-testid="admin-calendar-slot-tile"]', { timeout: 10000 })
+    await adminPage.waitForSelector('[data-testid="admin-slot-am"]', { timeout: 10000 })
 
     const targetMonth = new Date(targetDate).getMonth()
     const currentMonth = new Date().getMonth()
@@ -330,11 +331,11 @@ test.describe("Calendrier — réouverture d'une date fermée", () => {
       await adminPage.waitForTimeout(300)
     }
 
-    // Cliquer sur la date fermée
-    const dateTile = adminPage.locator(`[data-testid="admin-calendar-slot-tile"][data-date="${targetDate}"]`).first()
+    // Cliquer sur la cellule AM de la date fermée (la date est cliquable même si fermée)
+    const dateTile = adminPage.locator(`[data-testid="admin-slot-am"][data-date="${targetDate}"]`)
     if (await dateTile.isVisible()) {
       await dateTile.click()
-      await expect(adminPage.locator('[data-testid="admin-calendar-date-panel"]')).toBeVisible({ timeout: 10000 })
+      await expect(adminPage.locator('[data-testid="admin-slots-panel"]')).toBeVisible({ timeout: 10000 })
 
       // Le bouton "Réouvrir" doit être visible au lieu du bouton "Fermer"
       await expect(adminPage.locator('[data-testid="admin-open-date-btn"]')).toBeVisible({ timeout: 5000 })
@@ -356,7 +357,7 @@ test.describe("Calendrier — réouverture d'une date fermée", () => {
 
     // Naviguer vers le calendrier
     await adminPage.goto("/admin/calendar")
-    await adminPage.waitForSelector('[data-testid="admin-calendar-slot-tile"]', { timeout: 10000 })
+    await adminPage.waitForSelector('[data-testid="admin-slot-am"]', { timeout: 10000 })
 
     const targetMonth = new Date(targetDate).getMonth()
     const currentMonth = new Date().getMonth()
@@ -365,10 +366,10 @@ test.describe("Calendrier — réouverture d'une date fermée", () => {
       await adminPage.waitForTimeout(300)
     }
 
-    const dateTile = adminPage.locator(`[data-testid="admin-calendar-slot-tile"][data-date="${targetDate}"]`).first()
+    const dateTile = adminPage.locator(`[data-testid="admin-slot-am"][data-date="${targetDate}"]`)
     if (await dateTile.isVisible()) {
       await dateTile.click()
-      await expect(adminPage.locator('[data-testid="admin-calendar-date-panel"]')).toBeVisible({ timeout: 10000 })
+      await expect(adminPage.locator('[data-testid="admin-slots-panel"]')).toBeVisible({ timeout: 10000 })
 
       const openBtn = adminPage.locator('[data-testid="admin-open-date-btn"]')
       if (await openBtn.isVisible()) {

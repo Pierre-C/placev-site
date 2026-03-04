@@ -9,7 +9,7 @@
 import { useState } from "react"
 
 interface Props {
-  creditsAmount: "5" | "10" | "20"
+  creditsAmount: "1" | "5" | "10" | "20"
   label: string
 }
 
