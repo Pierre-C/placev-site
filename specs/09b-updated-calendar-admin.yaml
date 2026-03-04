@@ -1,0 +1,184 @@
+feature: admin-calendar-refactor
+slice: 9b
+title: "Calendrier Admin — Refonte UX (grille rectangulaire + multi-sélection)"
+estimated_days: 1
+status: ready
+
+dependencies: [slice-09-calendar-multibooking]
+
+context: |
+  Le calendrier admin utilise toujours l'ancien design diagonal (triangles clip-path),
+  alors que le calendrier membre a été refondu en Slice 9 (grille rectangulaire AM/PM).
+  Ce slice aligne l'UI admin sur le même format, et étend la sélection à plusieurs
+  créneaux (multi-sélection) pour afficher les réservations de plusieurs demi-journées
+  simultanément dans le panneau de gestion.
+
+database:
+  migration_required: false
+
+api_routes:
+  unchanged:
+    - GET /api/admin/calendar      # occupancy par date+slot (déjà AM/PM séparés)
+    - GET /api/admin/reservations  # réservations par date
+    - POST /api/admin/reservations/[id]/cancel
+    - POST /api/admin/reservations/cancel-slot
+    - POST /api/admin/close-date
+    - DELETE /api/admin/close-date
+
+  note: |
+    Aucune modification d'API requise.
+    Le composant AdminCalendar fetche les réservations pour chaque date unique
+    présente dans la sélection (GET /api/admin/reservations?date=YYYY-MM-DD),
+    puis filtre côté client par slot (AM / PM / FULL) pour chaque créneau sélectionné.
+    Les requêtes sont parallélisées via Promise.all pour les N dates sélectionnées.
+
+frontend:
+  modified:
+    - path: "app/(app)/admin/calendar/AdminCalendar.tsx"
+      architecture: |
+        ## Structure de la grille (remplace les triangles)
+
+        Identique au composant BookingCalendar membre (Slice 9) :
+        - Grille 5 colonnes (Mon → Fri) + en-tête Jour/Date
+        - Chaque jour : 2 cellules rectangulaires empilées verticalement (AM en haut, PM en bas)
+        - Pas de cellule "FULL" dans l'UI (FULL = AM + PM tous les deux pris)
+
+        ## Contenu de chaque cellule
+
+        - Étiquette : "AM" ou "PM"
+        - Compteur : "count/capacity" (ex: "5/15")
+        - Indicateur visuel si créneau sélectionné (ring + bg-placev-blue)
+
+        ## Couleurs Tailwind (cohérence avec membre, sémantique admin)
+
+        | État                  | Classes                                          |
+        |-----------------------|--------------------------------------------------|
+        | Dispo (0 < count < capacity) | bg-green-50 text-green-800 hover:bg-green-100 |
+        | Plein (count >= capacity)    | bg-red-100 text-red-800 cursor-not-allowed     |
+        | Fermé / Passé                | bg-neutral-200 text-neutral-400 cursor-default |
+        | Sélectionné                  | bg-placev-blue text-white ring-2 ring-placev-blue |
+        | Vide (count = 0)             | bg-green-50 text-green-600                     |
+
+        Note : pour l'admin, tous les créneaux non-passés et non-fermés
+        sont cliquables (même les pleins — pour gérer/annuler des réservations).
+        Seuls les créneaux passés et fermés ne sont PAS cliquables.
+
+        ## State management
+
+        Remplacer `selectedDate: string | null` par `selectedSlots: SelectedAdminSlot[]`
+
+        ```typescript
+        type SelectedAdminSlot = { date: string; slot: "AM" | "PM" }
+        ```
+
+        Toggle logic :
+        - Clic sur un créneau disponible/plein → l'ajoute à selectedSlots
+        - Re-clic sur un créneau déjà sélectionné → le retire de selectedSlots
+        - Clic sur un créneau passé/fermé → aucun effet
+
+        ## Fetch des réservations (multi-slots)
+
+        Quand selectedSlots change :
+        1. Extraire les dates uniques : `[...new Set(selectedSlots.map(s => s.date))]`
+        2. Fetch en parallèle : `Promise.all(dates.map(d => fetch(/api/admin/reservations?date=d)))`
+        3. Pour chaque réservation, la garder si son slot correspond à un des créneaux sélectionnés :
+           - slot="AM" → garder si sélection contient { date, slot: "AM" }
+           - slot="PM" → garder si sélection contient { date, slot: "PM" }
+           - slot="FULL" → garder si { date, slot: "AM" } OU { date, slot: "PM" } est sélectionné
+
+        ## Panneau de gestion (remplace l'ancien panneau par date unique)
+
+        Affiché si selectedSlots.length > 0.
+
+        ### En-tête du panneau
+        - Titre : "Gestion des réservations pour les créneaux sélectionnés"
+          (anciennement "Gestion des réservations pour cette journée")
+        - Chips des créneaux sélectionnés (ex: "Mar. 3 AM", "Mer. 4 PM")
+          avec un × pour désélectionner individuellement
+
+        ### Actions groupées par créneau (une ligne par slot sélectionné)
+        Pour chaque slot dans selectedSlots, afficher :
+        - Badge date + slot (ex: "Lun. 2 Mar. AM")
+        - Bouton "Annuler tout" (appelle cancel-slot pour ce créneau)
+        - Bouton "Fermer" / "Réouvrir" (si le créneau est une journée entière —
+          n'afficher que si c'est le seul créneau sélectionné pour cette date,
+          ou toujours afficher avec une confirmation "Cela fermera toute la journée")
+
+        ### Tableau des réservations fusionné
+        Colonnes : Créneau | Membre | Email | Statut | Action
+        - Colonne "Créneau" est NOUVELLE (absente dans l'ancien panneau car la date était fixe)
+          → badge AM / PM / FULL + date courte (ex: "AM – Lun. 2")
+        - Tri par date ASC, puis slot AM avant PM
+        - Bouton "Annuler" pour les réservations CONFIRMED (inchangé)
+
+        ## Actions individuelles (comportement inchangé)
+
+        - Annuler une réservation → POST /api/admin/reservations/[id]/cancel
+          → supprime la réservation du tableau sans fermer le panneau
+        - Annuler tout AM/PM → POST /api/admin/reservations/cancel-slot
+          → recharge les réservations pour les slots concernés
+        - Fermer/Réouvrir date → POST|DELETE /api/admin/close-date
+          → recharge la grille + le panneau
+
+data_testid:
+  # Grille (nouveaux testids alignés sur le membre)
+  admin-calendar:           "Conteneur principal (inchangé)"
+  admin-calendar-grid:      "Wrapper de la grille (inchangé)"
+  admin-slot-am:            "Cellule AM (remplace admin-calendar-slot-tile avec data-slot=AM)"
+  admin-slot-pm:            "Cellule PM (remplace admin-calendar-slot-tile avec data-slot=PM)"
+  # data-attributes sur chaque cellule :
+  #   data-date="YYYY-MM-DD"
+  #   data-count="5"
+  #   data-capacity="15"
+  #   data-disabled="true|false"
+  #   data-selected="true|false"
+
+  # Panneau
+  admin-slots-panel:        "Panneau de gestion (remplace admin-calendar-date-panel)"
+  admin-selected-slot-chip: "Chip d'un créneau sélectionné (data-date, data-slot)"
+  admin-cancel-slot-btn:    "Bouton 'Annuler tout' pour un créneau (inchangé)"
+  admin-close-date-btn:     "Bouton 'Fermer cette date' (inchangé)"
+  admin-open-date-btn:      "Bouton 'Réouvrir cette date' (inchangé)"
+  admin-reservations-table: "Tableau fusionné des réservations (inchangé)"
+  admin-reservation-row:    "Ligne du tableau (inchangé)"
+  admin-cancel-btn:         "Bouton annuler individuel (inchangé)"
+  admin-confirm-dialog:     "Dialog de confirmation (inchangé)"
+  admin-confirm-yes:        "Confirmer (inchangé)"
+  admin-confirm-no:         "Annuler (inchangé)"
+  admin-action-success:     "Toast de succès (inchangé)"
+
+  deprecated:
+    - admin-calendar-slot-tile  # remplacé par admin-slot-am / admin-slot-pm
+    - admin-calendar-date-panel # remplacé par admin-slots-panel
+
+breaking_changes:
+  - data-testid "admin-calendar-slot-tile" supprimé → remplacé par admin-slot-am / admin-slot-pm
+  - data-testid "admin-calendar-date-panel" supprimé → remplacé par admin-slots-panel
+  - State interne : selectedDate (string|null) → selectedSlots (SelectedAdminSlot[])
+  - Le panneau affiche désormais une colonne "Créneau" (date+slot) dans le tableau
+
+tests_to_update:
+  - "__tests__/api/slice-05-admin.http.test.ts"
+    # Aucun test HTTP à modifier (les routes API sont inchangées)
+
+tests_to_create:
+  - "e2e/slice-09b-admin-calendar.spec.ts"
+    scenarios:
+      - "la grille affiche des cellules AM et PM rectangulaires pour chaque jour ouvert"
+      - "cliquer sur un créneau AM l'ajoute à la sélection"
+      - "re-cliquer sur un créneau sélectionné le retire"
+      - "sélectionner plusieurs créneaux affiche toutes leurs réservations dans le panneau"
+      - "le panneau est renommé 'créneaux sélectionnés' (plus 'journée')"
+      - "le tableau fusionné affiche la colonne 'Créneau' avec date+slot"
+      - "annuler tout AM sur un créneau sélectionné vide ce créneau"
+      - "fermer une date depuis le panneau ferme la journée complète"
+
+notes: |
+  - Le composant BookingCalendar.tsx (membre) N'EST PAS modifié dans ce slice.
+  - Seul AdminCalendar.tsx est refactoré.
+  - La navigation mois (prev/next) reste identique à l'existant.
+  - Le composant admin n'a pas de fonctionnalité "panier/confirm" — les actions
+    sont directes (pas de bouton "Confirmer la sélection").
+  - Les créneaux passés restent grisés et non-cliquables (cohérence membre).
+  - Les créneaux fermés (ClosedDate) sont grisés et non-cliquables, même pour l'admin
+    (l'admin doit d'abord réouvrir la date via le bouton dédié si elle est dans la sélection).
