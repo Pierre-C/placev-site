@@ -45,6 +45,7 @@ test.describe("Inscription", () => {
     await page.fill('[name="email"]', "externe@test.fr") // email déjà seedé
     await page.fill('[name="password"]', "TestPassword123!")
     await page.click('[data-testid="toggle-bouliacais-non"]')
+    await page.fill('[name="city"]', "Bordeaux") // city required quand isBouliacais=false
     await page.check('[name="cgu"]')
     await page.click('[type="submit"]')
 
@@ -56,6 +57,7 @@ test.describe("Inscription", () => {
     await page.goto("/register")
     await page.fill('[name="email"]', "nouveau@test.fr")
     await page.fill('[name="password"]', "court") // trop court
+    await page.click('[data-testid="toggle-bouliacais-oui"]') // masque city (required) pour ne pas bloquer côté browser
     await page.check('[name="cgu"]')
     await page.click('[type="submit"]')
 
@@ -67,8 +69,10 @@ test.describe("Inscription", () => {
     await page.goto("/register")
     await page.fill('[name="email"]', `nocgu-${Date.now()}@test.fr`)
     await page.fill('[name="password"]', "TestPassword123!")
-    await page.click('[data-testid="toggle-bouliacais-non"]')
+    await page.click('[data-testid="toggle-bouliacais-oui"]') // masque city (required) pour ne pas bloquer côté browser
     // Ne pas cocher la checkbox CGU
+    // Désactiver la validation HTML5 native (required sur CGU) pour atteindre la validation Zod côté serveur
+    await page.evaluate(() => document.querySelector("form")!.setAttribute("novalidate", ""))
     await page.click('[type="submit"]')
 
     await expect(page.locator('[data-testid="error-message"]')).toBeVisible()
