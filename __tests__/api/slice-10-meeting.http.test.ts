@@ -26,6 +26,7 @@ vi.mock("@/lib/auth", () => ({
 // ─── Imports après les mocks ──────────────────────────────────────────────────
 
 import * as quoteHandler from "@/app/api/booking/quote/route"
+import * as confirmQuoteHandler from "@/app/api/admin/quotes/[id]/confirm/route"
 import * as orgHandler from "@/app/api/admin/bookings/organisation/route"
 import * as availabilityHandler from "@/app/api/availability/route"
 import { brevo } from "@/lib/brevo"
@@ -99,7 +100,11 @@ beforeEach(() => {
   mockReset(mockPrisma)
   vi.clearAllMocks()
   vi.mocked(auth).mockResolvedValue(fakeAdminSession as Awaited<ReturnType<typeof auth>>)
-  mockPrisma.systemSetting.findUnique.mockResolvedValue(fakeCapacitySetting)
+  mockPrisma.systemSetting.findUnique.mockImplementation(async ({ where }: any) => {
+    if (where.key === "OPEN_DAYS") return { key: "OPEN_DAYS", value: "1,2,3,4,5" }
+    if (where.key === "DESK_CAPACITY") return fakeCapacitySetting
+    return null
+  })
   mockPrisma.closedDate.findMany.mockResolvedValue([])
   mockPrisma.reservation.findMany.mockResolvedValue([])
 })
@@ -122,6 +127,9 @@ describe("POST /api/booking/quote", () => {
             start: "09:00",
             end: "12:00",
             companyName: "ACME Corp",
+            contactName: "John Doe",
+            contactEmail: "john@example.com",
+            contactPhone: "0612345678",
             message: "Besoin d'une salle pour 10 personnes",
           }),
         })
@@ -322,6 +330,90 @@ describe("POST /api/admin/bookings/organisation — seatsBlocked", () => {
           body: JSON.stringify({ date: FUTURE_DATE, slot: "AM" }),
         })
         expect(res.status).toBe(403)
+      },
+    })
+  })
+})
+
+// ─── POST /api/admin/quotes/[id]/confirm ─────────────────────────────────────
+
+describe("POST /api/admin/quotes/[id]/confirm", () => {
+  const fakeQuoteId = "quote-resa-123"
+
+  it("200 — confirme un devis PENDING_QUOTE → statut CONFIRMED", async () => {
+    mockPrisma.reservation.findUnique.mockResolvedValue({
+      ...fakePendingQuoteReservation,
+      id: fakeQuoteId,
+    } as any)
+    mockPrisma.reservation.update.mockResolvedValue({
+      ...fakePendingQuoteReservation,
+      id: fakeQuoteId,
+      status: "CONFIRMED" as const,
+    } as any)
+
+    await testApiHandler({
+      appHandler: confirmQuoteHandler,
+      params: { id: fakeQuoteId },
+      test: async ({ fetch }) => {
+        const res = await fetch({ method: "POST" })
+        expect(res.status).toBe(200)
+        const body = await res.json()
+        expect(body.reservation.status).toBe("CONFIRMED")
+
+        expect(mockPrisma.reservation.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: fakeQuoteId },
+            data: { status: "CONFIRMED" },
+          })
+        )
+      },
+    })
+  })
+
+  it("404 — devis introuvable", async () => {
+    mockPrisma.reservation.findUnique.mockResolvedValue(null)
+
+    await testApiHandler({
+      appHandler: confirmQuoteHandler,
+      params: { id: "unknown-id" },
+      test: async ({ fetch }) => {
+        const res = await fetch({ method: "POST" })
+        expect(res.status).toBe(404)
+        expect(mockPrisma.reservation.update).not.toHaveBeenCalled()
+      },
+    })
+  })
+
+  it("409 — devis déjà CONFIRMED → conflit", async () => {
+    mockPrisma.reservation.findUnique.mockResolvedValue({
+      ...fakePendingQuoteReservation,
+      id: fakeQuoteId,
+      status: "CONFIRMED" as const,
+    } as any)
+
+    await testApiHandler({
+      appHandler: confirmQuoteHandler,
+      params: { id: fakeQuoteId },
+      test: async ({ fetch }) => {
+        const res = await fetch({ method: "POST" })
+        expect(res.status).toBe(409)
+        expect(mockPrisma.reservation.update).not.toHaveBeenCalled()
+      },
+    })
+  })
+
+  it("403 — non-admin → accès refusé", async () => {
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: "user-1", role: "USER" },
+    } as Awaited<ReturnType<typeof auth>>)
+
+    await testApiHandler({
+      appHandler: confirmQuoteHandler,
+      params: { id: fakeQuoteId },
+      test: async ({ fetch }) => {
+        const res = await fetch({ method: "POST" })
+        expect(res.status).toBe(403)
+        expect(mockPrisma.reservation.update).not.toHaveBeenCalled()
       },
     })
   })

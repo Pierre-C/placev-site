@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma"
 const bodySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format YYYY-MM-DD requis"),
   slot: z.enum(["AM", "PM", "FULL"]),
+  seatsBlocked: z.number().int().min(1).default(1),
 })
 
 export async function POST(request: Request) {
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "DonnÃ©es invalides", details: result.error.flatten() }, { status: 422 })
     }
 
-    const { date, slot } = result.data
+    const { date, slot, seatsBlocked } = result.data
     const reservationDate = new Date(date)
 
     // Re-check capacity for organization
@@ -44,19 +45,22 @@ export async function POST(request: Request) {
       }
     }
 
-    // Create Reservation(type=ORGANIZATION, userId=null, costCredits=null)
-    const reservation = await prisma.reservation.create({
-      data: {
-        userId: null,
-        date: reservationDate,
-        slot,
-        type: "ORGANIZATION",
-        status: "CONFIRMED",
-        creditsCost: null,
-      },
-    })
+    const reservations = []
+    for (let i = 0; i < seatsBlocked; i++) {
+      const reservation = await prisma.reservation.create({
+        data: {
+          userId: null,
+          date: reservationDate,
+          slot,
+          type: "ORGANIZATION",
+          status: "CONFIRMED",
+          creditsCost: null,
+        },
+      })
+      reservations.push(reservation)
+    }
 
-    return NextResponse.json({ reservation }, { status: 201 })
+    return NextResponse.json({ reservations }, { status: 201 })
   } catch (error: any) {
     console.error("Organisation booking error:", error)
     return NextResponse.json({ error: "Server Error" }, { status: 500 })

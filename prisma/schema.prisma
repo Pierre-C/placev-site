@@ -40,6 +40,7 @@ enum TransactionType {
 enum ReservationStatus {
   CONFIRMED
   CANCELLED
+  PENDING_QUOTE
 }
 
 enum ReservationType {
@@ -127,6 +128,11 @@ model Reservation {
   creditsCost           Int?
   stripePriceAmount     Int?
   stripePaymentIntentId String?
+  companyName           String?
+  message               String?
+  contactName           String?
+  contactEmail          String?
+  contactPhone          String?
   cancelledAt           DateTime?
   createdAt             DateTime          @default(now())
 
