@@ -35,13 +35,19 @@ async function main() {
     where: { email: { in: TEST_EMAILS } },
     select: { id: true },
   })
-  if (testUsers.length > 0) {
-    const ids = testUsers.map((u) => u.id)
+  const ids = testUsers.map((u) => u.id)
+  if (ids.length > 0) {
     await prisma.reservation.deleteMany({
       where: { userId: { in: ids }, date: { gte: new Date() } },
     })
     console.log("  ✓ Réservations futures des comptes de test supprimées")
   }
+
+  // Nettoyer également les devis (MEETING_ROOM) pour éviter l'accumulation dans les tests E2E
+  await prisma.reservation.deleteMany({
+    where: { type: "MEETING_ROOM" }
+  })
+  console.log("  ✓ Demandes de devis (MEETING_ROOM) nettoyées")
 
   // Nettoyer les fermetures futures pour les tests
   await prisma.closedDate.deleteMany({

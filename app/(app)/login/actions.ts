@@ -39,7 +39,7 @@ export async function loginAction(
     await signIn("credentials", {
       email,
       password,
-      redirectTo: "/dashboard", // Admin redirigé vers /admin depuis le dashboard
+      redirectTo: user?.role === "ADMIN" ? "/admin" : "/dashboard",
     })
   } catch (error) {
     if (error instanceof AuthError) {

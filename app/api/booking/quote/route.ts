@@ -93,6 +93,8 @@ export async function POST(request: Request) {
         contactPhone,
         message,
         creditsCost: null,
+        startTime: start,
+        endTime: end,
       },
     })
 
