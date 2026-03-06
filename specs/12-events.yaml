@@ -1,0 +1,298 @@
+##############################################################################
+# specs/12-events.yaml
+# Slice 12 — Gestion des Événements Place V
+#
+# Décisions prises :
+#   - Position homepage : entre <Testimonials> et <FAQ>
+#   - Affichage homepage : TOUS les événements à venir (pas de limite)
+#   - Pas d'image — texte uniquement (titre, description, date, lien)
+#   - Création admin : modal "Nouvel événement" (cohérent avec slice 10b)
+#   - Admin : CRUD complet (créer, éditer, supprimer)
+##############################################################################
+
+slice: 12
+name: Gestion des Événements
+status: DRAFT
+
+# ─── Objectif ────────────────────────────────────────────────────────────────
+
+objective: |
+  Permettre aux admins de gérer les ateliers et événements de l'association
+  depuis le panneau admin. Ces événements sont affichés publiquement sur la
+  page d'accueil (section "Événements") pour les visiteurs.
+
+# ─── Schéma Prisma ───────────────────────────────────────────────────────────
+
+schema_changes:
+  new_model: |
+    model Event {
+      id              String   @id @default(cuid())
+      title           String
+      description     String
+      date            DateTime
+      registrationUrl String?          // Lien HelloAsso — null si pas d'inscription
+      createdAt       DateTime @default(now())
+      updatedAt       DateTime @updatedAt
+    }
+
+  migration_command: "npx prisma db push"
+
+# ─── Routes API ──────────────────────────────────────────────────────────────
+
+api_routes:
+
+  - path: GET /api/events
+    auth: PUBLIC
+    description: |
+      Retourne tous les événements à venir (date >= aujourd'hui),
+      triés par date ASC (le plus proche en premier).
+      Utilisé par la section Events de la homepage.
+    response_200:
+      - id, title, description, date (ISO string), registrationUrl (null | string)
+    edge_cases:
+      - Aucun événement à venir → retourne []
+      - Les événements passés ne sont PAS inclus
+
+  - path: GET /api/admin/events
+    auth: ADMIN
+    description: |
+      Retourne TOUS les événements (passés + à venir),
+      triés par date DESC (le plus récent en premier).
+      Utilisé par le tableau admin.
+    response_200:
+      - id, title, description, date (ISO string), registrationUrl (null | string), createdAt
+    errors:
+      403: non authentifié ou non-ADMIN
+
+  - path: POST /api/admin/events
+    auth: ADMIN
+    description: Crée un nouvel événement.
+    body:
+      title: String (requis, non vide)
+      description: String (requis, non vide)
+      date: String YYYY-MM-DD (requis)
+      registrationUrl: String | null (optionnel)
+    response_201:
+      - Événement créé (id, title, description, date, registrationUrl)
+    errors:
+      422: champ requis manquant ou vide (title, description, date)
+      403: non authentifié ou non-ADMIN
+
+  - path: PUT /api/admin/events/[id]
+    auth: ADMIN
+    description: Met à jour un événement existant.
+    body:
+      title: String (optionnel)
+      description: String (optionnel)
+      date: String YYYY-MM-DD (optionnel)
+      registrationUrl: String | null (optionnel)
+    response_200:
+      - Événement mis à jour
+    errors:
+      404: événement introuvable
+      403: non authentifié ou non-ADMIN
+
+  - path: DELETE /api/admin/events/[id]
+    auth: ADMIN
+    description: Supprime définitivement un événement.
+    response_200:
+      - { deleted: true }
+    errors:
+      404: événement introuvable
+      403: non authentifié ou non-ADMIN
+
+# ─── Navigation Admin ─────────────────────────────────────────────────────────
+
+admin_nav:
+  file: app/(app)/admin/AdminNav.tsx
+  change: |
+    Ajouter un lien "Événements" dans le tableau links :
+      { href: "/admin/events", label: "Événements" }
+    Positionner après "Devis Salle" et avant "Membres".
+
+# ─── Frontend — Page Admin ────────────────────────────────────────────────────
+
+admin_page:
+  file: app/(app)/admin/events/page.tsx
+  type: Server Component
+  description: |
+    Charge tous les événements via prisma.event.findMany (orderBy date DESC).
+    Passe les données à <EventsTable>.
+  heading: "h1 ou h2 contenant 'Événements'"
+
+admin_table_component:
+  file: app/(app)/admin/events/EventsTable.tsx
+  type: Client Component
+  features:
+    - Tableau avec ascenseur vertical (overflow-y-auto + max-height)
+    - Colonnes : Titre | Description (tronquée à 60 chars) | Date | Lien | Actions
+    - Colonnes triables (Titre A→Z, Date ASC/DESC) — tri par date DESC par défaut
+    - Barre de recherche texte libre (filtre sur title + description)
+    - Bouton "+ Nouvel événement" (ouvre modal de création)
+    - Par ligne : bouton "Éditer" (ouvre modal d'édition)
+    - Par ligne : bouton "Supprimer" (confirmation inline ou dans le modal)
+  modals:
+    create:
+      trigger: bouton "+ Nouvel événement"
+      fields:
+        - Titre (input text, requis)
+        - Description (textarea, requis)
+        - Date (input date, requis)
+        - Lien d'inscription (input url, optionnel — placeholder "https://www.helloasso.com/...")
+      actions:
+        - "Enregistrer" → POST /api/admin/events → refresh liste
+        - "Annuler" → ferme le modal sans enregistrer
+    edit:
+      trigger: bouton "Éditer" sur une ligne
+      fields: identiques au modal de création, pré-remplis avec les valeurs existantes
+      actions:
+        - "Enregistrer" → PUT /api/admin/events/[id] → refresh liste
+        - "Supprimer" → DELETE /api/admin/events/[id] → refresh liste (avec confirmation)
+        - "Annuler" → ferme le modal
+
+# ─── Frontend — Section Homepage ──────────────────────────────────────────────
+
+homepage_section:
+  file: components/sections/Events.tsx
+  type: Client Component (cohérent avec les autres sections)
+  position: |
+    Dans app/page.tsx, insérer <Events /> entre <Testimonials /> et <FAQ />.
+  data_source: |
+    Fetch de /api/events avec useEffect (ou useSWR si disponible).
+    Affiche un état de chargement minimal.
+  display:
+    - Titre de section : "Nos prochains événements"
+    - Si aucun événement à venir : afficher un message "Aucun événement prévu pour l'instant."
+    - Si des événements : grille de cards (1 col mobile / 2 cols md / 3 cols lg)
+    - Chaque card : titre, date formatée (ex: "Mardi 15 avril 2025"), description
+    - Bouton "S'inscrire" uniquement si registrationUrl est non-null et non-vide
+      → target="_blank" rel="noopener noreferrer"
+    - Pas de bouton si registrationUrl est null ou vide
+
+# ─── Seed ─────────────────────────────────────────────────────────────────────
+
+seed:
+  description: |
+    Ajouter 2 événements de test dans prisma/seed.ts :
+      1. Un événement à venir (date dans le futur) avec registrationUrl
+      2. Un événement à venir (date dans le futur) sans registrationUrl
+    Ces données permettent aux tests E2E homepage de valider l'affichage.
+  note: |
+    Utiliser prisma.event.upsert avec un identifiant stable (ex: where: { id: "seed-event-01" })
+    pour garantir l'idempotence des runs successifs.
+    Attention : le modèle Event n'a pas de champ @unique autre que l'id — utiliser l'id explicitement.
+
+# ─── data-testids requis ──────────────────────────────────────────────────────
+
+data_testids:
+
+  homepage:
+    events-section:        Section entière <section>
+    events-list:           Conteneur de la grille de cards
+    event-card:            Chaque card d'événement
+    event-card-title:      Titre de la card
+    event-card-date:       Date formatée
+    event-card-description: Description
+    event-register-btn:    Bouton "S'inscrire" (présent uniquement si registrationUrl)
+    events-empty:          Message "Aucun événement" (présent uniquement si liste vide)
+
+  admin_table:
+    events-search:         Barre de recherche texte libre
+    events-sort-btn:       Boutons de tri (data-column="title" | "date")
+    events-table:          Conteneur du tableau
+    event-row:             Chaque ligne du tableau
+    event-title-cell:      Cellule titre
+    event-date-cell:       Cellule date
+    create-event-btn:      Bouton "+ Nouvel événement"
+    edit-event-btn:        Bouton "Éditer" par ligne
+
+  admin_modal:
+    event-form-modal:          Modal création/édition
+    event-form-title-input:    Champ titre
+    event-form-description-input: Champ description
+    event-form-date-input:     Champ date
+    event-form-url-input:      Champ lien d'inscription
+    event-form-submit:         Bouton "Enregistrer"
+    event-form-delete:         Bouton "Supprimer" (modal d'édition uniquement)
+    event-form-delete-confirm: Bouton de confirmation de suppression
+    close-event-modal-btn:     Bouton "Annuler" / fermeture modal
+
+# ─── Cas limites et règles métier ────────────────────────────────────────────
+
+edge_cases:
+
+  - id: EC-01
+    description: |
+      Homepage : un événement dont la date est aujourd'hui (minuit UTC) doit apparaître.
+      Utiliser date >= start of today (UTC).
+
+  - id: EC-02
+    description: |
+      Homepage : les événements passés ne doivent PAS apparaître, même s'ils ont un
+      registrationUrl renseigné.
+
+  - id: EC-03
+    description: |
+      Si registrationUrl est une chaîne vide "", le bouton "S'inscrire" ne doit pas
+      apparaître (équivalent à null).
+
+  - id: EC-04
+    description: |
+      Admin : la recherche est insensible à la casse (ex: "atelier" trouve "Atelier Yoga").
+
+  - id: EC-05
+    description: |
+      Admin : la suppression demande une confirmation avant d'appeler DELETE.
+      La suppression est irréversible.
+
+  - id: EC-06
+    description: |
+      Le lien registrationUrl doit s'ouvrir dans un nouvel onglet (target="_blank").
+
+# ─── Récapitulatif des fichiers à créer/modifier ─────────────────────────────
+
+files:
+
+  new:
+    - prisma/schema.prisma           # Ajouter model Event
+    - app/api/events/route.ts        # GET /api/events (public)
+    - app/api/admin/events/route.ts  # GET + POST /api/admin/events
+    - app/api/admin/events/[id]/route.ts  # PUT + DELETE /api/admin/events/[id]
+    - app/(app)/admin/events/page.tsx     # Page admin Server Component
+    - app/(app)/admin/events/EventsTable.tsx  # Client component avec table + modals
+    - components/sections/Events.tsx       # Section homepage
+
+  modified:
+    - app/(app)/admin/AdminNav.tsx  # Ajouter lien "Événements"
+    - app/page.tsx                  # Insérer <Events /> entre <Testimonials /> et <FAQ />
+    - prisma/seed.ts                # Ajouter 2 événements de test
+
+# ─── Tests ────────────────────────────────────────────────────────────────────
+
+tests:
+
+  http:
+    file: __tests__/api/slice-12-events.http.test.ts
+    count: 13
+    covers:
+      - GET /api/events (200 + filtre futur + tri)
+      - GET /api/admin/events (200 admin, 403 non-admin)
+      - POST /api/admin/events (201, 422, 403)
+      - PUT /api/admin/events/[id] (200, 404, 403)
+      - DELETE /api/admin/events/[id] (200, 404, 403)
+
+  e2e:
+    file: e2e/slice-12-events.spec.ts
+    count: 14
+    covers:
+      - Homepage section structure
+      - Homepage card avec registrationUrl → bouton visible
+      - Homepage card sans registrationUrl → pas de bouton
+      - Homepage événements passés non affichés
+      - Admin tab accessible
+      - Admin structure (table, search, create button)
+      - Admin créer un événement via modal
+      - Admin éditer un événement via modal
+      - Admin supprimer un événement
+      - Admin recherche par titre
+      - Admin tri par date
