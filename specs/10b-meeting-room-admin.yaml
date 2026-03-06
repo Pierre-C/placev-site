@@ -1,0 +1,163 @@
+feature: admin-quotes-management
+slice: 10b
+title: "Gestion Admin des Devis Salle de Réunion"
+estimated_days: 1
+status: ready
+
+dependencies: [slice-10-meeting-room-quote]
+
+context: |
+  Amélioration de la page /admin/quotes : remplacement de la liste statique avec bouton
+  "Confirmer" par une interface interactive avec recherche, tri, colonne de statut et modal
+  de consultation/action.
+
+  Changements fonctionnels :
+  - Le tableau affiche TOUS les devis (PENDING_QUOTE + CONFIRMED + CANCELLED), pas seulement
+    les devis en attente.
+  - Les colonnes sont triables (Date, Entreprise, Statut, Contact).
+  - Une barre de recherche texte libre filtre sur companyName, contactName, contactEmail.
+  - Un ascenseur vertical avec en-tête sticky évite l'allongement infini du tableau.
+  - Le bouton "Confirmer" est remplacé par "Consulter" qui ouvre un modal.
+  - Le modal affiche TOUTES les informations du devis (dont les horaires exacts
+    startTime/endTime, nouveaux champs ajoutés au schéma Prisma).
+  - Deux boutons d'action en bas du modal : "Accepter" (PENDING→CONFIRMED) et
+    "Annuler la réservation" (PENDING→CANCELLED). Au-dessus des boutons, un nota bene :
+    "C'est à vous de prendre contact avec la personne ayant fait la demande.
+    Le site ne contacte pas directement."
+  - Accepter = changer statut uniquement (PENDING_QUOTE → CONFIRMED). Pas de Stripe,
+    pas d'email automatique. L'admin gère la facturation manuellement.
+
+database:
+  migration_required: true
+  schema_changes:
+    Reservation:
+      - "Ajout: startTime String? (ex: '09:00') — heure de début de la réservation salle de réunion"
+      - "Ajout: endTime String? (ex: '12:00') — heure de fin de la réservation salle de réunion"
+      - "Les deux champs sont nullable pour ne pas casser les réservations OPENSPACE/ORGANIZATION existantes"
+  notes: |
+    Migration non-destructive : prisma db push suffit (ajout de colonnes nullables).
+    Les réservations MEETING_ROOM existantes auront startTime=null, endTime=null.
+
+api_routes:
+  modified:
+    - path: POST /api/booking/quote
+      change: |
+        Sauvegarder startTime et endTime en base (champs String? sur Reservation).
+        Le corps de la requête inclut déjà start et end — les passer directement :
+          startTime: body.start  (ex: "09:00")
+          endTime: body.end      (ex: "12:00")
+        La validation existante (format HH:MM, granularité 30min, 08:30-18:00) reste inchangée.
+
+  new:
+    - path: POST /api/admin/quotes/[id]/cancel
+      auth: required (ADMIN)
+      input: none (id dans l'URL)
+      logic: |
+        - Vérifier que l'admin est authentifié (role === "ADMIN") → 403 sinon.
+        - Chercher la réservation par id → 404 si inexistante.
+        - Si statut === "CANCELLED" → 409 { error: "Déjà annulé" }.
+        - Si statut === "CONFIRMED" → 409 { error: "Impossible d'annuler une réservation confirmée" }.
+        - Mettre à jour : { status: "CANCELLED", cancelledAt: new Date() }.
+        - Retourner 200 { reservation: { id, status, date, companyName } }.
+      file: "app/api/admin/quotes/[id]/cancel/route.ts"
+
+frontend:
+  app_changes:
+    - path: "app/(app)/admin/quotes/page.tsx"
+      change: |
+        Refactoring en Server Component léger :
+        - Requête Prisma : findMany sur MEETING_ROOM SANS filtre de statut (tous statuts).
+        - Inclure user.firstName, user.lastName, user.email (plus user.name — supprimé en slice 11a).
+        - Inclure les champs : id, date, slot, status, companyName, message, contactName,
+          contactEmail, contactPhone, startTime, endTime, createdAt, cancelledAt.
+        - Passer les données à <QuotesTable quotes={quotes} />.
+        - Supprimer le composant QuoteConfirmButton (remplacé par le modal dans QuotesTable).
+
+    - path: "app/(app)/admin/quotes/QuotesTable.tsx"
+      change: |
+        Nouveau composant Client (remplace la logique inline de page.tsx + QuoteConfirmButton.tsx).
+
+        ## Structure
+        - Barre de recherche (data-testid="quotes-search") : filtre en temps réel sur
+          companyName, contactName, contactEmail (case-insensitive).
+        - Tableau scrollable (max-h-[70vh] overflow-y-auto, en-tête sticky top-0 z-10).
+        - 5 colonnes triables : Date, Entreprise, Statut, Contact, Actions (non triable).
+        - Bouton de tri sur chaque colonne (data-testid="quotes-sort-btn",
+          data-column="date|companyName|status|contactName").
+
+        ## Colonne Statut
+        Afficher un badge coloré selon le statut :
+        - PENDING_QUOTE  → "En attente"  (badge amber)
+        - CONFIRMED      → "Validé"      (badge green)
+        - CANCELLED      → "Annulé"      (badge red/neutral)
+        data-testid="quote-status-badge" data-status={quote.status}
+
+        ## Lignes du tableau
+        data-testid="quote-row" data-id={quote.id}
+
+        ## Bouton "Consulter"
+        data-testid="consult-quote-btn" — remplace "Confirmer".
+        Ouvre le modal de détail avec les informations du devis sélectionné.
+
+        ## Modal de détail
+        data-testid="quote-detail-modal"
+        Contenu affiché :
+        - Date (en français, ex: "lundi 15 juin 2099")
+        - Horaires : "{startTime} – {endTime}" si renseignés, sinon slot traduit
+          (AM→"Matin", PM→"Après-midi", FULL→"Journée complète")
+        - Entreprise : companyName
+        - Message : message (optionnel)
+        - Contact :
+            contactName (ou user.firstName + user.lastName si renseigné)
+            contactEmail (ou user.email)
+            contactPhone (optionnel)
+
+        ## Nota bene (au-dessus des boutons d'action)
+        data-testid="quote-modal-nb"
+        Texte : "C'est à vous de prendre contact avec la personne ayant fait la demande.
+        Le site ne contacte pas directement."
+
+        ## Boutons d'action dans le modal
+        Affichés uniquement si statut === "PENDING_QUOTE" :
+        - "Accepter" (data-testid="accept-quote-btn", couleur verte)
+          → POST /api/admin/quotes/{id}/confirm → fermer modal + refresh
+        - "Annuler la réservation" (data-testid="cancel-quote-btn", couleur rouge)
+          → POST /api/admin/quotes/{id}/cancel → fermer modal + refresh
+        Si statut !== "PENDING_QUOTE" : afficher un message indiquant le statut actuel
+        (pas de boutons d'action disponibles).
+        - Bouton "Fermer" (data-testid="close-quote-modal-btn") toujours visible.
+
+        ## États de chargement
+        - Pendant accept/cancel : boutons disabled, texte "En cours..."
+        - En cas d'erreur API : afficher alerte (alert() acceptable)
+
+data_testid:
+  # Tableau
+  quotes-search:        "Input de recherche texte libre sur la page /admin/quotes"
+  quotes-sort-btn:      "Bouton de tri de colonne (attr data-column)"
+  quote-row:            "Ligne de tableau (attr data-id)"
+  quote-status-badge:   "Badge de statut dans chaque ligne (attr data-status)"
+  consult-quote-btn:    "Bouton Consulter dans chaque ligne"
+
+  # Modal
+  quote-detail-modal:   "Modal de détail d'un devis"
+  quote-modal-nb:       "Nota bene dans le modal (message de contact manuel)"
+  accept-quote-btn:     "Bouton Accepter la réservation (modal)"
+  cancel-quote-btn:     "Bouton Annuler la réservation (modal)"
+  close-quote-modal-btn: "Bouton Fermer le modal"
+
+edge_cases:
+  - "Devis avec user=null (soumis anonymement) : afficher contactName/contactEmail directement"
+  - "startTime/endTime null (anciens devis) : afficher le slot traduit (AM/PM/FULL)"
+  - "Tableau vide après recherche : afficher 'Aucun devis trouvé'"
+  - "Tableau vide sans recherche : conserver l'encadré vide existant ('Aucun devis en attente')"
+  - "Boutons Accepter/Annuler absents si statut !== PENDING_QUOTE (devis déjà traité)"
+  - "409 de l'API si double-clic : afficher message d'erreur, ne pas crasher"
+
+notes: |
+  - QuoteConfirmButton.tsx devient obsolète — peut être supprimé ou laissé (pas de conflit).
+  - L'API confirm existante (POST /api/admin/quotes/[id]/confirm) reste inchangée.
+  - Le nouveau cancel (POST /api/admin/quotes/[id]/cancel) suit le même pattern que confirm.
+  - La barre de recherche filtre côté client (pas d'appel API supplémentaire).
+  - Tri côté client (pas de re-fetch).
+  - router.refresh() après accept/cancel pour re-synchroniser les données Server Component.

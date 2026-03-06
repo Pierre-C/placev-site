@@ -22,7 +22,8 @@ export default async function AdminQuotesPage() {
     include: {
       user: {
         select: {
-          name: true,
+          firstName: true,
+          lastName: true,
           email: true,
         },
       },
@@ -67,7 +68,9 @@ export default async function AdminQuotesPage() {
                     </td>
                     <td className="px-6 py-4 text-gray-600">
                       <div>
-                        <div className="font-medium text-gray-900">{quote.contactName || quote.user?.name || "—"}</div>
+                        <div className="font-medium text-gray-900">
+                          {quote.contactName || [quote.user?.firstName, quote.user?.lastName].filter(Boolean).join(" ") || "—"}
+                        </div>
                         <div className="text-xs text-gray-500">{quote.contactEmail || quote.user?.email || "—"}</div>
                         {quote.contactPhone && (
                           <div className="text-xs text-gray-500">{quote.contactPhone}</div>
