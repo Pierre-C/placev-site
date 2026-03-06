@@ -16,7 +16,8 @@ import { brevo } from "@/lib/brevo"
 import crypto from "crypto"
 
 const registerSchema = z.object({
-  name: z.string().optional().transform(v => v && v.length > 0 ? v : undefined),
+  firstName: z.string().min(1, "Le prénom est requis"),
+  lastName: z.string().min(1, "Le nom est requis"),
   email: z.string().email("Email invalide"),
   password: z.string().min(8, "Le mot de passe doit contenir au moins 8 caractères"),
   isBouliacais: z.enum(["true", "false"]).transform(v => v === "true"),
@@ -32,7 +33,8 @@ export async function registerAction(
   formData: FormData
 ): Promise<RegisterState> {
   const parsed = registerSchema.safeParse({
-    name: formData.get("name") ?? undefined,
+    firstName: formData.get("firstName") ?? "",
+    lastName: formData.get("lastName") ?? "",
     email: formData.get("email") ?? "",
     password: formData.get("password") ?? "",
     isBouliacais: formData.get("isBouliacais") ?? "false",
@@ -46,7 +48,7 @@ export async function registerAction(
     return { error: firstError ?? "Données invalides" }
   }
 
-  const { email, name, password, isBouliacais, city, tarifReduit, cgu } = parsed.data
+  const { email, firstName, lastName, password, isBouliacais, city, tarifReduit, cgu } = parsed.data
 
   // Vérifier si l'email est déjà utilisé
   const existing = await prisma.user.findUnique({ where: { email } })
@@ -57,7 +59,7 @@ export async function registerAction(
   // Créer l'utilisateur (hash + sauvegarde en DB)
   let createdUserId: string
   try {
-    const { user } = await createUser({ email, name: name ?? "", password, isBouliacais, city: city ?? "", tarifReduit, cguAccepted: cgu === "true" })
+    const { user } = await createUser({ email, firstName, lastName, password, isBouliacais, city: city ?? "", tarifReduit, cguAccepted: cgu === "true" })
     createdUserId = user.id
   } catch {
     return { error: "Erreur lors de la création du compte" }
@@ -75,7 +77,7 @@ export async function registerAction(
   await brevo.sendEmail({
     template: "bienvenue-validation",
     to: email,
-    toName: name ?? undefined,
+    toName: `${firstName} ${lastName}`,
     variables: { verifyLink },
   })
 

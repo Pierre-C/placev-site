@@ -34,7 +34,8 @@ const mockPrisma = prisma as ReturnType<typeof mockDeep<PrismaClient>>
 const fakeUser = {
   id: "cltest123",
   email: "test@test.fr",
-  name: "Test User",
+  firstName: "Test",
+  lastName: "User",
   passwordHash: "$2b$12$fakehashedpassword",
   role: "USER" as const,
   segment: "EXTERNE" as const,
@@ -58,12 +59,30 @@ beforeEach(() => {
 
 describe("User Registration", () => {
   it("should set default segment to EXTERNE when not specified", async () => {
-    const { user } = await createUser({ email: "test@test.fr", password: "Password123!" })
+    const { user } = await createUser({ 
+      email: "test@test.fr", 
+      firstName: "Test", 
+      lastName: "User", 
+      password: "Password123!",
+      isBouliacais: false,
+      city: "",
+      tarifReduit: false,
+      cguAccepted: true
+    })
     expect(user.segment).toBe("EXTERNE")
   })
 
   it("should initialize credits to 0 (no welcome credit — Slice 8)", async () => {
-    const { user } = await createUser({ email: "test2@test.fr", password: "Password123!" })
+    const { user } = await createUser({ 
+      email: "test2@test.fr", 
+      firstName: "Test", 
+      lastName: "User", 
+      password: "Password123!",
+      isBouliacais: false,
+      city: "",
+      tarifReduit: false,
+      cguAccepted: true
+    })
     expect(user.credits).toBe(0)
   })
 
@@ -81,20 +100,28 @@ describe("User Registration", () => {
   it("should NOT create any transaction on registration (no WELCOME_CREDIT — Slice 8)", async () => {
     await createUser({
       email: "test3@test.fr",
+      firstName: "Test", 
+      lastName: "User", 
       password: "Password123!",
+      isBouliacais: false,
+      city: "",
+      tarifReduit: false,
+      cguAccepted: true
     })
     expect(mockPrisma.transaction.create).not.toHaveBeenCalled()
   })
 
-  it("should call brevo.sendEmail with bienvenue-validation template", async () => {
-    await createUser({ email: "test4@test.fr", name: "Alice", password: "Password123!" })
-    expect(brevo.sendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ template: "bienvenue-validation" })
-    )
-  })
-
   it("should not expose passwordHash in the returned user", async () => {
-    const { user } = await createUser({ email: "test5@test.fr", password: "Password123!" })
+    const { user } = await createUser({ 
+      email: "test5@test.fr", 
+      firstName: "Test", 
+      lastName: "User", 
+      password: "Password123!",
+      isBouliacais: false,
+      city: "",
+      tarifReduit: false,
+      cguAccepted: true
+    })
     expect((user as Record<string, unknown>).passwordHash).toBeUndefined()
   })
 })
@@ -103,27 +130,34 @@ describe("User Registration", () => {
 
 describe("JWT Session", () => {
   it("should include role in JWT token", () => {
-    const mockUser = { id: "1", role: "USER", segment: "EXTERNE", credits: 3 }
+    const mockUser = { id: "1", role: "USER", segment: "EXTERNE", credits: 3, firstName: "Alice", lastName: "Test" }
     const token = buildJwtPayload(mockUser)
     expect(token.role).toBe("USER")
   })
 
   it("should include segment in JWT token", () => {
-    const mockUser = { id: "1", role: "USER", segment: "BOULIACAIS", credits: 5 }
+    const mockUser = { id: "1", role: "USER", segment: "BOULIACAIS", credits: 5, firstName: "Alice", lastName: "Test" }
     const token = buildJwtPayload(mockUser)
     expect(token.segment).toBe("BOULIACAIS")
   })
 
   it("should include credits in JWT token", () => {
-    const mockUser = { id: "1", role: "USER", segment: "REDUIT", credits: 2 }
+    const mockUser = { id: "1", role: "USER", segment: "REDUIT", credits: 2, firstName: "Alice", lastName: "Test" }
     const token = buildJwtPayload(mockUser)
     expect(token.credits).toBe(2)
   })
 
   it("should include id in JWT token", () => {
-    const mockUser = { id: "abc123", role: "ADMIN", segment: "EXTERNE", credits: 99 }
+    const mockUser = { id: "abc123", role: "ADMIN", segment: "EXTERNE", credits: 99, firstName: "Admin", lastName: "Test" }
     const token = buildJwtPayload(mockUser)
     expect(token.id).toBe("abc123")
+  })
+
+  it("should include firstName and lastName in JWT token", () => {
+    const mockUser = { id: "1", role: "USER", segment: "EXTERNE", credits: 0, firstName: "Alice", lastName: "Dupont" }
+    const token = buildJwtPayload(mockUser)
+    expect(token.firstName).toBe("Alice")
+    expect(token.lastName).toBe("Dupont")
   })
 })
 

@@ -8,6 +8,8 @@ import { motion, AnimatePresence } from "framer-motion"
 
 type UserWithExtras = User & {
   reservationCount?: number
+  lifetimeCredits?: number
+  deletionRequestedAt?: Date | null
   recentReservations?: Array<{
     id: string
     date: Date
@@ -16,12 +18,12 @@ type UserWithExtras = User & {
   }>
 }
 
-type SortColumn = "name" | "email" | "credits" | "segment" | "isMember"
+type SortColumn = "lastName" | "email" | "credits" | "lifetimeCredits" | "segment" | "isMember"
 type SortDirection = "asc" | "desc" | "none"
 
-export default function MembersTable({ users: initialUsers }: { users: User[] }) {
+export default function MembersTable({ users: initialUsers }: { users: UserWithExtras[] }) {
   const router = useRouter()
-  const [users, setUsers] = useState<User[]>(initialUsers)
+  const [users, setUsers] = useState<UserWithExtras[]>(initialUsers)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<UserWithExtras | null>(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
@@ -39,6 +41,10 @@ export default function MembersTable({ users: initialUsers }: { users: User[] })
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>("none")
 
+  const [isAnonymizeModalOpen, setIsAnonymizeModalOpen] = useState(false)
+  const [isAnonymizing, setIsAnonymizing] = useState(false)
+  const [anonymizeSuccess, setAnonymizeSuccess] = useState(false)
+
   useEffect(() => {
     setUsers(initialUsers)
   }, [initialUsers])
@@ -48,6 +54,7 @@ export default function MembersTable({ users: initialUsers }: { users: User[] })
     setIsMemberEdit(user.isMember)
     setSegmentEdit(user.segment || "EXTERNE")
     setIsModalOpen(true)
+    setAnonymizeSuccess(false)
 
     // Fetch detailed info
     setLoadingDetails(true)
@@ -69,6 +76,24 @@ export default function MembersTable({ users: initialUsers }: { users: User[] })
     setIsModalOpen(false)
     setCreditsDelta(0)
     setCreditsReason("")
+    setIsAnonymizeModalOpen(false)
+  }
+
+  const handleAnonymize = async () => {
+    if (!selectedUser) return
+    setIsAnonymizing(true)
+    try {
+      const res = await fetch(`/api/admin/members/${selectedUser.id}/anonymize`, { method: "POST" })
+      if (res.ok) {
+        setAnonymizeSuccess(true)
+        setIsAnonymizeModalOpen(false)
+        router.refresh()
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsAnonymizing(false)
+    }
   }
 
   const handleSaveAll = async () => {
@@ -136,7 +161,8 @@ export default function MembersTable({ users: initialUsers }: { users: User[] })
     if (searchQuery) {
       const lowerQuery = searchQuery.toLowerCase()
       result = result.filter(u => 
-        (u.name || "").toLowerCase().includes(lowerQuery) ||
+        (u.firstName || "").toLowerCase().includes(lowerQuery) ||
+        (u.lastName || "").toLowerCase().includes(lowerQuery) ||
         (u.email || "").toLowerCase().includes(lowerQuery) ||
         (u.segment || "").toLowerCase().includes(lowerQuery)
       )
@@ -147,7 +173,7 @@ export default function MembersTable({ users: initialUsers }: { users: User[] })
         let valA: any = a[sortColumn]
         let valB: any = b[sortColumn]
 
-        if (sortColumn === "name" || sortColumn === "email" || sortColumn === "segment") {
+        if (sortColumn === "firstName" || sortColumn === "email" || sortColumn === "segment") {
           valA = (valA || "").toLowerCase()
           valB = (valB || "").toLowerCase()
         }
@@ -192,13 +218,13 @@ export default function MembersTable({ users: initialUsers }: { users: User[] })
         />
       </div>
 
-      <div className="overflow-x-auto bg-white rounded-2xl shadow-sm ring-1 ring-neutral-100">
+      <div className="overflow-x-auto overflow-y-auto max-h-[70vh] bg-white rounded-2xl shadow-sm ring-1 ring-neutral-100">
         <table data-testid="members-table" className="min-w-full divide-y divide-neutral-200">
-          <thead>
-            <tr className="bg-neutral-50 text-xs font-black text-neutral-400 uppercase tracking-wider">
+          <thead className="sticky top-0 z-10 bg-neutral-50 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+            <tr className="text-xs font-black text-neutral-400 uppercase tracking-wider">
               <th className="px-6 py-4 text-left">
-                <button data-testid="column-sort-btn" data-column="name" data-direction={sortColumn === "name" ? sortDirection : "none"} onClick={() => handleSort("name")} className="flex items-center gap-1 hover:text-neutral-700">
-                  Nom <span>{renderSortIndicator("name")}</span>
+                <button data-testid="column-sort-btn" data-column="lastName" data-direction={sortColumn === "lastName" ? sortDirection : "none"} onClick={() => handleSort("lastName")} className="flex items-center gap-1 hover:text-neutral-700">
+                  Nom <span>{renderSortIndicator("lastName")}</span>
                 </button>
               </th>
               <th className="px-6 py-4 text-left">
@@ -209,6 +235,11 @@ export default function MembersTable({ users: initialUsers }: { users: User[] })
               <th className="px-6 py-4 text-left">
                 <button data-testid="column-sort-btn" data-column="credits" data-direction={sortColumn === "credits" ? sortDirection : "none"} onClick={() => handleSort("credits")} className="flex items-center gap-1 hover:text-neutral-700">
                   Crédits <span>{renderSortIndicator("credits")}</span>
+                </button>
+              </th>
+              <th className="px-6 py-4 text-left">
+                <button data-testid="column-sort-btn" data-column="lifetimeCredits" data-direction={sortColumn === "lifetimeCredits" ? sortDirection : "none"} onClick={() => handleSort("lifetimeCredits")} className="flex items-center gap-1 hover:text-neutral-700">
+                  Crédits à vie <span>{renderSortIndicator("lifetimeCredits")}</span>
                 </button>
               </th>
               <th className="px-6 py-4 text-left">
@@ -228,9 +259,19 @@ export default function MembersTable({ users: initialUsers }: { users: User[] })
             {filteredAndSortedUsers.length > 0 ? (
               filteredAndSortedUsers.map((user) => (
                 <tr data-testid="member-row" key={user.id} className="hover:bg-neutral-50/50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap font-bold text-neutral-900">{user.name || "N/A"}</td>
+                  <td className="px-6 py-4 whitespace-nowrap font-bold text-neutral-900">
+                    <div className="flex items-center gap-2">
+                      {user.firstName} {user.lastName}
+                      {user.deletionRequestedAt && (
+                        <span data-testid="deletion-requested-badge" className="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-black uppercase rounded-full">
+                          Suppression
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500 font-medium">{user.email}</td>
                   <td data-testid="member-credits" data-level={getCreditsLevel(user.credits)} className={`px-6 py-4 whitespace-nowrap text-sm font-black ${getCreditsColorClass(user.credits)}`}>{user.credits}</td>
+                  <td data-testid="lifetime-credits" className="px-6 py-4 whitespace-nowrap text-sm font-bold text-neutral-600">{user.lifetimeCredits ?? 0}</td>
                   <td data-testid="member-segment" className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2 py-1 rounded-lg bg-neutral-100 text-[10px] font-black uppercase text-neutral-600">
                       {user.segment}
@@ -297,7 +338,7 @@ export default function MembersTable({ users: initialUsers }: { users: User[] })
             >
                 {/* Header */}
                 <div className="bg-neutral-50 px-8 py-6 border-b">
-                    <h3 className="text-2xl font-black text-neutral-900">{selectedUser.name || "Détails Membre"}</h3>
+                    <h3 className="text-2xl font-black text-neutral-900">{selectedUser.firstName} {selectedUser.lastName}</h3>
                     <p className="text-neutral-500 font-medium">{selectedUser.email}</p>
                 </div>
 
@@ -385,6 +426,25 @@ export default function MembersTable({ users: initialUsers }: { users: User[] })
                             </button>
                             <span className="text-sm font-bold text-neutral-700">Adhérent de l&apos;association</span>
                         </div>
+
+                        {/* Anonymize Button (if requested) */}
+                        {selectedUser.deletionRequestedAt && !anonymizeSuccess && (
+                          <div className="pt-4 border-t border-blue-100">
+                            <button
+                              data-testid="anonymize-btn"
+                              onClick={() => setIsAnonymizeModalOpen(true)}
+                              className="w-full py-2 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-black uppercase hover:bg-red-100 transition-colors"
+                            >
+                              Anonymiser le compte
+                            </button>
+                          </div>
+                        )}
+
+                        {anonymizeSuccess && (
+                          <div data-testid="anonymize-success" className="p-3 bg-green-100 text-green-700 rounded-xl text-xs font-bold text-center">
+                            ✓ Compte anonymisé avec succès
+                          </div>
+                        )}
                     </div>
                 </div>
 
@@ -401,6 +461,49 @@ export default function MembersTable({ users: initialUsers }: { users: User[] })
                         Annuler
                     </button>
                 </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ANONYMIZE CONFIRMATION DIALOG */}
+      <AnimatePresence>
+        {isAnonymizeModalOpen && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAnonymizeModalOpen(false)}
+              className="absolute inset-0 bg-neutral-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              data-testid="anonymize-confirm-dialog"
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 text-center"
+            >
+              <h3 className="text-xl font-black mb-4">Confirmer l&apos;anonymisation</h3>
+              <p className="text-neutral-500 text-sm mb-8">
+                Cette action remplacera les données personnelles par des valeurs génériques et effacera l&apos;adresse et le téléphone. Cette action est irréversible.
+              </p>
+              <div className="flex gap-4">
+                <button
+                  data-testid="anonymize-confirm-btn"
+                  disabled={isAnonymizing}
+                  onClick={handleAnonymize}
+                  className="flex-1 py-3 bg-red-600 text-white font-black rounded-2xl hover:bg-red-700"
+                >
+                  {isAnonymizing ? "Anonymisation..." : "Confirmer"}
+                </button>
+                <button
+                  onClick={() => setIsAnonymizeModalOpen(false)}
+                  className="flex-1 py-3 bg-neutral-100 text-neutral-600 font-black rounded-2xl hover:bg-neutral-200"
+                >
+                  Annuler
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

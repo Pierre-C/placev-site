@@ -14,11 +14,16 @@ export async function GET() {
     select: {
       id: true,
       email: true,
-      name: true,
+      firstName: true,
+      lastName: true,
       credits: true,
       isMember: true,
+      deletionRequestedAt: true,
       transactions: {
-        where: { creditsAdd: { gt: 0 } },
+        where: { 
+          creditsAdd: { gt: 0 },
+          type: { not: "REFUND_CANCELLATION" }
+        },
         select: { creditsAdd: true },
       },
       _count: {
@@ -43,9 +48,11 @@ export async function GET() {
     return {
       id: user.id,
       email: user.email,
-      name: user.name,
+      firstName: user.firstName,
+      lastName: user.lastName,
       credits: user.credits,
       isMember: user.isMember,
+      deletionRequestedAt: user.deletionRequestedAt,
       reservationCount,
       lifetimeCredits,
       alertFlag: shouldShowMemberAlert({

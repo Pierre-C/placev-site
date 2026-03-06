@@ -11,7 +11,8 @@ export type UserWithoutHash = Omit<User, "passwordHash">
 
 export interface CreateUserInput {
   email: string
-  name: string
+  firstName: string
+  lastName: string
   password: string
   isBouliacais: boolean
   city: string
@@ -28,7 +29,7 @@ export interface CreateUserResult {
  * Hash le mot de passe, crée l'utilisateur.
  */
 export async function createUser(input: CreateUserInput): Promise<CreateUserResult> {
-  const { email, name, password, isBouliacais, city, tarifReduit, cguAccepted } = input
+  const { email, firstName, lastName, password, isBouliacais, city, tarifReduit, cguAccepted } = input
 
   const passwordHash = await bcrypt.hash(password, 12)
   const segment = isBouliacais ? "BOULIACAIS" : "EXTERNE"
@@ -36,7 +37,8 @@ export async function createUser(input: CreateUserInput): Promise<CreateUserResu
   const user = await prisma.user.create({
     data: {
       email,
-      name,
+      firstName,
+      lastName,
       passwordHash,
       segment,
       credits: 0,

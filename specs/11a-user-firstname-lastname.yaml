@@ -1,0 +1,270 @@
+feature: user-firstname-lastname
+slice: 11a
+title: "Migration transversale : name → firstName + lastName"
+estimated_days: 0.5
+status: ready
+
+dependencies: [slice-11-admin-analytics-rgpd-compliance]
+
+context: |
+  Le champ `name String?` du modèle User est remplacé par deux champs distincts
+  `firstName String` et `lastName String`. Ce changement est documenté dans le YAML
+  slice-11 section `impacted_outside_slice_11`, mais il touche des fichiers en dehors
+  de la slice 11 elle-même. Ce YAML liste exhaustivement les modifications à faire
+  et les tests à corriger pour que l'ensemble de la suite de tests reste vert.
+
+database:
+  migration_required: true
+  note: |
+    Voir specs/11-admin-analytics-rgpd-compliance.yaml section database.schema_changes.
+    La migration SQL est définie là-bas.
+
+# ─── Modifications de code (hors tests) ──────────────────────────────────────
+
+code_changes:
+
+  - file: "prisma/schema.prisma"
+    change: |
+      Remplacer sur le modèle User :
+        name  String?
+      Par :
+        firstName  String
+        lastName   String
+
+  - file: "lib/services/user.ts"
+    change: |
+      Interface CreateUserInput :
+        Supprimer : name: string
+        Ajouter   : firstName: string, lastName: string
+      Fonction createUser :
+        Déstructurer firstName + lastName (plus name)
+        prisma.user.create : passer firstName + lastName
+
+  - file: "app/(app)/register/actions.ts"
+    change: |
+      registerSchema :
+        Supprimer : name: z.string().optional()...
+        Ajouter   : firstName: z.string().min(1, "Le prénom est requis")
+                    lastName:  z.string().min(1, "Le nom est requis")
+      Déstructuration : firstName + lastName (plus name)
+      createUser call : passer firstName + lastName
+      brevo.sendEmail : toName: `${firstName} ${lastName}`
+
+  - file: "app/(app)/register/page.tsx"
+    change: |
+      Remplacer le champ unique [name="name"] par deux champs :
+        <input name="firstName" placeholder="Prénom" required />
+        <input name="lastName"  placeholder="Nom"    required />
+
+  - file: "lib/auth.config.ts"
+    change: |
+      AuthUser type :
+        Ajouter : firstName: string, lastName: string
+      buildJwtPayload :
+        Ajouter dans le return : firstName: user.firstName, lastName: user.lastName
+      session callback :
+        Ajouter : session.user.firstName = token.firstName as string
+                  session.user.lastName  = token.lastName  as string
+        session.user.name reste calculé : `${token.firstName} ${token.lastName}`
+        (Auth.js nécessite session.user.name — on le conserve comme valeur calculée)
+
+  - file: "lib/auth.ts"
+    change: |
+      CAS 1 (VerifiedUserToken) : retourner firstName + lastName depuis u (DB user)
+      CAS 2 (login normal) : retourner firstName + lastName depuis user (DB user)
+      Dans les deux cas : name: `${user.firstName} ${user.lastName}` pour Auth.js
+
+  - file: "components/layout/HeaderAuthButton.tsx"
+    change: |
+      Remplacer :
+        const firstName = session.user?.name?.split(" ")[0] ?? session.user?.email
+      Par :
+        const firstName = session.user?.firstName ?? session.user?.email
+
+  - file: "app/(app)/dashboard/layout.tsx"
+    change: |
+      Remplacer : Bonjour, {user.name ?? user.email}
+      Par       : Bonjour, {user.firstName ?? user.email}
+
+  - file: "prisma/seed.ts"
+    change: |
+      Remplacer `name: "..."` par `firstName: "..."`, `lastName: "..."` pour chaque user :
+        admin@placev.fr    → firstName: "Admin",      lastName: "Place V"
+        externe@test.fr    → firstName: "Externe",    lastName: "Test"
+        bouliacais@test.fr → firstName: "Bouliacais", lastName: "Test"
+        reduit@test.fr     → firstName: "Réduit",     lastName: "Test"
+        pauvre@test.fr     → firstName: "Pauvre",     lastName: "Test"
+        unverified@test.fr → firstName: "Unverified", lastName: "Test"
+
+  - file: "app/api/admin/members/route.ts"
+    change: |
+      Remplacer `name: user.name` par `firstName: user.firstName, lastName: user.lastName`
+      dans le select et le payload de retour.
+
+  - file: "app/(app)/admin/MembersTable.tsx"
+    change: |
+      Remplacer `{user.name || "N/A"}` par `{user.firstName} {user.lastName}`
+
+  - file: "app/(app)/admin/bookings/proxy/page.tsx"
+    change: |
+      Remplacer `{user.name}` par `{user.firstName} {user.lastName}`
+
+  - file: "app/api/webhooks/stripe/route.ts"
+    change: |
+      Remplacer `toName: user.name ?? undefined`
+      Par       `toName: user.firstName ? `${user.firstName} ${user.lastName}` : undefined`
+
+  - file: "app/api/booking/[id]/cancel/route.ts"
+    change: |
+      Remplacer `toName: reservation.user.name ?? undefined`
+      Par       `toName: reservation.user.firstName ? `${reservation.user.firstName} ${reservation.user.lastName}` : undefined`
+
+  - file: "app/api/booking/route.ts"
+    change: |
+      Remplacer `toName: user.name ?? undefined`
+      Par       `toName: user.firstName ? `${user.firstName} ${user.lastName}` : undefined`
+
+  - file: "app/api/auth/resend-verification/route.ts"
+    change: |
+      Remplacer `toName: user.name ?? undefined`
+      Par       `toName: user.firstName ? `${user.firstName} ${user.lastName}` : undefined`
+
+  - file: "app/api/admin/close-date/route.ts"
+    change: |
+      Remplacer `toName: res.user.name ?? undefined`
+      Par       `toName: res.user.firstName ? `${res.user.firstName} ${res.user.lastName}` : undefined`
+
+  - file: "app/api/admin/export/reservations/route.ts"
+    change: |
+      Remplacer `r.user?.name ? `"${r.user.name.replace(...)}"` : ""`
+      Par       `r.user?.firstName ? `"${r.user.firstName} ${r.user.lastName}"` : ""`
+
+# ─── Corrections de tests ─────────────────────────────────────────────────────
+
+test_changes:
+
+  - file: "__tests__/auth.test.ts"
+    changes:
+      - section: "Fixture fakeUser"
+        before: 'name: "Test User"'
+        after:  'firstName: "Test", lastName: "User"'
+
+      - section: "createUser — brevo test"
+        before: 'createUser({ email: "test4@test.fr", name: "Alice", password: "Password123!" })'
+        after:  'createUser({ email: "test4@test.fr", firstName: "Alice", lastName: "Test", password: "Password123!" })'
+
+      - section: "JWT Session — buildJwtPayload tests"
+        change: |
+          Ajouter firstName + lastName dans chaque mockUser passé à buildJwtPayload :
+            { id: "1", role: "USER", segment: "EXTERNE", credits: 3,
+              firstName: "Alice", lastName: "Test" }
+          Ajouter un test dédié :
+            "should include firstName and lastName in JWT token"
+            token = buildJwtPayload({ ..., firstName: "Alice", lastName: "Test" })
+            expect(token.firstName).toBe("Alice")
+            expect(token.lastName).toBe("Test")
+
+  - file: "__tests__/slice-07-main-nav.test.tsx"
+    changes:
+      - section: "fakeSession (utilisateur connecté)"
+        before: 'user: { name: "Marie Dupont", email: "marie@test.fr", role: "USER" }'
+        after: |
+          user: {
+            firstName: "Marie",
+            lastName: "Dupont",
+            name: "Marie Dupont",   // conservé comme valeur calculée Auth.js
+            email: "marie@test.fr",
+            role: "USER"
+          }
+
+      - section: "sessionSansNom"
+        before: 'user: { name: null, email: "sans-nom@test.fr", role: "USER" }'
+        after: |
+          user: { firstName: null, lastName: null, name: null, email: "sans-nom@test.fr", role: "USER" }
+
+      - section: "Test 'affiche Bonjour et le prénom de l'utilisateur'"
+        note: |
+          Aucun changement dans l'assertion — le test check déjà `screen.getByText(/Marie/)`.
+          Mais le composant ne fait plus `name.split(" ")[0]`, il lit directement `firstName`.
+          Donc ce test valide implicitement que le composant utilise firstName.
+
+  - file: "__tests__/api/slice-05-admin.http.test.ts"
+    changes:
+      - section: "Fixture fakeAdminSession"
+        before: 'name: "Admin Place V"'
+        after:  'firstName: "Admin", lastName: "Place V"'
+
+      - section: "Fixture fakeUserSession"
+        before: 'name: "Externe Test"'
+        after:  'firstName: "Externe", lastName: "Test"'
+
+      - section: "Fixture fakeTargetUser"
+        before: 'name: "Externe Test"'
+        after:  'firstName: "Externe", lastName: "Test"'
+
+      - section: "GET /api/admin/members — assertion body[0]"
+        change: |
+          Ajouter dans toMatchObject :
+            firstName: fakeTargetUser.firstName,
+            lastName: fakeTargetUser.lastName,
+          (supprimer name si présent dans l'assertion)
+
+  - file: "e2e/slice-01-auth.spec.ts"
+    changes:
+      - section: "Test inscription principale (ligne 21)"
+        before: "page.fill('[name=\"name\"]', \"Jean Test\")"
+        after: |
+          page.fill('[name="firstName"]', "Jean")
+          page.fill('[name="lastName"]', "Test")
+
+      - section: "Test email déjà utilisé (ligne 44)"
+        before: "page.fill('[name=\"name\"]', \"Doublon\")"
+        after: |
+          page.fill('[name="firstName"]', "Doublon")
+          page.fill('[name="lastName"]', "Test")
+
+      - section: "Test tarifReduit=Oui (ligne 108)"
+        before: "page.fill('[name=\"name\"]', \"Étudiant Test\")"
+        after: |
+          page.fill('[name="firstName"]', "Étudiant")
+          page.fill('[name="lastName"]', "Test")
+
+  - file: "e2e/slice-08-auth.spec.ts"
+    changes:
+      - section: "Test inscription Bouliacais=Oui (ligne 20)"
+        before: "page.fill('[name=\"name\"]', \"Marie Bouliac\")"
+        after: |
+          page.fill('[name="firstName"]', "Marie")
+          page.fill('[name="lastName"]', "Bouliac")
+
+      - section: "Test tarifReduit=Oui (ligne 44)"
+        before: "page.fill('[name=\"name\"]', \"Paul Étudiant\")"
+        after: |
+          page.fill('[name="firstName"]', "Paul")
+          page.fill('[name="lastName"]', "Étudiant")
+
+  - file: "prisma/seed.ts"
+    changes:
+      - section: "Tous les users"
+        before: 'name: "..."  (sur chacun des 6 users)'
+        after: |
+          admin@placev.fr    → firstName: "Admin",      lastName: "Place V"
+          externe@test.fr    → firstName: "Externe",    lastName: "Test"
+          bouliacais@test.fr → firstName: "Bouliacais", lastName: "Test"
+          reduit@test.fr     → firstName: "Réduit",     lastName: "Test"
+          pauvre@test.fr     → firstName: "Pauvre",     lastName: "Test"
+          unverified@test.fr → firstName: "Unverified", lastName: "Test"
+
+# ─── Commandes de vérification ────────────────────────────────────────────────
+
+verification:
+  unit_tests: "npx vitest run __tests__/auth.test.ts __tests__/slice-07-main-nav.test.tsx __tests__/api/slice-05-admin.http.test.ts"
+  e2e_tests: "npx playwright test e2e/slice-01-auth.spec.ts e2e/slice-08-auth.spec.ts"
+  full_suite: "npx vitest run && npx playwright test"
+
+notes: |
+  - session.user.name est CONSERVÉ comme valeur calculée `${firstName} ${lastName}`.
+    Auth.js v5 l'utilise dans certains composants internes — le supprimer casserait la compatibilité.
+  - Les tests E2E dépendent du seed — prisma/seed.ts DOIT être mis à jour avant de lancer les E2E.
+  - Le composant HeaderAuthButton n'a plus besoin de `name.split(" ")[0]` — firstName est direct.
+  - Vérifier que next-auth.d.ts (si présent) étend le type Session avec firstName/lastName.

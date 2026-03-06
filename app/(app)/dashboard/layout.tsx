@@ -10,7 +10,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { name: true, email: true, credits: true },
+    select: { firstName: true, email: true, credits: true },
   })
   if (!user) redirect("/login")
 
@@ -26,7 +26,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="mx-auto max-w-4xl px-4 py-8">
       <div data-testid="dashboard-header" className="mb-4 flex items-center justify-between">
         <h1 data-testid="welcome-message" className="text-3xl font-bold text-neutral-900">
-          Bonjour, {user.name ?? user.email}
+          Bonjour, {user.firstName ?? user.email}
         </h1>
       </div>
 

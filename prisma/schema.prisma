@@ -52,20 +52,24 @@ enum ReservationType {
 // ─── Models ────────────────────────────────────────────────────────────────────
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String?
-  passwordHash String
-  role         Role     @default(USER)
-  segment      Segment  @default(EXTERNE)
-  credits      Int      @default(0)
-  isMember             Boolean              @default(false)
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  firstName            String
+  lastName             String
+  deletionRequestedAt  DateTime?
+  address              String?
+  phone                String?
+  passwordHash         String
+  role                 Role      @default(USER)
+  segment              Segment   @default(EXTERNE)
+  credits              Int       @default(0)
+  isMember             Boolean   @default(false)
   city                 String?
-  tarifReduitRequested Boolean              @default(false)
-  cguAccepted          Boolean              @default(false)
+  tarifReduitRequested Boolean   @default(false)
+  cguAccepted          Boolean   @default(false)
   emailVerified        DateTime?
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   transactions            Transaction[]
   reservations            Reservation[]

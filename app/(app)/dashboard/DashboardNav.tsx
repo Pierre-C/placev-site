@@ -6,6 +6,7 @@ const links = [
   { href: "/dashboard",            label: "Réserver",  testid: "nav-tab-reserver"  },
   { href: "/dashboard/recharger",  label: "Recharger", testid: "nav-tab-recharger" },
   { href: "/dashboard/historique", label: "Historique",testid: "nav-tab-historique"},
+  { href: "/dashboard/mon-compte", label: "Mon compte", testid: "nav-tab-mon-compte" },
 ]
 
 export default function DashboardNav() {

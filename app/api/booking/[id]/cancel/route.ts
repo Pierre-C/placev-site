@@ -84,10 +84,11 @@ export async function POST(
 
   // Email de confirmation d'annulation
   if (reservation.user?.email) {
+    const user = reservation.user
     await brevo.sendEmail({
       template: "confirmation-annulation",
-      to: reservation.user.email,
-      toName: reservation.user.name ?? undefined,
+      to: user.email,
+      toName: user.firstName ? `${user.firstName} ${user.lastName}` : undefined,
       variables: {
         date: reservation.date.toISOString().slice(0, 10),
         slot: reservation.slot,

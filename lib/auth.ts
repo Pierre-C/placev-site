@@ -47,7 +47,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
           await prisma.verifiedUserToken.delete({ where: { id: vut.id } }) // single-use
           const u = vut.user
-          return { id: u.id, email: u.email, name: u.name, role: u.role, segment: u.segment, credits: u.credits }
+          return { 
+            id: u.id, 
+            email: u.email, 
+            firstName: u.firstName, 
+            lastName: u.lastName, 
+            name: `${u.firstName} ${u.lastName}`, 
+            role: u.role, 
+            segment: u.segment, 
+            credits: u.credits 
+          }
         }
 
         // CAS 2 : Login normal email + password
@@ -70,7 +79,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return {
           id: user.id,
           email: user.email,
-          name: user.name,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          name: `${user.firstName} ${user.lastName}`,
           role: user.role,
           segment: user.segment,
           credits: user.credits,

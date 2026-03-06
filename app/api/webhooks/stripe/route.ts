@@ -88,10 +88,10 @@ export async function POST(request: NextRequest) {
     await brevo.sendEmail({
       template: "confirmation-achat-credits",
       to: user.email,
-      toName: user.name ?? undefined,
+      toName: user.firstName ? `${user.firstName} ${user.lastName}` : undefined,
       variables: {
         credits,
-        name: user.name ?? user.email,
+        name: user.firstName ? `${user.firstName} ${user.lastName}` : user.email,
       },
     })
   }

@@ -14,7 +14,7 @@ export default function ProxyBookingPage() {
   const handleSearch = async (query: string) => {
     setUserSearch(query)
     if (query === "externe@test.fr") {
-      setFoundUsers([{ id: "user-externe-123", email: "externe@test.fr", name: "Externe Test" } as User])
+      setFoundUsers([{ id: "user-externe-123", email: "externe@test.fr", firstName: "Externe", lastName: "Test" } as User])
     }
   }
 
@@ -52,7 +52,7 @@ export default function ProxyBookingPage() {
                     onClick={() => handleSelectUser(user)}
                     className="p-2 cursor-pointer hover:bg-gray-100"
                   >
-                    {user.name} ({user.email})
+                    {user.firstName} {user.lastName} ({user.email})
                   </li>
                 ))}
               </ul>

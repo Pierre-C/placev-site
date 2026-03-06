@@ -18,7 +18,8 @@ test.describe("Inscription", () => {
     await page.goto("/register")
     await expect(page.locator("h1")).toContainText("Créer un compte")
 
-    await page.fill('[name="name"]', "Jean Test")
+    await page.fill('[name="firstName"]', "Jean")
+    await page.fill('[name="lastName"]', "Test")
     await page.fill('[name="email"]', uniqueEmail)
     await page.fill('[name="password"]', "TestPassword123!")
 
@@ -41,7 +42,8 @@ test.describe("Inscription", () => {
 
   test("un email déjà utilisé affiche une erreur", async ({ page }) => {
     await page.goto("/register")
-    await page.fill('[name="name"]', "Doublon")
+    await page.fill('[name="firstName"]', "Doublon")
+    await page.fill('[name="lastName"]', "Test")
     await page.fill('[name="email"]', "externe@test.fr") // email déjà seedé
     await page.fill('[name="password"]', "TestPassword123!")
     await page.click('[data-testid="toggle-bouliacais-non"]')
@@ -59,6 +61,10 @@ test.describe("Inscription", () => {
     await page.fill('[name="password"]', "court") // trop court
     await page.click('[data-testid="toggle-bouliacais-oui"]') // masque city (required) pour ne pas bloquer côté browser
     await page.check('[name="cgu"]')
+    
+    // Bypass HTML5 native validation to test server-side validation
+    await page.evaluate(() => document.querySelector('form')!.setAttribute('novalidate', ''))
+    
     await page.click('[type="submit"]')
 
     await expect(page.locator('[data-testid="error-message"]')).toBeVisible()
@@ -105,7 +111,8 @@ test.describe("Inscription", () => {
   test("tarifReduit=Oui ne donne pas segment=REDUIT automatiquement", async ({ page }) => {
     const uniqueEmail = `tarif-${Date.now()}@test.fr`
     await page.goto("/register")
-    await page.fill('[name="name"]', "Étudiant Test")
+    await page.fill('[name="firstName"]', "Étudiant")
+    await page.fill('[name="lastName"]', "Test")
     await page.fill('[name="email"]', uniqueEmail)
     await page.fill('[name="password"]', "TestPassword123!")
     await page.click('[data-testid="toggle-bouliacais-non"]')

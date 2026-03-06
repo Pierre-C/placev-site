@@ -49,17 +49,33 @@ export default function RegisterPage() {
         )}
 
         <form action={formAction} className="space-y-4">
-          <div>
-            <label htmlFor="name" className="mb-1 block text-sm font-medium text-neutral-700">
-              Nom complet
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              autoComplete="name"
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="firstName" className="mb-1 block text-sm font-medium text-neutral-700">
+                Prénom <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="firstName"
+                name="firstName"
+                type="text"
+                required
+                autoComplete="given-name"
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              />
+            </div>
+            <div>
+              <label htmlFor="lastName" className="mb-1 block text-sm font-medium text-neutral-700">
+                Nom <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="lastName"
+                name="lastName"
+                type="text"
+                required
+                autoComplete="family-name"
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              />
+            </div>
           </div>
 
           <div>

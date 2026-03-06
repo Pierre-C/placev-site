@@ -56,7 +56,8 @@ async function main() {
   const users = [
     {
       email: "admin@placev.fr",
-      name: "Admin Place V",
+      firstName: "Admin",
+      lastName: "Place V",
       role: "ADMIN" as const,
       segment: "BOULIACAIS" as const,
       credits: 99,
@@ -64,7 +65,8 @@ async function main() {
     },
     {
       email: "externe@test.fr",
-      name: "Externe Test",
+      firstName: "Externe",
+      lastName: "Test",
       role: "USER" as const,
       segment: "EXTERNE" as const,
       credits: 5,
@@ -72,7 +74,8 @@ async function main() {
     },
     {
       email: "bouliacais@test.fr",
-      name: "Bouliacais Test",
+      firstName: "Bouliacais",
+      lastName: "Test",
       role: "USER" as const,
       segment: "BOULIACAIS" as const,
       credits: 3,
@@ -80,7 +83,8 @@ async function main() {
     },
     {
       email: "reduit@test.fr",
-      name: "Réduit Test",
+      firstName: "Réduit",
+      lastName: "Test",
       role: "USER" as const,
       segment: "REDUIT" as const,
       credits: 2,
@@ -88,7 +92,8 @@ async function main() {
     },
     {
       email: "pauvre@test.fr",
-      name: "Pauvre Test",
+      firstName: "Pauvre",
+      lastName: "Test",
       role: "USER" as const,
       segment: "EXTERNE" as const,
       credits: 0, // Slice 8 : seuil = 0, crédits=0 → toute réservation refusée
@@ -96,7 +101,8 @@ async function main() {
     },
     {
       email: "unverified@test.fr",
-      name: "Unverified Test",
+      firstName: "Unverified",
+      lastName: "Test",
       role: "USER" as const,
       segment: "EXTERNE" as const,
       credits: 0,
@@ -120,6 +126,24 @@ async function main() {
       },
     })
     console.log(`  ✓ ${userData.email}`)
+
+    // Create transaction separately if credits > 0
+    if (userData.credits > 0) {
+      const existingTx = await prisma.transaction.findFirst({
+        where: { userId: createdUser.id, type: "MANUAL_ADJUSTMENT" }
+      })
+      if (!existingTx) {
+        await prisma.transaction.create({
+          data: {
+            userId: createdUser.id,
+            type: "MANUAL_ADJUSTMENT",
+            creditsAdd: userData.credits,
+            creditsBefore: 0,
+          }
+        })
+        console.log(`    ✓ Initial transaction created for ${userData.email}`)
+      }
+    }
 
     if (userData.email === "unverified@test.fr") {
       await prisma.emailVerificationToken.deleteMany({

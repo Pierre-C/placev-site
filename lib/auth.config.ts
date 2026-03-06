@@ -15,6 +15,8 @@ export type AuthUser = {
   role: string
   segment: string
   credits: number
+  firstName: string
+  lastName: string
 }
 
 export function buildJwtPayload(user: AuthUser) {
@@ -23,6 +25,8 @@ export function buildJwtPayload(user: AuthUser) {
     role: user.role,
     segment: user.segment,
     credits: user.credits,
+    firstName: user.firstName,
+    lastName: user.lastName,
   }
 }
 
@@ -44,6 +48,8 @@ export const authConfig: NextAuthConfig = {
           role: (user as unknown as AuthUser).role,
           segment: (user as unknown as AuthUser).segment,
           credits: (user as unknown as AuthUser).credits,
+          firstName: (user as unknown as AuthUser).firstName,
+          lastName: (user as unknown as AuthUser).lastName,
         }))
       }
       return token
@@ -54,6 +60,9 @@ export const authConfig: NextAuthConfig = {
       session.user.role = token.role as string
       session.user.segment = token.segment as string
       session.user.credits = token.credits as number
+      session.user.firstName = token.firstName as string
+      session.user.lastName = token.lastName as string
+      session.user.name = `${token.firstName} ${token.lastName}`
       return session
     },
   },

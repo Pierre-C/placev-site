@@ -1,43 +1,266 @@
 feature: admin-compliance
 slice: 11
-title: "Analytics Admin & Conformité RGPD"
-estimated_days: 1.5
+title: "Analytics Admin, Profil Membre & Conformité RGPD"
+estimated_days: 2
 status: ready
 
 dependencies: [slice-08-auth-business-rules]
 
 context: |
-  Affichage des crédits "à vie" pour identifier les gros clients, et mise en place
-  du flux de suppression de compte (soft delete par anonymisation pour conserver l'historique comptable).
+  Deux axes principaux :
+  1. Analytics admin : affichage des crédits "à vie" pour identifier les gros clients.
+  2. Espace "Mon compte" membre : formulaire de profil (prénom, nom, email readonly, adresse, téléphone),
+     changement de mot de passe (avec confirmation de l'ancien), et zone de danger pour demander
+     la suppression du compte (conformité RGPD — soft delete par anonymisation).
+
+  Changement transversal : le champ `name String?` du modèle User est remplacé par deux champs
+  distincts `firstName String` et `lastName String`. Ce changement impacte l'inscription (Slice 08),
+  le JWT/session Auth.js, et tous les composants affichant le nom de l'utilisateur.
+  Voir section `impacted_outside_slice_11` pour la liste complète des fichiers à modifier.
 
 database:
   migration_required: true
   schema_changes:
     User:
+      - "Suppression: name String? → remplacé par firstName String et lastName String (non nullables)"
+      - "Migration SQL: UPDATE \"User\" SET \"firstName\" = split_part(name, ' ', 1), \"lastName\" = trim(substring(name from position(' ' in name))) WHERE name IS NOT NULL"
       - "Ajout: deletionRequestedAt DateTime? (null par défaut)"
+      - "Ajout: address String? (adresse postale, champ libre, optionnel)"
+      - "Ajout: phone String? (numéro de téléphone, optionnel)"
+
+# ─── Impacts en dehors de la slice 11 ─────────────────────────────────────────
+# Ces fichiers DOIVENT être modifiés dans la même implémentation (pas de PR séparée).
+impacted_outside_slice_11:
+  - file: "prisma/schema.prisma"
+    change: "name String? → firstName String, lastName String"
+
+  - file: "lib/services/user.ts"
+    change: |
+      CreateUserInput : remplacer `name: string` par `firstName: string, lastName: string`.
+      prisma.user.create : passer firstName + lastName (plus name).
+
+  - file: "app/(app)/register/actions.ts"
+    change: |
+      registerSchema : remplacer `name` par `firstName: z.string().min(1)` et `lastName: z.string().min(1)`.
+      Appel createUser : passer firstName + lastName.
+
+  - file: "app/(app)/register/page.tsx"
+    change: |
+      Deux champs séparés : [name="firstName"] (Prénom*) et [name="lastName"] (Nom*).
+      Supprimer le champ [name="name"] existant.
+
+  - file: "lib/auth.config.ts"
+    change: |
+      AuthUser type : ajouter firstName: string, lastName: string.
+      buildJwtPayload : encoder token.firstName et token.lastName.
+      session callback : session.user.firstName = token.firstName, session.user.lastName = token.lastName.
+      session.user.name = `${token.firstName} ${token.lastName}` (backward compat Auth.js).
+
+  - file: "lib/auth.ts"
+    change: |
+      authorize() CAS 1 et CAS 2 : retourner firstName + lastName depuis l'objet user DB.
+      name: `${user.firstName} ${user.lastName}` pour session.user.name (Auth.js compat).
+
+  - file: "components/layout/HeaderAuthButton.tsx"
+    change: |
+      Remplacer `session.user?.name?.split(' ')[0]` par `session.user?.firstName`.
+      Plus besoin de split — firstName est directement disponible dans le token.
+
+  - file: "app/(app)/dashboard/layout.tsx"
+    change: "Bonjour, {user.firstName ?? user.email} (plus user.name)"
+
+  - file: "prisma/seed.ts"
+    change: |
+      Remplacer `name: '...'` par `firstName: '...'`, `lastName: '...'` sur tous les users de test.
+      Exemples :
+        admin@placev.fr      → firstName: "Admin", lastName: "Place V"
+        externe@test.fr      → firstName: "Externe", lastName: "Test"
+        bouliacais@test.fr   → firstName: "Bouliacais", lastName: "Test"
+        reduit@test.fr       → firstName: "Réduit", lastName: "Test"
+        pauvre@test.fr       → firstName: "Pauvre", lastName: "Test"
+        unverified@test.fr   → firstName: "Unverified", lastName: "Test"
+
+  - file: "app/api/admin/members/route.ts"
+    change: "Retourner firstName + lastName dans le select (supprimer name)"
+
+  - file: "app/(app)/admin/MembersTable.tsx"
+    change: "Afficher `${user.firstName} ${user.lastName}` au lieu de user.name"
+
+  - file: "app/(app)/admin/bookings/proxy/page.tsx"
+    change: "{user.firstName} {user.lastName} au lieu de {user.name}"
+
+  - file: "app/api/webhooks/stripe/route.ts"
+    change: "toName: `${user.firstName} ${user.lastName}`"
+
+  - file: "app/api/booking/[id]/cancel/route.ts"
+    change: "toName: `${reservation.user.firstName} ${reservation.user.lastName}`"
+
+  - file: "app/api/booking/route.ts"
+    change: "toName: `${user.firstName} ${user.lastName}`"
+
+  - file: "app/api/auth/resend-verification/route.ts"
+    change: "toName: `${user.firstName} ${user.lastName}`"
+
+  - file: "app/api/admin/close-date/route.ts"
+    change: "toName: `${res.user.firstName} ${res.user.lastName}`"
+
+  - file: "app/api/admin/export/reservations/route.ts"
+    change: "r.user.firstName + ' ' + r.user.lastName au lieu de r.user?.name"
 
 api_routes:
   modified:
     - path: GET /api/admin/members
       logic: |
-        - Utiliser `prisma.transaction.aggregate` ou inclure un `_sum: { creditsAdd }` avec filtre `type: CREDIT_PURCHASE`.
+        - Utiliser `prisma.transaction.aggregate` avec filtre `type: CREDIT_PURCHASE`.
         - Ajouter `lifetimeCredits` au payload de retour pour chaque utilisateur.
-  new:
-    - path: POST /api/profile/request-deletion
-      logic: "Met à jour `deletionRequestedAt = new Date()`. Notifie l'admin."
-    - path: POST /api/admin/members/[id]/anonymize
+        - Retourner firstName + lastName dans le select (plus name).
+
+    - path: GET /api/profile
       logic: |
-        - Action réservée à l'admin.
-        - Remplace les PII (Personally Identifiable Information) :
-          - `email` = `deleted_${id}@anonymized.local`
-          - `name` = `Utilisateur Supprimé`
-          - `passwordHash` = chaîne vide ou aléatoire.
-          - `city` = null.
+        - Étendre le select pour inclure : firstName, lastName, address, phone, deletionRequestedAt.
+        - Ne plus sélectionner name (supprimé du schéma).
+
+  new:
+    - path: PATCH /api/profile
+      auth: required (USER ou ADMIN)
+      input: "{ firstName?: string, lastName?: string, address?: string, phone?: string }"
+      logic: |
+        - Met à jour les champs modifiables du profil de l'utilisateur connecté.
+        - L'email N'EST PAS modifiable via cette route (ignoré s'il est fourni).
+        - Validation Zod : firstName min(1) si présent ; lastName min(1) si présent ; address et phone sont optionnels.
+        - Retourne le user mis à jour (sans passwordHash).
+        - 401 si non authentifié.
+        - 422 si validation échoue (ex: firstName ou lastName présent mais vide).
+
+    - path: POST /api/profile/change-password
+      auth: required (USER ou ADMIN)
+      input: "{ currentPassword: string, newPassword: string }"
+      logic: |
+        - Vérifie currentPassword via bcrypt.compare avec le passwordHash actuel.
+        - Valide que newPassword fait au moins 8 caractères.
+        - Hache le nouveau mot de passe (bcrypt.hash, rounds=12).
+        - Met à jour passwordHash en DB.
+        - 200 { success: true } si succès.
+        - 401 si currentPassword incorrect (ne pas révéler si c'est le password ou l'auth).
+        - 422 si newPassword trop court.
+
+    - path: POST /api/profile/request-deletion
+      auth: required (USER)
+      logic: |
+        - Met à jour deletionRequestedAt = new Date() sur le User connecté.
+        - Notifie l'admin par email Brevo (template "demande-suppression-compte").
+        - Idempotent : une 2ème demande écrase deletionRequestedAt sans erreur.
+        - 200 { success: true }.
+        - 401 si non authentifié.
+
+    - path: POST /api/admin/members/[id]/anonymize
+      auth: required (ADMIN)
+      logic: |
+        - Remplace les PII :
+          - email = deleted_${id}@anonymized.local
+          - firstName = "Utilisateur"
+          - lastName = "Supprimé"
+          - passwordHash = ""
+          - address = null, phone = null, city = null
+          - tarifReduitRequested = false (réinitialiser)
         - Conserve l'ID, les Transactions et les Réservations intactes pour les stats.
+        - 400 si on tente d'anonymiser un ADMIN.
+        - 403 si non-admin.
+        - 404 si user inexistant.
 
 frontend:
   app_changes:
+    - path: "app/(app)/dashboard/DashboardNav.tsx"
+      change: |
+        Ajouter l'onglet "Mon compte" en dernière position :
+        { href: "/dashboard/mon-compte", label: "Mon compte", testid: "nav-tab-mon-compte" }
+
+    - path: "app/(app)/dashboard/mon-compte/page.tsx"
+      change: |
+        Nouvelle page (Server Component récupère la session, passe les données aux sous-composants Client).
+        Route protégée : redirige vers /login si non authentifié.
+        Divisée en 3 sections affichées verticalement :
+
+        ## Section 1 — Informations du compte
+        Formulaire Client (data-testid="profile-form") :
+        - Prénom [name="firstName"] — pré-rempli, modifiable — required
+        - Nom [name="lastName"] — pré-rempli, modifiable — required
+        - Email [name="email"] — input disabled, lecture seule (non modifiable)
+        - Adresse [name="address"] — textarea, optionnel, pré-rempli si existant
+        - Téléphone [name="phone"] — input tel, optionnel, pré-rempli si existant
+        - Bouton "Enregistrer" (data-testid="profile-save-btn")
+        - Message succès (data-testid="profile-save-success") : "Profil mis à jour"
+        - Appelle PATCH /api/profile avec { firstName, lastName, address, phone }
+
+        ## Section 2 — Changer mon mot de passe
+        Formulaire Client séparé (data-testid="change-password-form") :
+        - Mot de passe actuel [name="currentPassword"] — required
+        - Nouveau mot de passe [name="newPassword"] — required, min 8 chars
+        - Bouton "Changer le mot de passe" (data-testid="change-password-btn")
+        - Message succès (data-testid="change-password-success") : "Mot de passe modifié"
+        - Message erreur (data-testid="change-password-error") : "Mot de passe actuel incorrect"
+        - Appelle POST /api/profile/change-password
+
+        ## Section 3 — Zone de danger
+        - Titre "Zone de danger" en rouge
+        - Description : "La suppression de votre compte est irréversible.
+          Vos données personnelles seront anonymisées, votre historique de réservations
+          sera conservé pour des raisons comptables."
+        - Bouton "Demander la suppression de mon compte" (data-testid="request-deletion-btn")
+          → ouvre un dialog de confirmation (data-testid="deletion-confirm-dialog")
+          → bouton Confirmer (data-testid="deletion-confirm-btn")
+          → bouton Annuler (data-testid="deletion-cancel-btn")
+          → message succès (data-testid="deletion-requested-success")
+          → Appelle POST /api/profile/request-deletion
+
     - path: "app/(app)/admin/MembersTable.tsx"
-      change: "Nouvelle colonne 'Crédits cumulés (À vie)'. Mise en évidence des membres ayant demandé la suppression."
-    - path: "app/(app)/profile/page.tsx" # (A créer si inexistant, ou mettre dans Dashboard > Settings)
-      change: "Zone 'Zone de danger' -> Bouton 'Demander la suppression de mon compte'."
+      change: |
+        - Nouvelle colonne "Crédits à vie" avec (data-testid="lifetime-credits") sur chaque cellule.
+        - Afficher `${user.firstName} ${user.lastName}` au lieu de user.name.
+        - Badge rouge "Suppression demandée" (data-testid="deletion-requested-badge") si deletionRequestedAt non null.
+        - Bouton "Anonymiser" (data-testid="anonymize-btn") dans la modale membre si deletionRequestedAt non null.
+        - Dialog de confirmation (data-testid="anonymize-confirm-dialog") avec bouton (data-testid="anonymize-confirm-btn").
+        - Message succès (data-testid="anonymize-success") après anonymisation réussie.
+
+data_testid:
+  # Dashboard nav
+  nav-tab-mon-compte: "Onglet Mon compte dans la nav du dashboard"
+
+  # Page Mon compte — Section profil
+  profile-form:         "Formulaire informations du compte"
+  profile-save-btn:     "Bouton Enregistrer le profil"
+  profile-save-success: "Message de succès après sauvegarde profil"
+
+  # Page Mon compte — Section mot de passe
+  change-password-form:    "Formulaire changement de mot de passe"
+  change-password-btn:     "Bouton Changer le mot de passe"
+  change-password-success: "Message succès changement mdp"
+  change-password-error:   "Message erreur changement mdp (ex: ancien mdp incorrect)"
+
+  # Page Mon compte — Zone de danger
+  request-deletion-btn:       "Bouton Demander la suppression du compte"
+  deletion-confirm-dialog:    "Dialog de confirmation avant suppression"
+  deletion-confirm-btn:       "Bouton Confirmer dans le dialog"
+  deletion-cancel-btn:        "Bouton Annuler dans le dialog"
+  deletion-requested-success: "Message succès après demande de suppression envoyée"
+
+  # Admin — Membres
+  lifetime-credits:          "Cellule crédits cumulés à vie par membre"
+  deletion-requested-badge:  "Badge alerte suppression demandée sur une ligne membre"
+  anonymize-btn:             "Bouton Anonymiser (dans modale membre)"
+  anonymize-confirm-dialog:  "Dialog confirmation anonymisation"
+  anonymize-confirm-btn:     "Bouton Confirmer anonymisation"
+  anonymize-success:         "Message succès anonymisation"
+
+notes: |
+  - L'email est TOUJOURS non modifiable — affiché en input disabled dans le formulaire.
+  - Le changement de mot de passe REQUIERT la saisie de l'ancien mot de passe (sécurité).
+  - La suppression est un "soft delete" : les PII sont anonymisées, les transactions conservées.
+  - Les champs `firstName`, `lastName`, `address`, `phone` et `deletionRequestedAt` remplacent/étendent le User.
+  - L'onglet s'appelle "Mon compte" et se trouve sur /dashboard/mon-compte.
+  - L'admin peut anonymiser un membre UNIQUEMENT si ce dernier a préalablement demandé la suppression
+    (vérification par deletionRequestedAt != null recommandée mais pas bloquante côté API).
+  - CHANGEMENT TRANSVERSAL name → firstName + lastName : tous les fichiers listés dans
+    `impacted_outside_slice_11` DOIVENT être mis à jour dans la même implémentation.
+  - Le salut "Bonjour" utilise session.user.firstName directement — plus besoin de name.split(" ")[0].
+  - session.user.name reste calculé comme `${firstName} ${lastName}` pour la compatibilité Auth.js.

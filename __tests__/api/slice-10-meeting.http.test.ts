@@ -199,14 +199,12 @@ describe("POST /api/booking/quote", () => {
 // ─── Impact PENDING_QUOTE sur /api/availability ───────────────────────────────
 
 describe("GET /api/availability — PENDING_QUOTE ne réduit pas la disponibilité", () => {
-  it("200 — une PENDING_QUOTE existante n'affecte pas le remaining (isClosed=false)", async () => {
-    // La query availability filtre status=CONFIRMED → PENDING_QUOTE exclue
-    mockPrisma.reservation.findMany.mockResolvedValue([]) // Aucune CONFIRMED
-    mockPrisma.closedDate.findMany.mockResolvedValue([])
-    mockPrisma.systemSetting.findUnique.mockResolvedValue({ key: "DESK_CAPACITY", value: "15" })
+it("200 — une PENDING_QUOTE existante n'affecte pas le remaining (isClosed=false)", async () => {
+  // La query availability filtre status=CONFIRMED → PENDING_QUOTE exclue
+  mockPrisma.reservation.findMany.mockResolvedValue([]) // Aucune CONFIRMED
+  mockPrisma.closedDate.findMany.mockResolvedValue([])
 
-    await testApiHandler({
-      appHandler: availabilityHandler,
+  await testApiHandler({      appHandler: availabilityHandler,
       url: `/api/availability?start=${FUTURE_DATE}&end=${FUTURE_DATE}`,
       test: async ({ fetch }) => {
         const res = await fetch({ method: "GET" })

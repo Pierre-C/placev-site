@@ -30,7 +30,7 @@ export function HeaderAuthButton({ session }: HeaderAuthButtonProps) {
     )
   }
 
-  const firstName = session.user?.name?.split(" ")[0] ?? session.user?.email
+  const firstName = session.user?.firstName ?? session.user?.email
 
   return (
     <div

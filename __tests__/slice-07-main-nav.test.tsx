@@ -57,7 +57,13 @@ describe("HeaderAuthButton — non connecté", () => {
 
 describe("HeaderAuthButton — connecté", () => {
   const fakeSession = {
-    user: { name: "Marie Dupont", email: "marie@test.fr", role: "USER" as const },
+    user: {
+      firstName: "Marie",
+      lastName: "Dupont",
+      name: "Marie Dupont", // conservé comme valeur calculée Auth.js (${firstName} ${lastName})
+      email: "marie@test.fr",
+      role: "USER" as const,
+    },
     expires: "2099-01-01",
   } as any
 
@@ -102,7 +108,7 @@ describe("HeaderAuthButton — connecté", () => {
 
 describe("HeaderAuthButton — connecté sans nom", () => {
   const sessionSansNom = {
-    user: { name: null, email: "sans-nom@test.fr", role: "USER" as const },
+    user: { firstName: null, lastName: null, name: null, email: "sans-nom@test.fr", role: "USER" as const },
     expires: "2099-01-01",
   } as any
 

@@ -34,6 +34,8 @@ import { LogoutButton } from "@/components/app/LogoutButton"
 const sessionUser = {
   user: {
     id: "user-1",
+    firstName: "Jean",
+    lastName: "Dupont",
     name: "Jean Dupont",
     email: "jean@test.fr",
     role: "USER",
@@ -46,6 +48,8 @@ const sessionUser = {
 const sessionAdmin = {
   user: {
     id: "admin-1",
+    firstName: "Alice",
+    lastName: "Admin",
     name: "Alice Admin",
     email: "admin@placev.fr",
     role: "ADMIN",

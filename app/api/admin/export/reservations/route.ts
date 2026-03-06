@@ -43,7 +43,8 @@ export async function GET(request: Request) {
     const csvRows = reservations.map((r) => {
       const date = r.date.toISOString().slice(0, 10)
       const slot = r.slot
-      const name = r.user?.name ? `"${r.user.name.replace(/"/g, '""')}"` : ""
+      const fullName = r.user?.firstName ? `${r.user.firstName} ${r.user.lastName}` : ""
+      const name = fullName ? `"${fullName.replace(/"/g, '""')}"` : ""
       const email = r.user?.email ? `"${r.user.email.replace(/"/g, '""')}"` : ""
       const segment = r.user?.segment || ""
       const costCredits = r.creditsCost ?? 0

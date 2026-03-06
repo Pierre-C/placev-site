@@ -110,7 +110,7 @@ export async function POST(request: Request) {
           await brevo.sendEmail({
             template: "annulation-par-admin",
             to: res.user.email,
-            toName: res.user.name ?? undefined,
+            toName: res.user.firstName ? `${res.user.firstName} ${res.user.lastName}` : undefined,
             variables: {
               date,
               slot: res.slot,

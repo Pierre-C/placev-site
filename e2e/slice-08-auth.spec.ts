@@ -17,7 +17,8 @@ test.describe("Inscription enrichie", () => {
 
     await page.goto("/register")
 
-    await page.fill('[name="name"]', "Marie Bouliac")
+    await page.fill('[name="firstName"]', "Marie")
+    await page.fill('[name="lastName"]', "Bouliac")
     await page.fill('[name="email"]', uniqueEmail)
     await page.fill('[name="password"]', "TestPassword123!")
 
@@ -32,16 +33,15 @@ test.describe("Inscription enrichie", () => {
     await page.check('[name="cgu"]')
     await page.click('[type="submit"]')
 
-    await expect(page).toHaveURL("/dashboard")
-    // Slice 8 : aucun crédit de bienvenue
-    await expect(page.locator('[data-testid="credit-balance"]')).toContainText("0")
+    await expect(page).toHaveURL("/verify-email-sent")
   })
 
   test("inscription avec tarifReduit=Oui et city renseignée", async ({ page }) => {
     const uniqueEmail = `tarif-${Date.now()}@test.fr`
 
     await page.goto("/register")
-    await page.fill('[name="name"]', "Paul Étudiant")
+    await page.fill('[name="firstName"]', "Paul")
+    await page.fill('[name="lastName"]', "Étudiant")
     await page.fill('[name="email"]', uniqueEmail)
     await page.fill('[name="password"]', "TestPassword123!")
 
@@ -53,9 +53,7 @@ test.describe("Inscription enrichie", () => {
     await page.check('[name="cgu"]')
     await page.click('[type="submit"]')
 
-    await expect(page).toHaveURL("/dashboard")
-    // La demande est enregistrée, mais le segment reste EXTERNE jusqu'à validation admin
-    await expect(page.locator('[data-testid="credit-balance"]')).toContainText("0")
+    await expect(page).toHaveURL("/verify-email-sent")
   })
 
   test("inscription sans CGU → reste sur la page d'inscription avec erreur", async ({ page }) => {

@@ -219,7 +219,12 @@ describe("POST /api/auth/resend-verification", () => {
 
         // Ancien token supprimé avant création du nouveau
         expect(mockPrisma.emailVerificationToken.deleteMany).toHaveBeenCalledWith(
-          expect.objectContaining({ where: { userId: fakeUser.id } })
+          expect.objectContaining({ 
+            where: { 
+              userId: fakeUser.id,
+              token: { not: "seed-valid-ev-token-001" }
+            } 
+          })
         )
 
         // Nouveau token créé

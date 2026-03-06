@@ -51,7 +51,8 @@ const fakeAdminSession = {
   user: {
     id: "admin-123",
     email: "admin@placev.fr",
-    name: "Admin Place V",
+    firstName: "Admin",
+    lastName: "Place V",
     role: "ADMIN",
     segment: "BOULIACAIS",
     credits: 99,
@@ -62,7 +63,8 @@ const fakeUserSession = {
   user: {
     id: "user-extern-123",
     email: "externe@test.fr",
-    name: "Externe Test",
+    firstName: "Externe",
+    lastName: "Test",
     role: "USER",
     segment: "EXTERNE",
     credits: 5,
@@ -72,7 +74,8 @@ const fakeUserSession = {
 const fakeTargetUser = {
   id: "user-extern-123",
   email: "externe@test.fr",
-  name: "Externe Test",
+  firstName: "Externe",
+  lastName: "Test",
   role: "USER" as const,
   segment: "EXTERNE" as const,
   credits: 5,
@@ -128,6 +131,8 @@ describe("GET /api/admin/members", () => {
         expect(body[0]).toMatchObject({
           id: fakeTargetUser.id,
           email: fakeTargetUser.email,
+          firstName: fakeTargetUser.firstName,
+          lastName: fakeTargetUser.lastName,
           credits: fakeTargetUser.credits,
           isMember: fakeTargetUser.isMember,
           reservationCount: 2,
