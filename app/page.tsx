@@ -6,6 +6,7 @@ import { Plans } from '@/components/sections/Plans'
 import { Gallery } from '@/components/sections/Gallery'
 import { Mission } from '@/components/sections/Mission'
 import { Testimonials } from '@/components/sections/Testimonials'
+import { Events } from '@/components/sections/Events'
 import { FAQ } from '@/components/sections/FAQ'
 import { ContactBlock } from '@/components/sections/ContactBlock'
 
@@ -18,6 +19,7 @@ export default function Page() {
       <Gallery />
       <Mission />
       <Testimonials />
+      <Events />
       <FAQ />
       <ContactBlock />
     </>

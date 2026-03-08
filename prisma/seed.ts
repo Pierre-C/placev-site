@@ -166,6 +166,41 @@ async function main() {
     }
   }
 
+  // ─── Events ────────────────────────────────────────────────────────────────
+  console.log("Seeding Events...")
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  tomorrow.setHours(10, 0, 0, 0)
+
+  const nextWeek = new Date()
+  nextWeek.setDate(nextWeek.getDate() + 7)
+  nextWeek.setHours(14, 0, 0, 0)
+
+  await prisma.event.upsert({
+    where: { id: "seed-event-01" },
+    update: { date: tomorrow },
+    create: {
+      id: "seed-event-01",
+      title: "Atelier Yoga",
+      description: "Une heure de détente pour bien commencer la journée.",
+      date: tomorrow,
+      registrationUrl: "https://www.helloasso.com/associations/place-v/evenements/atelier-yoga",
+    },
+  })
+
+  await prisma.event.upsert({
+    where: { id: "seed-event-02" },
+    update: { date: nextWeek },
+    create: {
+      id: "seed-event-02",
+      title: "Réunion d'information",
+      description: "Présentation des nouveaux locaux et des projets à venir.",
+      date: nextWeek,
+      registrationUrl: null,
+    },
+  })
+  console.log("  ✓ Events created/updated")
+
   // ─── SystemSettings ───────────────────────────────────────────────────────
 
   const settings = [
