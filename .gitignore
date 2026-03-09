@@ -37,6 +37,8 @@ next-env.d.ts
 
 yarn.lock
 
+# ai agents
+.agents/
 
 # tests
 playwright-report/
@@ -45,5 +47,3 @@ e2e/.auth/
 
 # claude
 .claude
-
-yarn.lock
