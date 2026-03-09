@@ -3,15 +3,15 @@
  * Configuration Prisma 7 — requise pour les commandes CLI (migrate, generate, introspect).
  * Le client runtime utilise l'adapter Neon dans lib/prisma.ts.
  *
- * DATABASE_URL : branche Neon `develop` en local/preview, `main` en production.
+ * DATABASE_URL : branche Neon `develop` en local/preview, `staging` en homologation, `main` en production.
  */
 
-import dotenv from "dotenv"
-import { defineConfig } from "prisma/config"
+import dotenv from "dotenv";
+import { defineConfig } from "prisma/config";
 
 // Charger .env.local (convention Next.js) puis .env en fallback
-dotenv.config({ path: ".env.local" })
-dotenv.config()
+dotenv.config({ path: ".env.local" });
+dotenv.config();
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -22,4 +22,4 @@ export default defineConfig({
   datasource: {
     url: process.env.DATABASE_URL,
   },
-})
+});
