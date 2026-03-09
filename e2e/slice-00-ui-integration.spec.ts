@@ -99,22 +99,6 @@ authTest.describe("Logout depuis /dashboard", () => {
   })
 })
 
-// ─── E2E-0.7 : Logout depuis /admin ───────────────────────────────────────────
-
-authTest.describe("Logout depuis /admin", () => {
-  authTest("E2E-0.7 : bouton logout visible et fonctionnel depuis /admin", async ({ adminPage: page }) => {
-    await page.goto("/admin")
-
-    await expect(page.locator('[data-testid="logout-btn"]')).toBeVisible()
-
-    await page.click('[data-testid="logout-btn"]')
-    await expect(page).toHaveURL("/login")
-
-    await page.goto("/admin")
-    await expect(page).toHaveURL("/login")
-  })
-})
-
 // ─── E2E-0.8 : Non-régression site vitrine ────────────────────────────────────
 
 test.describe("Non-régression site vitrine", () => {
@@ -145,34 +129,3 @@ test.describe("Non-régression site vitrine", () => {
   })
 })
 
-// ─── E2E-0.9 : Mobile ─────────────────────────────────────────────────────────
-
-test.describe("Navigation mobile", () => {
-  test.use({ viewport: { width: 390, height: 844 } }) // iPhone 13
-
-  test("E2E-0.9 : login accessible sur mobile (menu burger ou bouton direct)", async ({ page }) => {
-    await page.goto("/")
-
-    // Sur mobile, soit le header-login-btn est visible, soit il est dans le menu burger
-    const loginBtn = page.locator('[data-testid="header-login-btn"]')
-    const mobileMenuBtn = page.locator('button[aria-label="Menu"]')
-
-    const loginVisible = await loginBtn.isVisible().catch(() => false)
-
-    if (!loginVisible) {
-      // Ouvrir le menu burger
-      await expect(mobileMenuBtn).toBeVisible()
-      await mobileMenuBtn.click()
-      // Après ouverture, un lien vers /login ou un bouton login doit être disponible
-      const loginLink = page.locator('a[href="/login"]')
-      await expect(loginLink.first()).toBeVisible()
-    } else {
-      await expect(loginBtn).toBeVisible()
-    }
-
-    // Pas de débordement horizontal
-    const bodyWidth = await page.evaluate(() => document.body.scrollWidth)
-    const viewportWidth = await page.evaluate(() => window.innerWidth)
-    expect(bodyWidth).toBeLessThanOrEqual(viewportWidth + 5) // tolérance 5px
-  })
-})

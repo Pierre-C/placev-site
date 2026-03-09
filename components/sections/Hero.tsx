@@ -48,7 +48,7 @@ export function Hero() {
                 data-testid="hero-cta-register"
                 className="rounded-2xl border-2 border-placev-blue px-5 py-3 font-medium text-placev-blue inline-flex items-center gap-2 hover:bg-placev-blue/5 transition"
               >
-                Créer votre compte membre
+                Créez votre compte membre
               </a>
             </div>
             <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-neutral-600">

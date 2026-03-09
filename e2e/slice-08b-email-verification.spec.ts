@@ -25,7 +25,8 @@ test.describe("Inscription — redirection vers verify-email-sent", () => {
     const uniqueEmail = `veriftest-${Date.now()}@test.fr`
 
     await page.goto("/register")
-    await page.fill('[name="name"]', "Claire Vérif")
+    await page.fill('[name="firstName"]', "Claire")
+    await page.fill('[name="lastName"]', "Vérif")
     await page.fill('[name="email"]', uniqueEmail)
     await page.fill('[name="password"]', "TestPassword123!")
     await page.click('[data-testid="toggle-bouliacais-oui"]')

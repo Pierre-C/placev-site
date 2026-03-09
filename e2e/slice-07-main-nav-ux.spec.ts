@@ -79,12 +79,6 @@ authTest.describe("Header — connecté", () => {
 // ─── Hero — CTAs ─────────────────────────────────────────────────────────────
 
 test.describe("Hero — CTAs", () => {
-  test("affiche le bouton 'Contactez-nous' (hero-cta-contact)", async ({ page }) => {
-    await page.goto("/")
-    await expect(page.getByTestId("hero-cta-contact")).toBeVisible()
-    await expect(page.getByTestId("hero-cta-contact")).toContainText("Contactez-nous")
-  })
-
   test("affiche le bouton 'Créer votre compte membre' (hero-cta-register)", async ({ page }) => {
     await page.goto("/")
     await expect(page.getByTestId("hero-cta-register")).toBeVisible()

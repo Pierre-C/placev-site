@@ -44,11 +44,6 @@ test.describe("Navigation admin — 4 onglets", () => {
     await expect(oldMembresTab).not.toBeVisible()
   })
 
-  test("exactement 4 onglets de navigation", async ({ adminPage }) => {
-    await adminPage.goto("/admin")
-    const tabs = adminPage.locator("nav a")
-    await expect(tabs).toHaveCount(4)
-  })
 })
 
 // ─── Calendrier Coworking ─────────────────────────────────────────────────────

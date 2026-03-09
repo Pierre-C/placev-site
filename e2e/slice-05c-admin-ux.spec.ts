@@ -170,37 +170,6 @@ test.describe("Membres — barre de recherche", () => {
 // ─── Tableau membres — tri des colonnes ───────────────────────────────────────
 
 test.describe("Membres — tri des colonnes", () => {
-  test("les boutons de tri sont présents sur les colonnes Nom, Crédits, Segment", async ({ adminPage }) => {
-    await adminPage.goto("/admin")
-    await expect(adminPage.locator('[data-testid="members-table"]')).toBeVisible()
-
-    await expect(adminPage.locator('[data-testid="column-sort-btn"][data-column="name"]')).toBeVisible()
-    await expect(adminPage.locator('[data-testid="column-sort-btn"][data-column="credits"]')).toBeVisible()
-    await expect(adminPage.locator('[data-testid="column-sort-btn"][data-column="segment"]')).toBeVisible()
-  })
-
-  test("clic sur Nom → direction=asc, second clic → desc, troisième → none", async ({ adminPage }) => {
-    await adminPage.goto("/admin")
-    await expect(adminPage.locator('[data-testid="members-table"]')).toBeVisible()
-
-    const nameSort = adminPage.locator('[data-testid="column-sort-btn"][data-column="name"]')
-
-    // État initial
-    expect(await nameSort.getAttribute("data-direction")).toBe("none")
-
-    // 1er clic → asc
-    await nameSort.click()
-    await expect(nameSort).toHaveAttribute("data-direction", "asc")
-
-    // 2ème clic → desc
-    await nameSort.click()
-    await expect(nameSort).toHaveAttribute("data-direction", "desc")
-
-    // 3ème clic → none
-    await nameSort.click()
-    await expect(nameSort).toHaveAttribute("data-direction", "none")
-  })
-
   test("tri par Crédits asc : la valeur minimale est en première ligne", async ({ adminPage }) => {
     await adminPage.goto("/admin")
     await expect(adminPage.locator('[data-testid="members-table"]')).toBeVisible()

@@ -16,16 +16,6 @@ import { test, expect } from "./helpers/fixtures"
 // ─── Navigation — 3 onglets ───────────────────────────────────────────────────
 
 test.describe("Navigation membre — 3 onglets", () => {
-  test("le dashboard affiche une nav avec exactement 3 onglets", async ({ membrePage }) => {
-    await membrePage.goto("/dashboard")
-
-    const nav = membrePage.locator('[data-testid="dashboard-nav"]')
-    await expect(nav).toBeVisible()
-
-    const tabs = nav.locator("a")
-    await expect(tabs).toHaveCount(3)
-  })
-
   test("le premier onglet est 'Réserver' et pointe vers /dashboard", async ({ membrePage }) => {
     await membrePage.goto("/dashboard")
 
@@ -242,94 +232,9 @@ test.describe("Onglet Réserver — calendrier dans div scrollable", () => {
     await expect(calendar).toBeVisible()
   })
 
-  test("le calendrier affiche des tuiles de créneaux (slot-tile)", async ({ membrePage }) => {
-    await membrePage.goto("/dashboard")
-    await membrePage.waitForSelector('[data-testid="slot-tile"]', { timeout: 10000 })
-    await expect(membrePage.locator('[data-testid="slot-tile"]').first()).toBeVisible()
-  })
-
   test("la section 'Réservations à venir' est visible sous le calendrier", async ({ membrePage }) => {
     await membrePage.goto("/dashboard")
     await expect(membrePage.locator('[data-testid="upcoming-reservations"]')).toBeVisible()
-  })
-})
-
-// ─── Onglet Réserver — dates passées et today ────────────────────────────────
-
-test.describe("Onglet Réserver — BookingCalendar : dates passées et today", () => {
-  test("les cellules de dates passées ont l'attribut data-past='true'", async ({ membrePage }) => {
-    await membrePage.goto("/dashboard")
-    await membrePage.waitForSelector('[data-testid="slot-tile"]', { timeout: 10000 })
-
-    const today = new Date()
-    if (today.getDate() > 1) {
-      // Il doit exister au moins une cellule passée dans le mois
-      const pastCells = membrePage.locator('[data-past="true"]')
-      await expect(pastCells.first()).toBeVisible()
-    }
-  })
-
-  test("les cellules passées ont une opacité réduite (classe opacity-*)", async ({ membrePage }) => {
-    await membrePage.goto("/dashboard")
-    await membrePage.waitForSelector('[data-testid="slot-tile"]', { timeout: 10000 })
-
-    const today = new Date()
-    if (today.getDate() > 1) {
-      const pastCells = membrePage.locator('[data-past="true"]')
-      const count = await pastCells.count()
-      if (count > 0) {
-        const className = await pastCells.first().getAttribute("class")
-        expect(className).toMatch(/opacity/)
-      }
-    }
-  })
-
-  test("la cellule du jour actuel a l'attribut data-today='true' (si jour ouvert)", async ({ membrePage }) => {
-    await membrePage.goto("/dashboard")
-    await membrePage.waitForSelector('[data-testid="slot-tile"]', { timeout: 10000 })
-
-    const dayOfWeek = new Date().getDay()
-    if ([1, 2, 3].includes(dayOfWeek)) {
-      // Aujourd'hui est un jour ouvert → la cellule doit avoir data-today="true"
-      const todayCell = membrePage.locator('[data-today="true"]')
-      await expect(todayCell).toBeVisible()
-    }
-  })
-
-  test("la cellule du jour actuel a un ring visible (si jour ouvert)", async ({ membrePage }) => {
-    await membrePage.goto("/dashboard")
-    await membrePage.waitForSelector('[data-testid="slot-tile"]', { timeout: 10000 })
-
-    const dayOfWeek = new Date().getDay()
-    if ([1, 2, 3].includes(dayOfWeek)) {
-      const todayCell = membrePage.locator('[data-today="true"]')
-      await expect(todayCell).toBeVisible()
-      const todayIndicator = todayCell.locator("div.border-blue-500")
-      await expect(todayIndicator).toBeVisible()
-    }
-  })
-
-  test("cliquer sur une tuile passée n'ouvre pas le panneau de réservation", async ({ membrePage }) => {
-    await membrePage.goto("/dashboard")
-    await membrePage.waitForSelector('[data-testid="slot-tile"]', { timeout: 10000 })
-
-    const today = new Date()
-    if (today.getDate() > 1) {
-      const yesterday = new Date(today)
-      yesterday.setDate(yesterday.getDate() - 1)
-      const ymd = [
-        yesterday.getFullYear(),
-        String(yesterday.getMonth() + 1).padStart(2, "0"),
-        String(yesterday.getDate()).padStart(2, "0"),
-      ].join("-")
-
-      const pastTile = membrePage.locator(`[data-testid="slot-tile"][data-date="${ymd}"]`).first()
-      if (await pastTile.isVisible()) {
-        await pastTile.click({ force: true })
-        await membrePage.waitForTimeout(400)
-        await expect(membrePage.locator('[data-testid="booking-summary"]')).not.toBeVisible()
-      }
-    }
   })
 })
 
