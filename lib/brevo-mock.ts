@@ -31,6 +31,7 @@ export type BrevoTemplate =
   | "reset-password"
   | "confirmation-reservation-multiple"
   | "nouvelle-demande-devis"
+  | "demande-suppression-compte"
 
 export interface SendEmailParams {
   template: BrevoTemplate

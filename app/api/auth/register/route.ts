@@ -11,7 +11,8 @@ import { prisma } from "@/lib/prisma"
 import { createUser } from "@/lib/services/user"
 
 const registerSchema = z.object({
-  name: z.string().min(1).optional(),
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
   email: z.string().email("Email invalide"),
   password: z.string().min(8, "Le mot de passe doit contenir au moins 8 caractères"),
   segment: z.enum(["BOULIACAIS", "EXTERNE", "REDUIT"]).default("EXTERNE"),
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { email, name, password, segment } = parsed.data
+    const { email, firstName, lastName, password, segment } = parsed.data
 
     // Vérifier si l'email est déjà utilisé
     const existing = await prisma.user.findUnique({ where: { email } })
@@ -41,10 +42,11 @@ export async function POST(request: Request) {
     }
 
     // Créer l'utilisateur (hash password + email Brevo)
-    const { user } = await createUser({ 
-      email, 
-      name: name ?? "", 
-      password, 
+    const { user } = await createUser({
+      email,
+      firstName: firstName ?? "",
+      lastName: lastName ?? "",
+      password,
       isBouliacais: segment === "BOULIACAIS",
       city: "",
       tarifReduit: segment === "REDUIT",
