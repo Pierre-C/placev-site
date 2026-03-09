@@ -4,7 +4,7 @@
  */
 
 import type { User } from "@prisma/client"
-import bcrypt from "bcrypt"
+import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { brevo } from "@/lib/brevo"
 export type UserWithoutHash = Omit<User, "passwordHash">

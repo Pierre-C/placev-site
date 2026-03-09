@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import bcrypt from "bcrypt"
+import bcrypt from "bcryptjs"
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1),

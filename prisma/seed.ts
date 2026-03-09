@@ -7,7 +7,7 @@
 
 import { PrismaClient } from "@prisma/client"
 import { PrismaNeonHttp } from "@prisma/adapter-neon"
-import bcrypt from "bcrypt"
+import bcrypt from "bcryptjs"
 
 const connectionString = process.env.DATABASE_URL
 if (!connectionString) {
