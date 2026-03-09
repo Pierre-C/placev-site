@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     await brevo.sendEmail({
       template: "confirmation-reservation",
       to: targetUser.email,
-      toName: targetUser.name ?? undefined,
+      toName: `${targetUser.firstName} ${targetUser.lastName}`,
       variables: {
         slot,
         costCredits: cost,

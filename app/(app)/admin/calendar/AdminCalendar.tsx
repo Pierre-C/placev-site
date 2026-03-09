@@ -505,7 +505,7 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
                             {res.slot === "FULL" ? "FULL" : res.slot} – {formatDayShort(new Date(res._date + "T00:00:00"))}
                           </span>
                         </td>
-                        <td className="px-4 py-4 font-bold text-neutral-900">{res.user?.name || "N/A"}</td>
+                        <td className="px-4 py-4 font-bold text-neutral-900">{res.user ? `${res.user.firstName} ${res.user.lastName}` : "N/A"}</td>
                         <td className="px-4 py-4 text-neutral-500 text-sm font-medium">{res.user?.email || "N/A"}</td>
                         <td className="px-4 py-4">
                           <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase ${
