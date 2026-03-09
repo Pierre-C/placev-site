@@ -23,7 +23,8 @@ type ReservationDetail = {
   creditsCost: number | null
   user: {
     id: string
-    name: string | null
+    firstName: string
+    lastName: string
     email: string | null
     segment: string | null
   } | null

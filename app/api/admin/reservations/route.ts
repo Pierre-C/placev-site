@@ -25,7 +25,8 @@ export async function GET(request: Request) {
       user: {
         select: {
           id: true,
-          name: true,
+          firstName: true,
+          lastName: true,
           email: true,
           segment: true,
         },
