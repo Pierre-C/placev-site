@@ -173,7 +173,7 @@ export default function MembersTable({ users: initialUsers }: { users: UserWithE
         let valA: any = a[sortColumn]
         let valB: any = b[sortColumn]
 
-        if (sortColumn === "firstName" || sortColumn === "email" || sortColumn === "segment") {
+        if (sortColumn === "lastName" || sortColumn === "email" || sortColumn === "segment") {
           valA = (valA || "").toLowerCase()
           valB = (valB || "").toLowerCase()
         }
