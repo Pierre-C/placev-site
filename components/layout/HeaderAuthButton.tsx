@@ -18,13 +18,19 @@ export function HeaderAuthButton({ session }: HeaderAuthButtonProps) {
   if (!session) {
     return (
       <div className="flex items-center gap-2">
-        <span data-testid="header-login-label" className="text-sm text-neutral-500">Déjà membre ?</span>
         <Link
           href="/login"
           data-testid="header-login-btn"
           className="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 transition"
         >
           Se connecter
+        </Link>
+        <Link
+          href="/register"
+          data-testid="header-register-btn"
+          className="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium bg-gradient-to-r from-placev-blue to-placev-mint text-white hover:opacity-90 transition"
+        >
+          Créer mon compte
         </Link>
       </div>
     )

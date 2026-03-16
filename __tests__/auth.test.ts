@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import bcrypt from "bcrypt"
+import bcrypt from "bcryptjs"
 import { mockDeep, mockReset } from "vitest-mock-extended"
 import type { PrismaClient } from "@prisma/client"
 

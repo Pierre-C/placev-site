@@ -93,7 +93,7 @@ placev-site/
 │   └── config/
 │       └── site.ts          # Configuration du site
 └── public/
-    └── logo-placev.png      # Logo
+    └── logo-placev.svg      # Logo
 ```
 
 ## 📝 License

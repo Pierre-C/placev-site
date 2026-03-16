@@ -1,5 +1,5 @@
 // app/page.tsx
-'use client'
+import { auth } from '@/lib/auth'
 import { Hero } from '@/components/sections/Hero'
 import { Amenities } from '@/components/sections/Amenities'
 import { Plans } from '@/components/sections/Plans'
@@ -10,12 +10,13 @@ import { Events } from '@/components/sections/Events'
 import { FAQ } from '@/components/sections/FAQ'
 import { ContactBlock } from '@/components/sections/ContactBlock'
 
-export default function Page() {
+export default async function Page() {
+  const session = await auth()
   return (
     <>
-      <Hero />
+      <Hero isConnected={!!session?.user} />
       <Amenities />
-      <Plans />
+      <Plans isConnected={!!session?.user} />
       <Gallery />
       <Mission />
       <Testimonials />

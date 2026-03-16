@@ -17,7 +17,7 @@ import { SITE } from "@/lib/config/site";
 
 const items = [
   { icon: Wifi, title: "Internet ultra-rapide", desc: "Fibre" },
-  { icon: Users, title: "Salle de réunion", desc: "8 à 10 personnes" },
+  { icon: Users, title: "Salle de réunion", desc: "8 à 14 personnes" },
   { icon: Coffee, title: "Café & Thé", desc: "Boissons chaudes à volonté" },
   {
     icon: MonitorSmartphone,

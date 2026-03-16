@@ -11,10 +11,16 @@ import { test as authTest } from "./helpers/fixtures"
 // ─── Header — non connecté ───────────────────────────────────────────────────
 
 test.describe("Header — non connecté", () => {
-  test("affiche 'Déjà membre ?' (header-login-label)", async ({ page }) => {
+  test("affiche le bouton 'Créer mon compte' (header-register-btn)", async ({ page }) => {
     await page.goto("/")
-    await expect(page.getByTestId("header-login-label")).toBeVisible()
-    await expect(page.getByTestId("header-login-label")).toContainText("Déjà membre")
+    await expect(page.getByTestId("header-register-btn")).toBeVisible()
+    await expect(page.getByTestId("header-register-btn")).toContainText("Créer mon compte")
+  })
+
+  test("header-register-btn pointe vers /register", async ({ page }) => {
+    await page.goto("/")
+    const href = await page.getByTestId("header-register-btn").getAttribute("href")
+    expect(href).toBe("/register")
   })
 
   test("affiche le bouton 'Se connecter' (header-login-btn)", async ({ page }) => {
@@ -78,11 +84,11 @@ authTest.describe("Header — connecté", () => {
 
 // ─── Hero — CTAs ─────────────────────────────────────────────────────────────
 
-test.describe("Hero — CTAs", () => {
-  test("affiche le bouton 'Créer votre compte membre' (hero-cta-register)", async ({ page }) => {
+test.describe("Hero — CTAs (non connecté)", () => {
+  test("affiche hero-cta-contact 'Venez tester gratuitement'", async ({ page }) => {
     await page.goto("/")
-    await expect(page.getByTestId("hero-cta-register")).toBeVisible()
-    await expect(page.getByTestId("hero-cta-register")).toContainText("Créer votre compte")
+    await expect(page.getByTestId("hero-cta-contact")).toBeVisible()
+    await expect(page.getByTestId("hero-cta-contact")).toContainText("Venez tester gratuitement")
   })
 
   test("hero-cta-contact pointe vers #contact", async ({ page }) => {
@@ -91,16 +97,35 @@ test.describe("Hero — CTAs", () => {
     expect(href).toBe("#contact")
   })
 
-  test("hero-cta-register pointe vers /register", async ({ page }) => {
+  test("affiche hero-cta-login 'Réserver en ligne'", async ({ page }) => {
     await page.goto("/")
-    const href = await page.getByTestId("hero-cta-register").getAttribute("href")
-    expect(href).toBe("/register")
+    await expect(page.getByTestId("hero-cta-login")).toBeVisible()
+    await expect(page.getByTestId("hero-cta-login")).toContainText("Réserver en ligne")
   })
 
-  test("hero-cta-register redirige vers /register au clic", async ({ page }) => {
+  test("hero-cta-login pointe vers /login quand non connecté", async ({ page }) => {
     await page.goto("/")
-    await page.getByTestId("hero-cta-register").click()
-    await expect(page).toHaveURL("/register")
+    const href = await page.getByTestId("hero-cta-login").getAttribute("href")
+    expect(href).toBe("/login")
+  })
+})
+
+authTest.describe("Hero — CTAs (connecté)", () => {
+  authTest("affiche uniquement hero-cta-login 'Réserver en ligne'", async ({ membrePage }) => {
+    await membrePage.goto("/")
+    await expect(membrePage.getByTestId("hero-cta-login")).toBeVisible()
+    await expect(membrePage.getByTestId("hero-cta-login")).toContainText("Réserver en ligne")
+  })
+
+  authTest("hero-cta-login pointe vers /dashboard quand connecté", async ({ membrePage }) => {
+    await membrePage.goto("/")
+    const href = await membrePage.getByTestId("hero-cta-login").getAttribute("href")
+    expect(href).toBe("/dashboard")
+  })
+
+  authTest("hero-cta-contact absent quand connecté", async ({ membrePage }) => {
+    await membrePage.goto("/")
+    await expect(membrePage.getByTestId("hero-cta-contact")).not.toBeAttached()
   })
 })
 

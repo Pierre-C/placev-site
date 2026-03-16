@@ -12,7 +12,7 @@ import {
   Clock,
 } from "lucide-react";
 
-export function Hero() {
+export function Hero({ isConnected = false }: { isConnected?: boolean }) {
   return (
     <section
       className="relative overflow-hidden"
@@ -35,21 +35,32 @@ export function Hero() {
               parking à proximité.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <a
-                href="#contact"
-                data-testid="hero-cta-contact"
-                className="rounded-2xl bg-gradient-to-r from-placev-blue to-placev-mint px-5 py-3 font-medium text-white inline-flex items-center gap-2 shadow-cta hover:opacity-90 transition"
-              >
-                Venez tester
-                <ArrowRight className="h-4 w-4" />
-              </a>
-              <a
-                href="/register"
-                data-testid="hero-cta-register"
-                className="rounded-2xl border-2 border-placev-blue px-5 py-3 font-medium text-placev-blue inline-flex items-center gap-2 hover:bg-placev-blue/5 transition"
-              >
-                Créez votre compte membre
-              </a>
+              {isConnected ? (
+                <a
+                  href="/dashboard"
+                  data-testid="hero-cta-login"
+                  className="rounded-2xl bg-gradient-to-r from-placev-blue to-placev-mint px-5 py-3 font-medium text-white inline-flex items-center gap-2 shadow-cta hover:opacity-90 transition"
+                >
+                  Réserver en ligne
+                </a>
+              ) : (
+                <>
+                  <a
+                    href="#contact"
+                    data-testid="hero-cta-contact"
+                    className="rounded-2xl bg-gradient-to-r from-placev-blue to-placev-mint px-5 py-3 font-medium text-white inline-flex items-center gap-2 shadow-cta hover:opacity-90 transition"
+                  >
+                    Venez tester gratuitement
+                  </a>
+                  <a
+                    href="/login"
+                    data-testid="hero-cta-login"
+                    className="rounded-2xl border-2 border-placev-blue px-5 py-3 font-medium text-placev-blue inline-flex items-center gap-2 hover:bg-placev-blue/5 transition"
+                  >
+                    Réserver en ligne
+                  </a>
+                </>
+              )}
             </div>
             <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
               <Badge icon={Clock}>Du lundi au mercredi</Badge>

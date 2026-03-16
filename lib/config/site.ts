@@ -15,6 +15,11 @@ export const SITE = {
     mint: "#4FD1C5",
     white: "#FFFFFF",
   },
+  social: {
+    linkedin: "https://www.linkedin.com/company/place-v-coworking",
+    facebook: "https://www.facebook.com/placevcoworking",
+    instagram: "https://www.instagram.com/placevcoworking",
+  },
   gallery: [
     "/gallery/PXL_20250909_120231896.jpg",
     "/gallery/IMG_1514-min.jpg",

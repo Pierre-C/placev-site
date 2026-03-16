@@ -87,11 +87,11 @@ authTest.describe("Logout depuis /dashboard", () => {
     await expect(page.locator('[data-testid="logout-btn"]')).toBeVisible()
   })
 
-  authTest("E2E-0.6 : logout redirige vers /login et détruit la session", async ({ membrePage: page }) => {
+  authTest("E2E-0.6 : logout redirige vers / et détruit la session", async ({ membrePage: page }) => {
     await page.goto("/dashboard")
     await page.click('[data-testid="logout-btn"]')
 
-    await expect(page).toHaveURL("/login")
+    await expect(page).toHaveURL("/")
 
     // La session est détruite — /dashboard redirige vers /login
     await page.goto("/dashboard")

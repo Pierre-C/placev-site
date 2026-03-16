@@ -3,6 +3,7 @@
 
 import { MapPin, Phone, Mail, Clock, Send } from "lucide-react";
 import { Newsletter } from "@/components/Newsletter";
+import { SocialMedia } from "@/components/sections/SocialMedia";
 import { SITE } from "@/lib/config/site";
 import { useState, FormEvent } from "react";
 
@@ -53,11 +54,14 @@ export function ContactBlock() {
 
   return (
     <section id="contact" className="mx-auto max-w-7xl px-4 py-16">
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-3 items-stretch">
         <div className="rounded-2xl border border-black/5 bg-white p-6">
           <h3 className="text-xl font-semibold">Nous contacter</h3>
           <p className="mt-2 text-sm text-neutral-600">
-            Une question ? Envoyez-nous un message, on répond vite.
+            Vous avez une question ? Vous voulez profiter d'une <b>demi-journée offerte</b> ?
+          </p>
+          <p className="mt-2 text-sm text-neutral-600">
+            Envoyez-nous un message ! On répond vite.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-3">
@@ -78,15 +82,6 @@ export function ContactBlock() {
               value={formData.email}
               onChange={(e) =>
                 setFormData({ ...formData, email: e.target.value })
-              }
-              className="w-full rounded-xl border border-black/10 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-placev-blue"
-            />
-            <input
-              type="tel"
-              placeholder="Votre téléphone"
-              value={formData.phone}
-              onChange={(e) =>
-                setFormData({ ...formData, phone: e.target.value })
               }
               className="w-full rounded-xl border border-black/10 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-placev-blue"
             />
@@ -125,27 +120,6 @@ export function ContactBlock() {
             </button>
           </form>
 
-          <div className="mt-4 pt-4 border-t border-black/5">
-            <p className="text-sm text-neutral-600 mb-2">
-              Ou contactez-nous directement :
-            </p>
-            <div className="grid gap-2 text-sm">
-              <a
-                href={`mailto:${SITE.email}`}
-                className="flex items-center gap-2 text-neutral-600 hover:text-placev-blue transition"
-              >
-                <Mail className="h-4 w-4" />
-                {SITE.email}
-              </a>
-              <a
-                href={`tel:${SITE.phone.replace(/\s/g, "")}`}
-                className="flex items-center gap-2 text-neutral-600 hover:text-placev-blue transition"
-              >
-                <Phone className="h-4 w-4" />
-                {SITE.phone}
-              </a>
-            </div>
-          </div>
         </div>
         <div className="rounded-2xl border border-black/5 bg-white p-6">
           <h3 className="text-xl font-semibold">Infos pratiques</h3>
@@ -172,8 +146,11 @@ export function ContactBlock() {
             />
           </div>
         </div>
-        <div data-testid="contact-newsletter" className="rounded-2xl border border-black/5 bg-white p-6">
-          <Newsletter variant="default" />
+        <div data-testid="contact-newsletter" className="flex flex-col gap-4">
+          <div className="rounded-2xl border border-black/5 bg-white p-6 flex-1">
+            <Newsletter variant="default" />
+          </div>
+          <SocialMedia />
         </div>
       </div>
     </section>

@@ -72,8 +72,9 @@ test.describe("Réservation proxy", () => {
     await adminPage.goto("/admin/bookings/proxy")
 
     // Sélectionner l'utilisateur cible
-    await adminPage.fill('[data-testid="proxy-user-search"]', "externe@test.fr")     
-    await adminPage.locator('[data-testid="proxy-user-option"]').first().click()     
+    await adminPage.fill('[data-testid="proxy-user-search"]', "externe@test.fr")
+    await expect(adminPage.locator('[data-testid="proxy-user-option"]').first()).toBeVisible()
+    await adminPage.locator('[data-testid="proxy-user-option"]').first().click()
 
     // Sélectionner la date et le créneau
     await adminPage.fill('[data-testid="proxy-date"]', futureDateYMD(14))

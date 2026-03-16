@@ -18,7 +18,7 @@ export async function Header() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
         <Link href="/" className="flex items-center gap-3">
           <img
-            src="/logo-placev.png"
+            src="/logo-placev.svg"
             alt="Place V Coworking"
             className="h-10 w-auto"
           />

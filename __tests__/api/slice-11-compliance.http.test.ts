@@ -24,7 +24,7 @@ vi.mock("@/lib/auth", () => ({
 }))
 
 // bcrypt est utilisé par change-password — on le mock pour les tests
-vi.mock("bcrypt", () => ({
+vi.mock("bcryptjs", () => ({
   default: {
     compare: vi.fn(),
     hash: vi.fn(),
@@ -41,7 +41,7 @@ import * as anonymizeHandler from "@/app/api/admin/members/[id]/anonymize/route"
 import { brevo } from "@/lib/brevo"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import bcrypt from "bcrypt"
+import bcrypt from "bcryptjs"
 
 const mockPrisma = prisma as ReturnType<typeof mockDeep<PrismaClient>>
 const mockBcrypt = bcrypt as { compare: ReturnType<typeof vi.fn>; hash: ReturnType<typeof vi.fn> }

@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
@@ -37,12 +38,29 @@ export default async function DashboardLayout({ children }: { children: React.Re
         }`}
       >
         <span className="text-sm font-medium text-neutral-600">Solde de crédits</span>
-        <span 
-          className={`text-xl font-bold ${balanceClass}`} 
-          data-testid="header-credit-balance"
-          data-level={balanceLevel}
-        >
-          <span data-testid="credit-balance">{user.credits}</span> crédit{user.credits !== 1 ? "s" : ""}
+        <span className="flex items-center gap-3">
+          <span
+            className={`text-xl font-bold ${balanceClass}`}
+            data-testid="header-credit-balance"
+            data-level={balanceLevel}
+          >
+            <span data-testid="credit-balance">{user.credits}</span> crédit{user.credits !== 1 ? "s" : ""}
+          </span>
+          {user.credits === 0 ? (
+            <Link
+              href="/dashboard/recharger"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              Recharger mes crédits
+            </Link>
+          ) : (
+            <Link
+              href="/dashboard/recharger"
+              className="text-sm font-medium text-blue-600 hover:underline"
+            >
+              Recharger
+            </Link>
+          )}
         </span>
       </div>
 

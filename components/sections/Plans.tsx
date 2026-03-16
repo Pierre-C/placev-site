@@ -16,13 +16,6 @@ const coworkingPlans = [
     ],
     highlight: false,
   },
-  {
-    name: "Abonnement bureau",
-    price: 150,
-    period: "mois",
-    features: ["Accès illimité du lundi au mercredi", "Placement libre"],
-    highlight: true,
-  },
 ];
 
 const meetingPlan = {
@@ -31,13 +24,12 @@ const meetingPlan = {
   period: "2h",
   features: [
     "200€ la journée",
-    "Capacité en réunion 10 personnes",
-    "Écran",
-    "Fibre",
+    "Grand écran TV",
+    "Capacité en réunion 8 à 14 personnes",
   ],
 };
 
-export function Plans() {
+export function Plans({ isConnected = false }: { isConnected?: boolean }) {
   return (
     <section id="offres" className="mx-auto max-w-7xl px-4 py-16">
       <div className="mb-10 text-center">
@@ -49,8 +41,8 @@ export function Plans() {
         </p>
       </div>
 
-      {/* Ligne 1 : Coworking */}
-      <div className="grid gap-4 md:grid-cols-2 max-w-4xl mx-auto mb-8">
+      <div className="grid gap-4 md:grid-cols-2 max-w-4xl mx-auto">
+        {/* Coworking */}
         {coworkingPlans.map((p, i) => (
           <motion.div
             key={p.name}
@@ -70,50 +62,54 @@ export function Plans() {
                 </span>
               )}
             </div>
-            <div className="mt-4 flex-grow">
+            <div className="mt-4">
               <span className="text-4xl font-bold">{p.price}€</span>
               <span className="text-neutral-500"> / {p.period}</span>
             </div>
-            <ul className="mt-4 space-y-2 text-sm text-neutral-700">
+            <ul className="mt-4 flex-grow space-y-2 text-sm text-neutral-700">
               {p.features.map((f) => (
                 <li key={f} className="flex items-start gap-2">
-                  <Check className="h-4 w-4 mt-0.5 text-placev-mint shrink-0" /> 
+                  <Check className="h-4 w-4 mt-0.5 text-placev-mint shrink-0" />
                   <span>{f}</span>
                 </li>
               ))}
             </ul>
+            <div className="mt-6">
+              <Link
+                href={isConnected ? "/dashboard" : "/login"}
+                className="rounded-lg bg-gradient-to-r from-placev-blue to-placev-mint px-6 py-3 text-center text-white font-medium hover:opacity-90 transition block"
+              >
+                Réserver un bureau
+              </Link>
+            </div>
           </motion.div>
         ))}
-      </div>
 
-      {/* Ligne 2 : Salle de réunion */}
-      <div className="max-w-4xl mx-auto">
+        {/* Salle de réunion */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.4, delay: 0.1 }}
-          className="rounded-2xl p-6 border bg-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6"
+          className="rounded-2xl p-6 border bg-white shadow-sm flex flex-col"
         >
-          <div>
-            <h3 className="text-xl font-semibold">{meetingPlan.name}</h3>
-            <div className="mt-2 mb-4">
-              <span className="text-4xl font-bold">{meetingPlan.price}€</span>
-              <span className="text-neutral-500"> / {meetingPlan.period}</span>
-            </div>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-neutral-700">
-              {meetingPlan.features.map((f) => (
-                <li key={f} className="flex items-start gap-2">
-                  <Check className="h-4 w-4 mt-0.5 text-placev-mint shrink-0" /> 
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
+          <h3 className="text-xl font-semibold">{meetingPlan.name}</h3>
+          <div className="mt-4">
+            <span className="text-4xl font-bold">{meetingPlan.price}€</span>
+            <span className="text-neutral-500"> / {meetingPlan.period}</span>
           </div>
-          <div className="shrink-0 flex flex-col gap-3">
+          <ul className="mt-4 flex-grow space-y-2 text-sm text-neutral-700">
+            {meetingPlan.features.map((f) => (
+              <li key={f} className="flex items-start gap-2">
+                <Check className="h-4 w-4 mt-0.5 text-placev-mint shrink-0" />
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-6">
             <Link
               href="/booking/meeting-room"
-              className="rounded-lg bg-gradient-to-r from-placev-blue to-placev-mint px-6 py-3 text-center text-white font-medium hover:opacity-90 transition"
+              className="rounded-lg bg-gradient-to-r from-placev-blue to-placev-mint px-6 py-3 text-center text-white font-medium hover:opacity-90 transition block"
             >
               Réserver la salle
             </Link>

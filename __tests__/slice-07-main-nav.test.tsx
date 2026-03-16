@@ -27,9 +27,15 @@ vi.mock("@/components/app/LogoutButton", () => ({
 // ─── HeaderAuthButton — non connecté ─────────────────────────────────────────
 
 describe("HeaderAuthButton — non connecté", () => {
-  it("affiche le label 'Déjà membre ?'", () => {
+  it("affiche le bouton 'Créer mon compte' (header-register-btn)", () => {
     render(<HeaderAuthButton session={null} />)
-    expect(screen.getByTestId("header-login-label")).toHaveTextContent("Déjà membre")
+    expect(screen.getByTestId("header-register-btn")).toBeInTheDocument()
+    expect(screen.getByTestId("header-register-btn")).toHaveTextContent("Créer mon compte")
+  })
+
+  it("header-register-btn pointe vers /register", () => {
+    render(<HeaderAuthButton session={null} />)
+    expect(screen.getByTestId("header-register-btn")).toHaveAttribute("href", "/register")
   })
 
   it("affiche le lien 'Se connecter' (header-login-btn)", () => {
@@ -98,9 +104,9 @@ describe("HeaderAuthButton — connecté", () => {
     expect(screen.queryByText(/réserver/i)).toBeNull()
   })
 
-  it("n'affiche pas le label 'Déjà membre ?'", () => {
+  it("n'affiche pas le bouton 'Créer mon compte' quand connecté", () => {
     render(<HeaderAuthButton session={fakeSession} />)
-    expect(screen.queryByTestId("header-login-label")).toBeNull()
+    expect(screen.queryByTestId("header-register-btn")).toBeNull()
   })
 })
 
