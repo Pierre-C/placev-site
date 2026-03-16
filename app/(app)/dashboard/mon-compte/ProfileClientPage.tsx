@@ -248,7 +248,7 @@ export default function ProfileClientPage({ initialUser }: ProfileClientPageProp
 
       {/* SECTION 3 — DANGER ZONE */}
       <section className="bg-red-50 p-8 rounded-2xl border border-red-100">
-        <h2 className="text-xl font-bold text-red-900 mb-2">Zone de danger</h2>
+        <h2 className="text-xl font-bold text-red-900 mb-2">Supprimer votre compte</h2>
         <p className="text-sm text-red-700 mb-6">Souhaitez-vous demander la suppression de votre compte ? Vos données seront anonymisées conformément au RGPD.</p>
         
         {deletionSuccess ? (
