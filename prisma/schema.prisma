@@ -161,4 +161,16 @@ model Event {
   registrationUrl String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  image EventImage?
+}
+
+model EventImage {
+  id        String   @id @default(cuid())
+  eventId   String   @unique
+  data      String   @db.Text
+  mimeType  String
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }

@@ -199,6 +199,22 @@ async function main() {
       registrationUrl: null,
     },
   })
+
+  const nextMonth = new Date()
+  nextMonth.setDate(nextMonth.getDate() + 30)
+  nextMonth.setHours(18, 30, 0, 0)
+
+  await prisma.event.upsert({
+    where: { id: "seed-event-03" },
+    update: { date: nextMonth },
+    create: {
+      id: "seed-event-03",
+      title: "Afterwork des coworkers",
+      description: "Rencontre mensuelle pour échanger et réseauter.",
+      date: nextMonth,
+      registrationUrl: null,
+    },
+  })
   console.log("  ✓ Events created/updated")
 
   // ─── SystemSettings ───────────────────────────────────────────────────────

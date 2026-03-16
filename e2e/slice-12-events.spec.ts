@@ -150,14 +150,17 @@ test.describe("Admin — Créer un événement", () => {
 // ─── Admin — Éditer un événement ─────────────────────────────────────────────
 
 test.describe("Admin — Éditer un événement", () => {
+  let editTitle = ""
+
   // Créer un événement frais avant chaque test d'édition
   test.beforeEach(async ({ adminPage }) => {
+    editTitle = `Edit Corp Event ${Date.now()}`
     await adminPage.goto("/admin/events")
     await adminPage.locator('[data-testid="create-event-btn"]').click()
     const modal = adminPage.locator('[data-testid="event-form-modal"]')
     await expect(modal).toBeVisible()
 
-    await modal.locator('[data-testid="event-form-title-input"]').fill("Edit Corp Event")
+    await modal.locator('[data-testid="event-form-title-input"]').fill(editTitle)
     await modal.locator('[data-testid="event-form-description-input"]').fill("À éditer")
     await modal.locator('[data-testid="event-form-date-input"]').fill("2099-09-10")
     await modal.locator('[data-testid="event-form-submit"]').click()
@@ -166,27 +169,28 @@ test.describe("Admin — Éditer un événement", () => {
 
   test("ouvrir le modal d'édition via le bouton Éditer", async ({ adminPage }) => {
     await adminPage.goto("/admin/events")
-    const row = adminPage.locator('[data-testid="event-row"]').filter({ hasText: "Edit Corp Event" }).first()
+    const row = adminPage.locator('[data-testid="event-row"]').filter({ hasText: editTitle }).first()
     await row.locator('[data-testid="edit-event-btn"]').click()
 
     const modal = adminPage.locator('[data-testid="event-form-modal"]')
     await expect(modal).toBeVisible()
     // Les champs sont pré-remplis
-    await expect(modal.locator('[data-testid="event-form-title-input"]')).toHaveValue("Edit Corp Event")
+    await expect(modal.locator('[data-testid="event-form-title-input"]')).toHaveValue(editTitle)
     await expect(modal.locator('[data-testid="event-form-description-input"]')).toHaveValue("À éditer")
   })
 
   test("modifier le titre d'un événement", async ({ adminPage }) => {
     await adminPage.goto("/admin/events")
-    const row = adminPage.locator('[data-testid="event-row"]').filter({ hasText: "Edit Corp Event" }).first()
+    const row = adminPage.locator('[data-testid="event-row"]').filter({ hasText: editTitle }).first()
     await row.locator('[data-testid="edit-event-btn"]').click()
 
     const modal = adminPage.locator('[data-testid="event-form-modal"]')
-    await modal.locator('[data-testid="event-form-title-input"]').fill("Edit Corp Event — Modifié")
+    const modifiedTitle = `${editTitle} — Modifié`
+    await modal.locator('[data-testid="event-form-title-input"]').fill(modifiedTitle)
     await modal.locator('[data-testid="event-form-submit"]').click()
 
     await expect(modal).not.toBeVisible()
-    const updatedRow = adminPage.locator('[data-testid="event-row"]').filter({ hasText: "Edit Corp Event — Modifié" }).first()
+    const updatedRow = adminPage.locator('[data-testid="event-row"]').filter({ hasText: modifiedTitle }).first()
     await expect(updatedRow).toBeVisible()
   })
 })

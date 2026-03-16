@@ -17,10 +17,10 @@ export default async function Page() {
       <Hero isConnected={!!session?.user} />
       <Amenities />
       <Plans isConnected={!!session?.user} />
+      <Events />
       <Gallery />
       <Mission />
       <Testimonials />
-      <Events />
       <FAQ />
       <ContactBlock />
     </>

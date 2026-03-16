@@ -10,6 +10,7 @@ type EventItem = {
   date: string
   registrationUrl: string | null
   createdAt: string
+  hasImage?: boolean
 }
 
 export default function EventsTable({ initialEvents }: { initialEvents: EventItem[] }) {
@@ -30,6 +31,10 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventIte
     date: "",
     registrationUrl: "",
   })
+  
+  const [imageDataBase64, setImageDataBase64] = useState<string | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [imageError, setImageError] = useState<string | null>(null)
 
   // Computed data
   const filteredEvents = events.filter((e) => {
@@ -59,6 +64,9 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventIte
   const openCreateModal = () => {
     setEditingEvent(null)
     setFormData({ title: "", description: "", date: "", registrationUrl: "" })
+    setImageDataBase64(null)
+    setImagePreview(null)
+    setImageError(null)
     setIsDeleting(false)
     setIsModalOpen(true)
   }
@@ -71,6 +79,9 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventIte
       date: event.date.split("T")[0],
       registrationUrl: event.registrationUrl || "",
     })
+    setImageDataBase64(null)
+    setImagePreview(event.hasImage ? `/api/events/${event.id}/image` : null)
+    setImageError(null)
     setIsDeleting(false)
     setIsModalOpen(true)
   }
@@ -86,6 +97,61 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventIte
       setEvents(data)
     }
     router.refresh()
+  }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImageError(null)
+    const file = e.target.files?.[0]
+    if (!file) {
+      setImageDataBase64(null)
+      setImagePreview(editingEvent?.hasImage ? `/api/events/${editingEvent.id}/image` : null)
+      return
+    }
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setImageError("Format non supporté (JPEG, PNG, WEBP uniquement).")
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setImageError("L'image est trop volumineuse (max 10Mo).")
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX_W = 800
+        const MAX_H = 600
+        const ratio = Math.min(MAX_W / img.width, MAX_H / img.height, 1)
+
+        const canvas = document.createElement("canvas")
+        canvas.width = Math.round(img.width * ratio)
+        canvas.height = Math.round(img.height * ratio)
+
+        const ctx = canvas.getContext("2d")
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+          const base64 = canvas.toDataURL("image/jpeg", 0.8)
+          setImageDataBase64(base64)
+          setImagePreview(base64)
+        }
+      }
+      img.src = event.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleDeleteImage = async () => {
+    if (!editingEvent || !editingEvent.hasImage) return
+    const res = await fetch(`/api/admin/events/${editingEvent.id}/image`, { method: "DELETE" })
+    if (res.ok) {
+      setImageDataBase64(null)
+      setImagePreview(null)
+      setEditingEvent({ ...editingEvent, hasImage: false })
+      await fetchEvents()
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -107,6 +173,17 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventIte
     })
 
     if (res.ok) {
+      const savedEvent = await res.json()
+      const eventId = editingEvent ? editingEvent.id : savedEvent.id
+
+      if (imageDataBase64) {
+        await fetch(`/api/admin/events/${eventId}/image`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: imageDataBase64, mimeType: "image/jpeg" })
+        })
+      }
+
       closeModal()
       await fetchEvents()
     } else {
@@ -147,6 +224,7 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventIte
         <table className="w-full text-left text-sm" data-testid="events-table">
           <thead className="bg-gray-100 sticky top-0">
             <tr>
+              <th className="p-3 font-semibold">Image</th>
               <th className="p-3">
                 <button
                   data-testid="events-sort-btn"
@@ -175,6 +253,18 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventIte
           <tbody>
             {sortedEvents.map((event) => (
               <tr key={event.id} className="border-t hover:bg-gray-50" data-testid="event-row">
+                <td className="p-3">
+                  {event.hasImage ? (
+                    <img 
+                      src={`/api/events/${event.id}/image`} 
+                      alt="Miniature" 
+                      className="w-10 h-10 object-cover rounded" 
+                      data-testid="event-thumb" 
+                    />
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  )}
+                </td>
                 <td className="p-3" data-testid="event-title-cell">{event.title}</td>
                 <td className="p-3">
                   <span className="truncate block max-w-xs" title={event.description}>
@@ -213,7 +303,7 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventIte
             ))}
             {sortedEvents.length === 0 && (
               <tr>
-                <td colSpan={5} className="p-4 text-center text-gray-500">
+                <td colSpan={6} className="p-4 text-center text-gray-500">
                   Aucun événement trouvé.
                 </td>
               </tr>
@@ -223,8 +313,8 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventIte
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full" data-testid="event-form-modal">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full my-auto" data-testid="event-form-modal">
             <h2 className="text-xl font-bold mb-4">
               {editingEvent ? "Éditer l'événement" : "Nouvel événement"}
             </h2>
@@ -271,6 +361,39 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventIte
                   data-testid="event-form-url-input"
                   className="w-full border rounded px-3 py-2"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Image (optionnelle)</label>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleImageChange}
+                  data-testid="event-form-image-input"
+                  className="w-full border rounded px-3 py-2 text-sm mb-2"
+                />
+                {imageError && <p className="text-red-500 text-xs mb-2">{imageError}</p>}
+                
+                {imagePreview && (
+                  <div className="relative mt-2">
+                    <img 
+                      src={imagePreview} 
+                      alt="Aperçu" 
+                      className="w-full h-32 object-cover rounded" 
+                      data-testid="event-image-preview" 
+                    />
+                    {editingEvent?.hasImage && !imageDataBase64 && (
+                      <button
+                        type="button"
+                        onClick={handleDeleteImage}
+                        data-testid="event-form-delete-image"
+                        className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded hover:bg-red-700 text-xs"
+                      >
+                        Supprimer l'image
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {isDeleting ? (

@@ -20,15 +20,20 @@ export default async function AdminEventsPage() {
       date: true,
       registrationUrl: true,
       createdAt: true,
+      image: { select: { mimeType: true } }
     }
   })
 
   // Serialize date to ISO string for the client component
-  const serializedEvents = events.map(event => ({
-    ...event,
-    date: event.date.toISOString(),
-    createdAt: event.createdAt.toISOString(),
-  }))
+  const serializedEvents = events.map(event => {
+    const { image, ...rest } = event;
+    return {
+      ...rest,
+      date: event.date.toISOString(),
+      createdAt: event.createdAt.toISOString(),
+      hasImage: !!image,
+    }
+  })
 
   return (
     <div className="space-y-6">

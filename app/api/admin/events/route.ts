@@ -28,10 +28,19 @@ export async function GET() {
         date: true,
         registrationUrl: true,
         createdAt: true,
+        image: { select: { mimeType: true } }
       },
     });
 
-    return NextResponse.json(events);
+    const mappedEvents = events.map(event => {
+      const { image, ...rest } = event;
+      return {
+        ...rest,
+        hasImage: !!image,
+      };
+    });
+
+    return NextResponse.json(mappedEvents);
   } catch (error) {
     console.error("[ADMIN_GET_EVENTS]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

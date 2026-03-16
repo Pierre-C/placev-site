@@ -1,0 +1,382 @@
+##############################################################################
+# specs/12b-events.yaml
+# Slice 12b — Événements Phase 2 : Images, Page /events, Limites Homepage
+#
+# Extends slice 12 (events CRUD already implemented).
+# New additions :
+#   - Images associées aux événements (upload admin, fallback par défaut)
+#   - Homepage : limiter à 3 prochains événements + bouton "Tous nos événements"
+#   - Page publique /events : tous les événements, filtres avancés
+##############################################################################
+
+slice: 12b
+name: "Événements Phase 2 — Images, Page Publique, Limites Homepage"
+parent_slice: 12
+status: DRAFT
+
+# ─── Objectif ────────────────────────────────────────────────────────────────
+
+objective: |
+  Enrichir le système d'événements (slice 12) avec trois améliorations :
+
+  1. IMAGES : L'admin peut uploader une photo par événement.
+     Les images sont redimensionnées côté navigateur (max 800px large, JPEG 80%)
+     puis stockées en base64 dans une table dédiée `EventImage`.
+     Si aucune image n'est uploadée, une photo par défaut est utilisée :
+     /gallery/PXL_20250909_120231896.jpg
+
+  2. HOMEPAGE : La section Events n'affiche plus que les 3 prochains
+     événements (avec leur image). Un bouton "Tous nos événements" renvoie
+     vers la page /events.
+
+  3. PAGE /events : Page publique listant tous les événements.
+     - Par défaut : uniquement les événements à venir
+     - Checkbox "Afficher les événements passés"
+     - Barre de recherche (titre + description)
+     - Filtre par plage de dates (from / to)
+
+# ─── Schéma Prisma ───────────────────────────────────────────────────────────
+
+schema_changes:
+
+  new_model: |
+    model EventImage {
+      id        String   @id @default(cuid())
+      eventId   String   @unique              // une seule image par événement
+      data      String   @db.Text             // base64 (ex: "data:image/jpeg;base64,...")
+      mimeType  String                         // "image/jpeg" | "image/png" | "image/webp"
+      createdAt DateTime @default(now())
+
+      event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+    }
+
+  modified_model: |
+    // Ajouter dans le modèle Event existant :
+    image EventImage?   // relation one-to-one optionnelle
+
+  migration_command: "npx prisma db push"
+
+  notes:
+    - La relation onDelete:Cascade garantit la suppression automatique de l'image
+      si l'événement est supprimé.
+    - @db.Text est requis pour les champs base64 volumineux sous PostgreSQL/Neon.
+    - eventId @unique : une image maximum par événement.
+
+# ─── Routes API — nouvelles ───────────────────────────────────────────────────
+
+api_routes_new:
+
+  - path: POST /api/admin/events/[id]/image
+    auth: ADMIN
+    file: app/api/admin/events/[id]/image/route.ts
+    description: |
+      Crée ou remplace l'image d'un événement.
+      L'image arrive déjà redimensionnée et encodée en base64 depuis le navigateur.
+    body:
+      data: String (base64 complet, ex "data:image/jpeg;base64,/9j/...")
+      mimeType: String ("image/jpeg" | "image/png" | "image/webp")
+    response_201:
+      - { eventId, mimeType, createdAt }
+    errors:
+      400: data ou mimeType manquant/invalide
+      404: événement introuvable
+      403: non-admin
+
+  - path: DELETE /api/admin/events/[id]/image
+    auth: ADMIN
+    file: app/api/admin/events/[id]/image/route.ts (même fichier, handler DELETE)
+    description: Supprime l'image d'un événement (retour au fallback par défaut).
+    response_200:
+      - { deleted: true }
+    errors:
+      404: événement ou image introuvable
+      403: non-admin
+
+  - path: GET /api/events/[id]/image
+    auth: PUBLIC
+    file: app/api/events/[id]/image/route.ts
+    description: |
+      Sert l'image d'un événement.
+      - Si l'événement a une image → retourne la donnée base64 décodée
+        avec le Content-Type correct (image/jpeg etc.)
+      - Si aucune image → redirect 302 vers /gallery/PXL_20250909_120231896.jpg
+    response_200:
+      headers:
+        Content-Type: mimeType de l'image
+        Cache-Control: "public, max-age=86400"
+      body: octets de l'image (Buffer depuis base64)
+    response_302:
+      Location: /gallery/PXL_20250909_120231896.jpg
+    errors:
+      404: événement introuvable
+
+# ─── Routes API — modifiées ────────────────────────────────────────────────────
+
+api_routes_modified:
+
+  - path: GET /api/events
+    change: |
+      Ajouter un paramètre de requête optionnel `limit` (entier positif).
+      Exemple : GET /api/events?limit=3 retourne au maximum 3 événements.
+      Sans paramètre, le comportement actuel est conservé (tous les événements à venir).
+
+      Ajouter également `includePast=true` pour retourner TOUS les événements
+      (passés + à venir), utilisé par la page /events.
+
+      La réponse de chaque événement inclut désormais un champ `imageUrl` :
+        - Si l'événement a une image : "/api/events/{id}/image"
+        - Sinon : "/gallery/PXL_20250909_120231896.jpg"
+    response_200_updated:
+      - id, title, description, date, registrationUrl, imageUrl (string)
+
+# ─── Frontend — Homepage Events Section ──────────────────────────────────────
+
+homepage_section:
+  file: components/sections/Events.tsx
+  changes:
+    - |
+      Appel API : /api/events?limit=3
+      → Seuls les 3 prochains événements sont affichés.
+    - |
+      Chaque card comporte désormais une image au-dessus du texte :
+        <img src={event.imageUrl} alt={event.title}
+             className="w-full h-48 object-cover rounded-t-2xl" />
+      L'image est toujours en haut de la card (layout identique pour toutes les cards,
+      les altitudes sont homogènes).
+    - |
+      Bouton "Tous nos événements" affiché sous la grille des 3 cards,
+      centré, avec data-testid="events-see-all-btn", qui renvoie vers /events.
+    - |
+      Si 0 événement à venir : le message "Aucun événement prévu pour l'instant."
+      reste, sans bouton.
+
+# ─── Frontend — Page publique /events ────────────────────────────────────────
+
+events_page:
+  file_server: app/events/page.tsx
+  file_client: app/events/EventsPageClient.tsx
+  auth: PUBLIC (accessible sans connexion)
+  layout: |
+    Page utilisant le layout racine (pas le layout app/(app)).
+    Route : app/events/page.tsx (hors du groupe (app)).
+
+  server_component:
+    description: |
+      Charge TOUS les événements (passés + à venir) directement via Prisma,
+      avec leur imageUrl calculé.
+      Passe les données à <EventsPageClient initialEvents={...} />.
+    prisma_query: |
+      prisma.event.findMany({
+        orderBy: { date: "asc" },
+        select: { id, title, description, date, registrationUrl,
+                  image: { select: { mimeType: true } } }
+      })
+      → pour chaque event : imageUrl = image ? `/api/events/${id}/image`
+                                              : "/gallery/PXL_20250909_120231896.jpg"
+
+  client_component:
+    file: app/events/EventsPageClient.tsx
+    type: Client Component
+    state:
+      - showPast: boolean (défaut: false)
+      - search: string (défaut: "")
+      - dateFrom: string YYYY-MM-DD (défaut: "")
+      - dateTo: string YYYY-MM-DD (défaut: "")
+    computed:
+      filteredEvents: |
+        À partir de initialEvents :
+        1. Filtrer sur showPast :
+           - false → date >= aujourd'hui (minuit local)
+           - true  → tous
+        2. Filtrer sur search (case-insensitive, title + description)
+        3. Filtrer sur dateFrom : date >= dateFrom (si renseigné)
+        4. Filtrer sur dateTo  : date <= dateTo  (si renseigné)
+    display:
+      - Titre de page : "Tous nos événements"
+      - Barre de recherche (data-testid="events-page-search")
+      - Filtre plage de dates : champ "Du" (events-filter-from) + champ "Au" (events-filter-to)
+      - Checkbox "Afficher les événements passés" (data-testid="events-show-past")
+      - Grille de cards : 1 col mobile / 2 cols md / 3 cols lg
+      - Chaque card identique à la homepage (image + date + titre + description + bouton S'inscrire)
+      - Message "Aucun événement trouvé." si la liste filtrée est vide (data-testid="events-page-empty")
+    heading: |
+      "Tous nos événements" dans un h1, data-testid="events-page-title"
+
+# ─── Frontend — Admin EventsTable ────────────────────────────────────────────
+
+admin_events_table:
+  file: app/(app)/admin/events/EventsTable.tsx
+  changes:
+    - |
+      Colonne "Image" ajoutée dans le tableau :
+      - Si l'événement a une image → miniature <img> (40×40, object-cover)
+        data-testid="event-thumb"
+      - Sinon → texte "-"
+    - |
+      Modal de création/édition — nouveau champ :
+        <input type="file" accept="image/jpeg,image/png,image/webp"
+               data-testid="event-form-image-input" />
+      Comportement :
+        1. L'utilisateur sélectionne un fichier image.
+        2. Le navigateur redimensionne via Canvas API :
+           - Max largeur : 800px
+           - Max hauteur : 600px (ratio conservé)
+           - Qualité JPEG : 0.8
+           - Format de sortie : image/jpeg (toujours, pour uniformité)
+        3. La donnée base64 résultante est stockée en state.
+        4. On affiche un aperçu de l'image sélectionnée (data-testid="event-image-preview").
+        5. Au submit :
+           a. Créer/modifier l'événement (comme avant).
+           b. Si une image a été sélectionnée → POST /api/admin/events/[id]/image.
+        6. Bouton "Supprimer l'image" (data-testid="event-form-delete-image") si
+           l'événement édité possède déjà une image → appelle DELETE /api/admin/events/[id]/image.
+
+# ─── Image processing — règles ────────────────────────────────────────────────
+
+image_processing:
+  resize_logic: |
+    Côté navigateur uniquement (Canvas API dans le Client Component admin).
+    Algorithme :
+      const MAX_W = 800, MAX_H = 600
+      ratio = min(MAX_W / img.width, MAX_H / img.height, 1)  // jamais agrandir
+      canvas.width  = Math.round(img.width  * ratio)
+      canvas.height = Math.round(img.height * ratio)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      base64 = canvas.toDataURL("image/jpeg", 0.8)
+  accepted_types: ["image/jpeg", "image/png", "image/webp"]
+  output_type: "image/jpeg"  // toujours JPEG après resize
+  max_file_size_before_resize: "10MB (validation côté client)"
+  estimated_base64_size: "~100-350 Ko selon le contenu"
+
+# ─── Seed — mise à jour ───────────────────────────────────────────────────────
+
+seed:
+  description: |
+    Mettre à jour prisma/seed.ts pour ajouter une 3ème entrée seed-event-03
+    (événement dans le futur, sans image) afin d'avoir 3 événements à venir
+    en base après le seed, et valider le bouton "Tous nos événements" qui
+    redirige vers /events où on voit les 3.
+    Les événements seed-event-01 et seed-event-02 (existants) restent.
+  note: |
+    Aucun EventImage seedé — les tests E2E testent l'image via l'interface admin.
+
+# ─── data-testids requis — nouveaux ──────────────────────────────────────────
+
+data_testids_new:
+
+  homepage:
+    events-see-all-btn: "Bouton 'Tous nos événements' sous la grille"
+
+  events_page:
+    events-page-title:   "h1 'Tous nos événements'"
+    events-page-search:  "Barre de recherche"
+    events-filter-from:  "Champ date début de plage"
+    events-filter-to:    "Champ date fin de plage"
+    events-show-past:    "Checkbox 'Afficher les événements passés'"
+    events-page-empty:   "Message 'Aucun événement trouvé.' (liste vide)"
+    events-page-card:    "Chaque card (identique à event-card de la homepage)"
+    # Réutilise aussi : event-card, event-card-title, event-card-date,
+    #                  event-card-description, event-register-btn
+
+  admin_table:
+    event-thumb:               "Miniature image dans la colonne Image du tableau"
+
+  admin_modal:
+    event-form-image-input:    "Input file pour upload image"
+    event-image-preview:       "Aperçu de l'image sélectionnée/existante"
+    event-form-delete-image:   "Bouton 'Supprimer l'image' (visible si image existante)"
+
+# ─── Cas limites et règles métier ────────────────────────────────────────────
+
+edge_cases:
+
+  - id: EC-12B-01
+    description: |
+      Homepage : si moins de 3 événements à venir, afficher seulement ceux
+      qui existent (pas d'erreur, pas de card vide).
+
+  - id: EC-12B-02
+    description: |
+      Homepage : si 0 événement à venir, ne pas afficher le bouton
+      "Tous nos événements" (ou le garder visible — à décider implémentation).
+      Recommandation : masquer le bouton si events.length === 0.
+
+  - id: EC-12B-03
+    description: |
+      Page /events : "Afficher les événements passés" est décoché par défaut.
+      Le filtre de date s'applique sur la valeur de `date` de l'événement.
+      Le champ dateFrom seul, ou dateTo seul, fonctionne aussi.
+
+  - id: EC-12B-04
+    description: |
+      GET /api/events/[id]/image : si le base64 stocké est invalide/corrompu,
+      retourner 302 → /gallery/PXL_20250909_120231896.jpg plutôt que 500.
+
+  - id: EC-12B-05
+    description: |
+      Admin : si l'upload image échoue après la création de l'événement,
+      l'événement est quand même créé (sans image → fallback par défaut).
+      Un message d'erreur non-bloquant est affiché dans la UI.
+
+  - id: EC-12B-06
+    description: |
+      Admin : le fichier image doit être validé côté client AVANT resize
+      (type MIME accepté, taille < 10MB). Un message d'erreur est affiché
+      si le fichier est refusé.
+
+  - id: EC-12B-07
+    description: |
+      DELETE /api/admin/events/[id]/image : si l'événement n'a pas d'image,
+      retourner 404.
+
+# ─── Récapitulatif des fichiers à créer/modifier ─────────────────────────────
+
+files:
+
+  new:
+    - prisma/schema.prisma                           # Ajouter model EventImage
+    - app/api/admin/events/[id]/image/route.ts       # POST + DELETE image admin
+    - app/api/events/[id]/image/route.ts             # GET image publique
+    - app/events/page.tsx                            # Page publique Server Component
+    - app/events/EventsPageClient.tsx                # Client Component avec filtres
+
+  modified:
+    - prisma/schema.prisma                           # Relation image sur Event
+    - app/api/events/route.ts                        # Ajouter ?limit= et ?includePast=, imageUrl
+    - components/sections/Events.tsx                 # limit=3, images, bouton voir-tout
+    - app/(app)/admin/events/EventsTable.tsx         # Colonne image + upload dans modal
+    - prisma/seed.ts                                 # seed-event-03
+
+# ─── Tests ────────────────────────────────────────────────────────────────────
+
+tests:
+
+  http:
+    file: __tests__/api/slice-12b-events.http.test.ts
+    count: ~12
+    covers:
+      - GET /api/events?limit=3 → max 3 résultats
+      - GET /api/events?includePast=true → inclut événements passés
+      - GET /api/events → champ imageUrl présent dans chaque objet
+      - POST /api/admin/events/[id]/image (201, 403, 404, 400 invalid data)
+      - DELETE /api/admin/events/[id]/image (200, 403, 404 pas d'image)
+      - GET /api/events/[id]/image (200 avec image, 302 sans image, 404 event inconnu)
+
+  e2e:
+    file: e2e/slice-12b-events.spec.ts
+    count: ~14
+    covers:
+      - Homepage : au plus 3 events visibles
+      - Homepage : bouton "Tous nos événements" présent
+      - Homepage : clic bouton → redirige vers /events
+      - Homepage : les cards ont une balise img visible
+      - Page /events : titre h1 visible
+      - Page /events : par défaut affiche events à venir seulement
+      - Page /events : checkbox "Afficher les événements passés" → past events apparaissent
+      - Page /events : barre de recherche filtre par titre
+      - Page /events : filtre date "Du" filtre par date de début
+      - Page /events : filtre date "Au" filtre par date de fin
+      - Admin : upload image via le modal
+      - Admin : miniature visible dans le tableau après upload
+      - Admin : aperçu visible dans le modal après sélection fichier
+      - Admin : suppression image → miniature disparaît du tableau
