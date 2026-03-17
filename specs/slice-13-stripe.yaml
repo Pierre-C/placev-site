@@ -1,0 +1,217 @@
+# specs/slice-13-stripe.yaml
+# Slice 13 — Stripe : Achat de crédits à quantité libre
+# Branche : feat/slice13-ui-ux
+
+slice: 13
+title: "Stripe — Achat de crédits à quantité libre"
+status: draft
+branch: feat/slice13-ui-ux
+
+description: |
+  Remplacement des packs de crédits fixes (1, 5, 10, 20) par un sélecteur de
+  quantité libre. L'utilisateur connecté choisit combien de crédits il souhaite
+  acheter (défaut : 5, min : 1, max : 50). Le montant facturé est déterminé par
+  le Price ID Stripe du segment de l'utilisateur (BOULIACAIS, REDUIT, EXTERNE),
+  configuré en variables d'environnement.
+  Le webhook Stripe existant (checkout.session.completed) reste inchangé.
+
+# ─── Configuration Stripe (test) ─────────────────────────────────────────────
+
+stripe:
+  publishable_key: "pk_test_51S5PhqEID1NnljioUd11yiKsnSjXdT90c3JlOUKfvwb7TpiX5Mri7Jr3gnvSMKYc4WhffK6eA7Won3RbGcV8yfck00l77a0jCc"
+  price_ids:
+    BOULIACAIS:
+      price_id: "price_1TBYHHEID1Nnljio4QncDIrv"
+      product_id: "prod_U9s1FioEfe9buT"
+    REDUIT:
+      price_id: "price_1TBYHZEID1NnljiozNIqQjWv"
+      product_id: "prod_U9s1r7aHEdB8Y7"
+    EXTERNE:
+      price_id: "price_1TBYH0EID1Nnljioy0663vTY"
+      product_id: "prod_U9s1LK3UaR6i3r"
+
+# ─── Variables d'environnement à ajouter ─────────────────────────────────────
+
+env_vars:
+  # Clé publique Stripe (côté client, optionnel si on reste server-side redirect)
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_51S5PhqEID1NnljioUd11yiKsnSjXdT90c3JlOUKfvwb7TpiX5Mri7Jr3gnvSMKYc4WhffK6eA7Won3RbGcV8yfck00l77a0jCc"
+  # Price IDs par segment (côté serveur uniquement)
+  STRIPE_PRICE_BOULIACAIS: "price_1TBYHHEID1Nnljio4QncDIrv"
+  STRIPE_PRICE_REDUIT: "price_1TBYHZEID1NnljiozNIqQjWv"
+  STRIPE_PRICE_EXTERNE: "price_1TBYH0EID1Nnljioy0663vTY"
+
+# ─── Configuration quantité ───────────────────────────────────────────────────
+
+quantity_config:
+  default: 5
+  min: 1
+  max: 50
+  step: 1
+
+# ─── User Stories ─────────────────────────────────────────────────────────────
+
+user_stories:
+  - id: US-13-01
+    as: membre connecté
+    want: voir un sélecteur de quantité plutôt que des packs fixes
+    so_that: je peux acheter exactement le nombre de crédits dont j'ai besoin
+
+  - id: US-13-02
+    as: membre connecté
+    want: voir le prix total se mettre à jour quand je change la quantité
+    so_that: je sais combien je vais payer avant de confirmer
+
+  - id: US-13-03
+    as: système
+    want: utiliser le Price ID Stripe correspondant au segment de l'utilisateur
+    so_that: BOULIACAIS, REDUIT et EXTERNE sont facturés au bon tarif automatiquement
+
+  - id: US-13-04
+    as: membre connecté
+    want: être redirigé vers Stripe Checkout après clic sur "Acheter"
+    so_that: je peux compléter mon paiement de façon sécurisée
+
+  - id: US-13-05
+    as: système
+    want: que la quantité soit contrainte entre 1 et 50
+    so_that: on évite les achats aberrants (0 crédit, quantités excessives)
+
+# ─── Modifications API ────────────────────────────────────────────────────────
+
+api_changes:
+  - route: "POST /api/credits/checkout"
+    current_behavior:
+      - Accepte creditsAmount dans ["5", "10", "20"] (z.enum)
+      - Lit le prix depuis SystemSetting (PRICE_CREDIT_{segment})
+      - Crée une session avec price_data.unit_amount (prix calculé × 1 unité)
+    new_behavior:
+      - Accepte creditsAmount : entier entre 1 et 50 (z.coerce.number().int().min(1).max(50))
+      - Lit le Price ID Stripe depuis les env vars (STRIPE_PRICE_{segment})
+      - Retourne 500 si l'env var correspondante est absente
+      - Crée une session avec price: priceId, quantity: credits (le prix/crédit est géré dans Stripe)
+      - metadata inchangé : { userId, creditsAmount: String(credits) }
+    response:
+      - 200 : { url: string } — URL vers laquelle rediriger
+      - 401 : non authentifié
+      - 422 : validation échouée (hors bornes, non-entier, absent)
+      - 500 : Price ID non configuré pour ce segment
+
+  - route: "POST /api/webhooks/stripe"
+    changes: aucun — reste identique (lit creditsAmount depuis metadata, incrémente credits)
+
+# ─── Modifications UI ─────────────────────────────────────────────────────────
+
+ui_changes:
+  - component: "app/(app)/dashboard/CreditPackSection.tsx"
+    action: refactor_to
+    new_name: "CreditQuantitySection.tsx"
+    type: server_component
+    behavior:
+      - Récupère pricePerCredit depuis SystemSetting (PRICE_CREDIT_{segment}) pour l'affichage
+      - Reçoit props : segment (string)
+      - Render : <CreditQuantitySelector pricePerCredit={pricePerCredit} />
+
+  - component: "app/(app)/dashboard/CreditQuantitySelector.tsx"
+    action: create
+    type: client_component
+    props:
+      - pricePerCredit: number  # en centimes, pour affichage uniquement
+    state:
+      - quantity: number (default: 5, min: 1, max: 50)
+      - loading: boolean
+    behavior:
+      - Bouton "-" : décrémente quantity, disabled si quantity === 1
+      - Bouton "+" : incrémente quantity, disabled si quantity === 50
+      - Affiche : "{quantity} crédit(s)"
+      - Affiche le total : quantity * pricePerCredit / 100 arrondi à 2 décimales
+      - Bouton "Acheter" : POST /api/credits/checkout { creditsAmount: quantity }
+        → redirect vers l'URL retournée
+    testids:
+      - credit-quantity-section : section conteneur
+      - credit-quantity-minus : bouton décrémentation
+      - credit-quantity-plus : bouton incrémentation
+      - credit-quantity-display : affichage de la quantité
+      - credit-quantity-price : affichage du prix total
+      - credit-quantity-buy-btn : bouton d'achat
+
+  - component: "app/(app)/dashboard/CreditPackButton.tsx"
+    action: keep
+    note: "Peut être conservé tel quel (utilisé en interne) ou remplacé par CreditQuantitySelector"
+
+  - component: "app/(app)/dashboard/page.tsx"
+    action: update
+    changes:
+      - Remplacer <CreditPackSection segment={...} /> par <CreditQuantitySection segment={...} />
+      - Importer CreditQuantitySection
+
+# ─── Modifications lib ────────────────────────────────────────────────────────
+
+lib_changes:
+  - file: "lib/env.ts"
+    changes:
+      - Ajouter dans envSchema :
+          STRIPE_PRICE_BOULIACAIS: z.string().optional()
+          STRIPE_PRICE_REDUIT: z.string().optional()
+          STRIPE_PRICE_EXTERNE: z.string().optional()
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional()
+
+# ─── Fichiers inchangés ───────────────────────────────────────────────────────
+
+files_unchanged:
+  - app/api/webhooks/stripe/route.ts       # webhook identique
+  - lib/stripe.ts                          # singleton identique
+  - lib/stripe-mock.ts                     # mock identique
+  - lib/services/credits.ts               # services identiques
+  - app/api/stripe-mock/checkout/route.ts # mock identique
+  - app/api/stripe-mock/confirm-payment/route.ts
+
+# ─── Tests à écrire ──────────────────────────────────────────────────────────
+
+tests:
+  http:
+    file: "__tests__/api/slice-13-stripe.http.test.ts"
+    scenarios:
+      checkout:
+        - "200 — quantité 5, segment EXTERNE → URL de checkout"
+        - "200 — quantité 5, segment BOULIACAIS → Price ID BOULIACAIS utilisé"
+        - "200 — quantité 5, segment REDUIT → Price ID REDUIT utilisé"
+        - "200 — quantité 1 (minimum) → accepté"
+        - "200 — quantité 50 (maximum) → accepté"
+        - "200 — stripe.checkout.sessions.create appelé avec price: priceId, quantity: credits"
+        - "200 — metadata contient userId et creditsAmount"
+        - "401 — non authentifié"
+        - "422 — quantité 0 (en dessous du minimum)"
+        - "422 — quantité 51 (au-dessus du maximum)"
+        - "422 — creditsAmount absent"
+        - "422 — valeur non numérique"
+        - "500 — env var STRIPE_PRICE_EXTERNE manquante"
+
+  e2e:
+    file: "e2e/slice-13-stripe.spec.ts"
+    scenarios:
+      - "le sélecteur de quantité est visible sur le dashboard"
+      - "la quantité par défaut est 5"
+      - "le bouton + augmente la quantité"
+      - "le bouton - diminue la quantité"
+      - "le bouton - est désactivé quand quantity === 1"
+      - "le bouton + est désactivé quand quantity === 50"
+      - "le prix total se met à jour quand la quantité change"
+      - "cliquer Acheter redirige vers la page de checkout Stripe (mock)"
+      - "après paiement mock, le dashboard affiche le banner de succès"
+
+# ─── Dépendances ──────────────────────────────────────────────────────────────
+
+dependencies:
+  no_new_packages: true
+  note: "Stripe SDK déjà installé, PrismaNeonHttp déjà configuré"
+
+# ─── Ordre d'implémentation ───────────────────────────────────────────────────
+
+implementation_order:
+  1: "lib/env.ts — ajouter les 4 nouvelles env vars dans le schéma Zod"
+  2: ".env.local — ajouter les valeurs réelles des Price IDs"
+  3: "app/api/credits/checkout/route.ts — nouvelle validation + Price ID mapping"
+  4: "app/(app)/dashboard/CreditQuantitySelector.tsx — créer le Client Component"
+  5: "app/(app)/dashboard/CreditPackSection.tsx → CreditQuantitySection.tsx — refactorer"
+  6: "app/(app)/dashboard/page.tsx — remplacer CreditPackSection par CreditQuantitySection"
+  7: "Vérifier tests HTTP puis E2E"
