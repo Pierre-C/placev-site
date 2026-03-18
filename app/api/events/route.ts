@@ -13,12 +13,12 @@ export async function GET(req: NextRequest) {
     now.setHours(0, 0, 0, 0);
 
     const whereParams = includePast === "true" ? {} : { date: { gte: now } };
-    const takeParams = limit && !isNaN(parseInt(limit)) ? { take: parseInt(limit) } : {};
+    const takeValue = limit && !isNaN(parseInt(limit)) ? parseInt(limit) : undefined;
 
     const events = await prisma.event.findMany({
       where: whereParams,
       orderBy: { date: "asc" },
-      ...takeParams,
+      take: takeValue,
       select: {
         id: true,
         title: true,
