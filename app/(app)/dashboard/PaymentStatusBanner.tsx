@@ -18,12 +18,29 @@ export function PaymentStatusBanner() {
 
   useEffect(() => {
     if (!payment) return
+
+    let refreshTimer: NodeJS.Timeout
+
+    if (payment === "success") {
+      // 1. Rafraîchir immédiatement (souvent le webhook a déjà fini)
+      router.refresh()
+      
+      // 2. Sécurité : rafraîchir à nouveau 2 secondes plus tard si le webhook Stripe a un peu de retard
+      refreshTimer = setTimeout(() => {
+        router.refresh()
+      }, 2000)
+    }
+
     const timer = setTimeout(() => {
       setVisible(false)
       // Nettoyer le paramètre de l'URL
       router.replace("/dashboard", { scroll: false })
     }, 6000)
-    return () => clearTimeout(timer)
+
+    return () => {
+      clearTimeout(timer)
+      if (refreshTimer) clearTimeout(refreshTimer)
+    }
   }, [payment, router])
 
   if (!visible || !payment) return null

@@ -2,7 +2,7 @@ import { Suspense } from "react"
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-import { CreditPackSection } from "../CreditPackSection"
+import { CreditQuantitySection } from "../CreditQuantitySection"
 import { PaymentStatusBanner } from "../PaymentStatusBanner"
 
 export default async function RechargerPage() {
@@ -21,7 +21,7 @@ export default async function RechargerPage() {
       <Suspense fallback={null}>
         <PaymentStatusBanner />
       </Suspense>
-      <CreditPackSection segment={user.segment} />
+      <CreditQuantitySection segment={user.segment} />
     </div>
   )
 }

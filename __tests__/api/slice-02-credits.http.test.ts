@@ -24,6 +24,15 @@ vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
 }))
 
+vi.mock("@/lib/env", () => ({
+  env: {
+    NEXTAUTH_URL: "http://localhost:3000",
+    STRIPE_PRICE_BOULIACAIS: "price_test_bouliacais",
+    STRIPE_PRICE_REDUIT: "price_test_reduit",
+    STRIPE_PRICE_EXTERNE: "price_test_externe",
+  },
+}))
+
 // ─── Imports après les mocks ──────────────────────────────────────────────────
 
 import * as checkoutHandler from "@/app/api/credits/checkout/route"

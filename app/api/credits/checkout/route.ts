@@ -1,10 +1,10 @@
 /**
  * app/api/credits/checkout/route.ts
  * POST /api/credits/checkout
- * Crée une session Stripe Checkout pour l'achat d'un pack de crédits.
+ * Crée une session Stripe Checkout pour l'achat de N crédits.
  *
  * Auth requise — retourne 401 si non authentifié.
- * Input : { creditsAmount: '5' | '10' | '20' }
+ * Input  : { creditsAmount: number }  — entier entre 1 et 50
  * Output : { url: string } — URL vers laquelle rediriger le client
  */
 
@@ -12,13 +12,21 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { auth } from "@/lib/auth"
 import { stripe } from "@/lib/stripe"
-import { prisma } from "@/lib/prisma"
-import { calculateCreditPrice } from "@/lib/services/credits"
 import { env } from "@/lib/env"
 
+const MIN_CREDITS = 1
+const MAX_CREDITS = 50
+
 const checkoutSchema = z.object({
-  creditsAmount: z.enum(["5", "10", "20"]),
+  creditsAmount: z.coerce.number().int().min(MIN_CREDITS).max(MAX_CREDITS),
 })
+
+// Mapping segment → clé env var
+const PRICE_ENV_KEY: Record<string, keyof typeof env> = {
+  BOULIACAIS: "STRIPE_PRICE_BOULIACAIS",
+  REDUIT: "STRIPE_PRICE_REDUIT",
+  EXTERNE: "STRIPE_PRICE_EXTERNE",
+}
 
 export async function POST(request: NextRequest) {
   // ── Authentification ──────────────────────────────────────────────────────
@@ -40,24 +48,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ errors: parsed.error.issues }, { status: 422 })
   }
 
-  const { creditsAmount } = parsed.data
-  const credits = parseInt(creditsAmount, 10)
+  const credits = parsed.data.creditsAmount
 
-  // ── Prix depuis SystemSetting ─────────────────────────────────────────────
-  const segment = session.user.segment
-  const setting = await prisma.systemSetting.findUnique({
-    where: { key: `PRICE_CREDIT_${segment}` },
-  })
+  // ── Price ID Stripe selon le segment ─────────────────────────────────────
+  const segment = session.user.segment ?? "EXTERNE"
+  const envKey = PRICE_ENV_KEY[segment]
+  const priceId = envKey ? env[envKey] : undefined
 
-  if (!setting) {
+  if (!priceId) {
     return NextResponse.json(
-      { error: `Prix non configuré pour le segment ${segment}` },
+      { error: `Price ID non configuré pour le segment ${segment}` },
       { status: 500 }
     )
   }
-
-  const pricePerCredit = parseInt(setting.value, 10)
-  const totalAmount = calculateCreditPrice(credits, pricePerCredit)
 
   // ── Création session Stripe ────────────────────────────────────────────────
   const baseUrl = env.NEXTAUTH_URL ?? "http://localhost:3000"
@@ -65,12 +68,8 @@ export async function POST(request: NextRequest) {
   const checkoutSession = await stripe.checkout.sessions.create({
     line_items: [
       {
-        price_data: {
-          currency: "eur",
-          product_data: { name: `${credits} crédits Place V` },
-          unit_amount: totalAmount,
-        },
-        quantity: 1,
+        price: priceId as string,
+        quantity: credits,
       },
     ],
     mode: "payment",
@@ -78,7 +77,7 @@ export async function POST(request: NextRequest) {
     cancel_url: `${baseUrl}/dashboard?payment=cancelled`,
     metadata: {
       userId: session.user.id,
-      creditsAmount: creditsAmount,
+      creditsAmount: String(credits),
     },
   })
 
