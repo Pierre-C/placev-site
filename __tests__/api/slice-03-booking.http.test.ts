@@ -17,8 +17,6 @@ vi.mock("@/lib/prisma", () => ({
   prisma: mockDeep<PrismaClient>(),
 }))
 
-vi.mock("@/lib/brevo")
-
 vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
 }))
@@ -28,7 +26,6 @@ vi.mock("@/lib/auth", () => ({
 import * as availabilityHandler from "@/app/api/availability/route"
 import * as bookingHandler from "@/app/api/booking/route"
 import * as cancelHandler from "@/app/api/booking/[id]/cancel/route"
-import { brevo } from "@/lib/brevo"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
@@ -215,10 +212,9 @@ describe("GET /api/availability", () => {
 
 // ─── POST /api/booking (multi-booking — Slice 9) ─────────────────────────────
 // Nouveau format : { bookings: [{ date, slot }] }
-// Brevo envoie UN SEUL email "confirmation-reservation-multiple" pour tout le panier.
 
 describe("POST /api/booking", () => {
-  it("201 — panier avec 1 créneau AM valide, solde débité, brevo appelé 1 fois", async () => {
+  it("201 — panier avec 1 créneau AM valide, solde débité", async () => {
     await testApiHandler({
       appHandler: bookingHandler,
       test: async ({ fetch }) => {
@@ -249,19 +245,6 @@ describe("POST /api/booking", () => {
               type: "DEBIT_RESERVATION",
               creditsAdd: -1,
               creditsBefore: 5,
-            }),
-          })
-        )
-
-        // Brevo appelé 1 seule fois avec le template multi-booking
-        expect(vi.mocked(brevo.sendEmail)).toHaveBeenCalledTimes(1)
-        expect(vi.mocked(brevo.sendEmail)).toHaveBeenCalledWith(
-          expect.objectContaining({
-            template: "confirmation-reservation-multiple",
-            to: fakeUser.email,
-            variables: expect.objectContaining({
-              totalCost: 1,
-              bookings: expect.any(Array),
             }),
           })
         )
@@ -312,14 +295,11 @@ describe("POST /api/booking", () => {
 
         // 1 seule transaction globale (pas 2)
         expect(mockPrisma.transaction.create).toHaveBeenCalledTimes(1)
-
-        // Brevo appelé 1 seule fois (pas 2)
-        expect(vi.mocked(brevo.sendEmail)).toHaveBeenCalledTimes(1)
       },
     })
   })
 
-  it("401 — non authentifié → brevo NON appelé", async () => {
+  it("401 — non authentifié", async () => {
     vi.mocked(auth).mockResolvedValueOnce(null)
 
     await testApiHandler({
@@ -331,12 +311,11 @@ describe("POST /api/booking", () => {
           body: JSON.stringify({ bookings: [{ date: FUTURE_DATE, slot: "AM" }] }),
         })
         expect(res.status).toBe(401)
-        expect(vi.mocked(brevo.sendEmail)).not.toHaveBeenCalled()
       },
     })
   })
 
-  it("403 — solde insuffisant pour le total du panier (credits=0, totalCost=1 → -1 < 0) → brevo NON appelé", async () => {
+  it("403 — solde insuffisant pour le total du panier (credits=0, totalCost=1 → -1 < 0)", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(fakePoorUser as typeof fakeUser)
 
     await testApiHandler({
@@ -350,14 +329,13 @@ describe("POST /api/booking", () => {
         expect(res.status).toBe(403)
         const body = await res.json()
         expect(body.error).toMatch(/solde/i)
-        expect(vi.mocked(brevo.sendEmail)).not.toHaveBeenCalled()
         // Aucune réservation créée
         expect(mockPrisma.reservation.create).not.toHaveBeenCalled()
       },
     })
   })
 
-  it("409 — pre-check : un créneau du panier est complet → abort total, brevo NON appelé", async () => {
+  it("409 — pre-check : un créneau du panier est complet → abort total", async () => {
     // Le pre-check sur count retourne 15 (capacité pleine) pour le créneau demandé
     mockPrisma.reservation.count.mockResolvedValue(15)
     mockPrisma.systemSetting.findUnique.mockResolvedValue({ key: "DESK_CAPACITY", value: "15" })
@@ -371,14 +349,13 @@ describe("POST /api/booking", () => {
           body: JSON.stringify({ bookings: [{ date: FUTURE_DATE, slot: "AM" }] }),
         })
         expect(res.status).toBe(409)
-        expect(vi.mocked(brevo.sendEmail)).not.toHaveBeenCalled()
         // Aucune réservation créée (abort avant tout insert)
         expect(mockPrisma.reservation.create).not.toHaveBeenCalled()
       },
     })
   })
 
-  it("422 — une date du panier est fermée (ClosedDate) → abort total, brevo NON appelé", async () => {
+  it("422 — une date du panier est fermée (ClosedDate) → abort total", async () => {
     mockPrisma.closedDate.findFirst.mockResolvedValue({
       id: "cd-1",
       date: new Date(FUTURE_DATE),
@@ -396,13 +373,12 @@ describe("POST /api/booking", () => {
           body: JSON.stringify({ bookings: [{ date: FUTURE_DATE, slot: "AM" }] }),
         })
         expect(res.status).toBe(422)
-        expect(vi.mocked(brevo.sendEmail)).not.toHaveBeenCalled()
         expect(mockPrisma.reservation.create).not.toHaveBeenCalled()
       },
     })
   })
 
-  it("422 — une date du panier est passée → abort total, brevo NON appelé", async () => {
+  it("422 — une date du panier est passée → abort total", async () => {
     await testApiHandler({
       appHandler: bookingHandler,
       test: async ({ fetch }) => {
@@ -412,7 +388,6 @@ describe("POST /api/booking", () => {
           body: JSON.stringify({ bookings: [{ date: "2020-01-01", slot: "AM" }] }),
         })
         expect(res.status).toBe(422)
-        expect(vi.mocked(brevo.sendEmail)).not.toHaveBeenCalled()
       },
     })
   })
@@ -427,7 +402,6 @@ describe("POST /api/booking", () => {
           body: JSON.stringify({ bookings: [] }),
         })
         expect(res.status).toBe(422)
-        expect(vi.mocked(brevo.sendEmail)).not.toHaveBeenCalled()
       },
     })
   })
@@ -436,7 +410,7 @@ describe("POST /api/booking", () => {
 // ─── POST /api/booking/[id]/cancel ────────────────────────────────────────────
 
 describe("POST /api/booking/[id]/cancel", () => {
-  it("200 — annulation réussie > 12h avant le créneau, crédits remboursés, brevo appelé", async () => {
+  it("200 — annulation réussie > 12h avant le créneau, crédits remboursés", async () => {
     mockPrisma.reservation.findUnique.mockResolvedValue(fakeReservation as Awaited<ReturnType<typeof mockPrisma.reservation.findUnique>>)
     mockPrisma.reservation.update.mockResolvedValue({ ...fakeReservation, status: "CANCELLED" as const, cancelledAt: new Date() })
     mockPrisma.user.update.mockResolvedValue({ ...fakeUser, credits: 6 })
@@ -478,21 +452,11 @@ describe("POST /api/booking/[id]/cancel", () => {
           })
         )
 
-        // Brevo appelé avec confirmation-annulation
-        expect(vi.mocked(brevo.sendEmail)).toHaveBeenCalledWith(
-          expect.objectContaining({
-            template: "confirmation-annulation",
-            to: fakeUser.email,
-            variables: expect.objectContaining({
-              creditsRefunded: 1,
-            }),
-          })
-        )
       },
     })
   })
 
-  it("403 — tentative d'annulation d'une réservation appartenant à un autre utilisateur → brevo NON appelé", async () => {
+  it("403 — tentative d'annulation d'une réservation appartenant à un autre utilisateur", async () => {
     const otherUserReservation = {
       ...fakeReservation,
       userId: "other-user-999",
@@ -506,12 +470,11 @@ describe("POST /api/booking/[id]/cancel", () => {
       test: async ({ fetch }) => {
         const res = await fetch({ method: "POST" })
         expect(res.status).toBe(403)
-        expect(vi.mocked(brevo.sendEmail)).not.toHaveBeenCalled()
       },
     })
   })
 
-  it("422 — annulation impossible < 12h avant le créneau → brevo NON appelé", async () => {
+  it("422 — annulation impossible < 12h avant le créneau", async () => {
     // Date dans 6h (< 12h)
     const soonDate = new Date()
     soonDate.setHours(soonDate.getHours() + 6)
@@ -528,12 +491,11 @@ describe("POST /api/booking/[id]/cancel", () => {
       test: async ({ fetch }) => {
         const res = await fetch({ method: "POST" })
         expect(res.status).toBe(422)
-        expect(vi.mocked(brevo.sendEmail)).not.toHaveBeenCalled()
       },
     })
   })
 
-  it("422 — réservation déjà annulée (double annulation) → brevo NON appelé", async () => {
+  it("422 — réservation déjà annulée (double annulation)", async () => {
     const cancelledReservation = {
       ...fakeReservation,
       status: "CANCELLED" as const,
@@ -547,7 +509,6 @@ describe("POST /api/booking/[id]/cancel", () => {
       test: async ({ fetch }) => {
         const res = await fetch({ method: "POST" })
         expect(res.status).toBe(422)
-        expect(vi.mocked(brevo.sendEmail)).not.toHaveBeenCalled()
       },
     })
   })

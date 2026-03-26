@@ -13,7 +13,6 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { stripe } from "@/lib/stripe"
-import { brevo } from "@/lib/brevo"
 import { prisma } from "@/lib/prisma"
 import { env } from "@/lib/env"
 
@@ -84,16 +83,6 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Email de confirmation (loggé en mock, envoyé en prod)
-    await brevo.sendEmail({
-      template: "confirmation-achat-credits",
-      to: user.email,
-      toName: user.firstName ? `${user.firstName} ${user.lastName}` : undefined,
-      variables: {
-        credits,
-        name: user.firstName ? `${user.firstName} ${user.lastName}` : user.email,
-      },
-    })
   }
 
   return NextResponse.json({ ok: true })

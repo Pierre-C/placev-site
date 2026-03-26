@@ -14,7 +14,6 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { brevo } from "@/lib/brevo"
 import { calculateCost, canBook } from "@/lib/services/booking"
 
 const bookingItemSchema = z.object({
@@ -169,18 +168,6 @@ export async function POST(request: Request) {
       type: "DEBIT_RESERVATION",
       creditsAdd: -totalCost,
       creditsBefore: user.credits,
-    },
-  })
-
-  // Send single email for the whole cart
-  await brevo.sendEmail({
-    template: "confirmation-reservation-multiple",
-    to: user.email,
-    toName: user.firstName ? `${user.firstName} ${user.lastName}` : undefined,
-    variables: {
-      totalCost,
-      newBalance: updatedUser.credits,
-      bookings: createdReservations.map(r => ({ date: r.date, slot: r.slot })),
     },
   })
 

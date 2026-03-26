@@ -22,13 +22,10 @@ import {
 // ─── IDs des templates Brevo (à renseigner lors de la migration vers le vrai Brevo) ──
 // Créer ces templates dans le dashboard Brevo avant de désactiver le mock.
 const TEMPLATE_IDS: Record<string, number> = {
-  "bienvenue-validation": 1,         // TODO: remplacer par l'ID réel
-  "confirmation-achat-credits": 1,   // TODO: remplacer par l'ID réel
-  "confirmation-reservation": 1,     // TODO: remplacer par l'ID réel
-  "confirmation-annulation": 1,      // TODO: remplacer par l'ID réel
-  "annulation-par-admin": 1,         // TODO: remplacer par l'ID réel
-  "reset-password": 2,
-  "confirmation-reservation-multiple": 3,
+  "bienvenue-validation": 38,
+  "reset-password": 15,
+  "confirmation-reservation": 40,
+  "annulation-par-admin": 39,
   "nouvelle-demande-devis": 4,
 }
 

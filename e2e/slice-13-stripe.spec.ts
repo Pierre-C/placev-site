@@ -105,21 +105,21 @@ test.describe("Sélecteur de quantité — boutons +/-", () => {
     expect(quantity).toBeGreaterThanOrEqual(1)
   })
 
-  test("le bouton + est désactivé quand quantity === 50 (maximum)", async ({
+  test("le bouton + est désactivé quand quantity === 60 (maximum)", async ({
     membrePage: page,
   }) => {
     await page.goto("/dashboard/recharger")
 
     const plusBtn = page.locator('[data-testid="credit-quantity-plus"]')
-    // Monter jusqu'à 50 (depuis 5, il faut cliquer 45 fois)
-    for (let i = 0; i < 45; i++) {
+    // Monter jusqu'à 60 (depuis 5, il faut cliquer 55 fois)
+    for (let i = 0; i < 55; i++) {
       const isDisabled = await plusBtn.isDisabled()
       if (isDisabled) break
       await plusBtn.click()
     }
 
     const display = page.locator('[data-testid="credit-quantity-display"]')
-    await expect(display).toContainText("50")
+    await expect(display).toContainText("60")
     await expect(plusBtn).toBeDisabled()
   })
 

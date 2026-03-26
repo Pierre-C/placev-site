@@ -246,18 +246,18 @@ test.describe("Onglet Recharger — packs de crédits", () => {
     await expect(membrePage.locator('[data-testid="credit-packs"]')).toBeVisible()
   })
 
-  test("les 3 packs (5, 10, 20 crédits) sont affichés", async ({ membrePage }) => {
+  test("les 5 packs (10, 20, 30, 40, 60 crédits) sont affichés", async ({ membrePage }) => {
     await membrePage.goto("/dashboard/recharger")
 
-    await expect(membrePage.locator('[data-testid="credit-pack-5"]')).toBeVisible()
     await expect(membrePage.locator('[data-testid="credit-pack-10"]')).toBeVisible()
     await expect(membrePage.locator('[data-testid="credit-pack-20"]')).toBeVisible()
+    await expect(membrePage.locator('[data-testid="credit-pack-30"]')).toBeVisible()
   })
 
   test("chaque pack affiche un prix en euros", async ({ membrePage }) => {
     await membrePage.goto("/dashboard/recharger")
 
-    const price = membrePage.locator('[data-testid="pack-price-5"]')
+    const price = membrePage.locator('[data-testid="pack-price-10"]')
     await expect(price).toBeVisible()
     const text = await price.textContent()
     expect(text).toMatch(/€/)

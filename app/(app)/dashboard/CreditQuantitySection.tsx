@@ -42,7 +42,7 @@ export async function CreditQuantitySection({ segment }: Props) {
       <p className="mb-4 text-sm text-neutral-600">
         1 crédit de {priceDisplay} = 1/2 journée de coworking.
       </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div data-testid="credit-packs" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <CreditQuantitySelector pricePerCredit={pricePerCredit} />
         {PACKS.map((pack) => (
           <CreditPackCard

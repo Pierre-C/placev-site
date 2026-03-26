@@ -227,23 +227,34 @@ test.describe("Calendrier — grille scrollable", () => {
 // ─── Calendrier — date du jour ────────────────────────────────────────────────
 
 test.describe("Calendrier — date du jour et dates passées", () => {
-  test("la cellule du jour actuel a data-today='true'", async ({ adminPage }) => {
+  test("les jours ouverts ont l'attribut data-today dans la grille", async ({ adminPage }) => {
     await adminPage.goto("/admin/calendar")
     await adminPage.waitForSelector('[data-testid="admin-slot-am"]', { timeout: 10000 })
 
-    const todayCell = adminPage.locator('[data-today="true"]')
-    await expect(todayCell).toBeVisible()
+    // data-today n'est présent QUE sur les jours ouverts (openDays) — pas sur les jours
+    // dont le cowork est fermé par paramètre (ex: jeudi si fermé en settings).
+    // On vérifie qu'au moins un jour ouvert est rendu dans le calendrier du mois.
+    const openDayCell = adminPage.locator('[data-today]').first()
+    await expect(openDayCell).toBeVisible()
   })
 
-  test("la cellule du jour actuel est visuellement distincte (bordure bleue)", async ({ adminPage }) => {
+  test("le jour actuel a une bordure bleue si le cowork est ouvert ce jour-là", async ({ adminPage }) => {
     await adminPage.goto("/admin/calendar")
     await adminPage.waitForSelector('[data-testid="admin-slot-am"]', { timeout: 10000 })
 
     const todayCell = adminPage.locator('[data-today="true"]')
-    await expect(todayCell).toBeVisible()
-    // La bordure bleue est sur le conteneur lui-même (border-blue-500)
-    const className = await todayCell.getAttribute("class")
-    expect(className).toMatch(/border-blue-500/)
+    const isTodayOpen = await todayCell.count() > 0
+
+    if (isTodayOpen) {
+      // Aujourd'hui est un jour ouvert → la cellule doit avoir border-blue-500
+      const className = await todayCell.getAttribute("class")
+      expect(className).toMatch(/border-blue-500/)
+    } else {
+      // Aujourd'hui est un jour fermé en settings (ex: jeudi) → data-today="true" absent.
+      // On vérifie que les jours ouverts futurs sont bien rendus avec data-today="false".
+      const futurOpenCell = adminPage.locator('[data-today="false"][data-past="false"]').first()
+      await expect(futurOpenCell).toBeVisible()
+    }
   })
 
   test("les cellules passées ont data-past='true'", async ({ adminPage }) => {

@@ -44,7 +44,10 @@ export function CreditPackCard({ label, credits, pricePerCredit }: Props) {
   }
 
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-100 flex flex-col">
+    <div
+      data-testid={`credit-pack-${credits}`}
+      className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-100 flex flex-col"
+    >
       <p className="text-sm text-neutral-500 text-center mb-4">{label}</p>
 
       <div className="text-center mb-4 flex-1">
@@ -52,11 +55,15 @@ export function CreditPackCard({ label, credits, pricePerCredit }: Props) {
         <p className="text-xs text-neutral-500 mt-0.5">crédits</p>
       </div>
 
-      <p className="text-center text-2xl font-semibold text-blue-500 mb-5">
+      <p
+        data-testid={`pack-price-${credits}`}
+        className="text-center text-2xl font-semibold text-blue-500 mb-5"
+      >
         {totalDisplay}
       </p>
 
       <button
+        data-testid={`buy-pack-${credits}`}
         onClick={handleBuy}
         disabled={loading}
         className="w-full py-3 bg-blue-500 text-white rounded-xl text-sm font-semibold

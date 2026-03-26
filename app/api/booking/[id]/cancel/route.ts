@@ -9,7 +9,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { brevo } from "@/lib/brevo"
 import { canCancel } from "@/lib/services/booking"
 
 export async function POST(
@@ -81,22 +80,6 @@ export async function POST(
       creditsBefore,
     },
   })
-
-  // Email de confirmation d'annulation
-  if (reservation.user?.email) {
-    const user = reservation.user
-    await brevo.sendEmail({
-      template: "confirmation-annulation",
-      to: user.email,
-      toName: user.firstName ? `${user.firstName} ${user.lastName}` : undefined,
-      variables: {
-        date: reservation.date.toISOString().slice(0, 10),
-        slot: reservation.slot,
-        creditsRefunded,
-        newBalance: updatedUser.credits,
-      },
-    })
-  }
 
   return NextResponse.json({
     cancelled: true,

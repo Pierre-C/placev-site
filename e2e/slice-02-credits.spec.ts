@@ -3,10 +3,11 @@
  * Tests E2E — Slice 2 : Rechargement (flux mock Stripe)
  *
  * Ces tests valident le parcours complet d'achat de crédits en mode mock :
- *   1. Membre voit les 3 packs avec les prix de son segment
+ *   1. Membre voit la grille de packs + sélecteur libre
  *   2. Clic pack → /api/stripe-mock/checkout → /dashboard?payment=success
  *   3. Toast visible + solde mis à jour + transaction dans l'historique
  *
+ * Packs actuels : 10 / 20 / 30 / 40 / 60 crédits
  * Prérequis : serveur Next.js lancé + STRIPE_MOCK=true + DB seedée
  */
 
@@ -15,19 +16,19 @@ import { test, expect } from "./helpers/fixtures"
 // ─── Affichage des packs ──────────────────────────────────────────────────────
 
 test.describe("Affichage des packs de crédits", () => {
-  test("le membre voit les 3 packs sur le dashboard", async ({ membrePage: page }) => {
+  test("le membre voit la grille de packs sur le dashboard", async ({ membrePage: page }) => {
     await page.goto("/dashboard/recharger")
 
     const packs = page.locator('[data-testid="credit-packs"]')
     await expect(packs).toBeVisible()
 
-    // Les 3 packs doivent être affichés
-    await expect(page.locator('[data-testid="credit-pack-5"]')).toBeVisible()
+    // Les 5 packs doivent être affichés (10 / 20 / 30 / 40 / 60 crédits)
     await expect(page.locator('[data-testid="credit-pack-10"]')).toBeVisible()
     await expect(page.locator('[data-testid="credit-pack-20"]')).toBeVisible()
+    await expect(page.locator('[data-testid="credit-pack-30"]')).toBeVisible()
   })
 
-  test("le membre EXTERNE voit le prix 8€/crédit (800 centimes)", async ({ membrePage: page }) => {
+  test("le membre EXTERNE voit le prix correct sur le pack 10 crédits (800 centimes × 10 = 80€)", async ({ membrePage: page }) => {
     // externe@test.fr a le segment EXTERNE → PRICE_CREDIT_EXTERNE = 800 centimes
     await page.goto("/dashboard/recharger")
 
@@ -40,27 +41,22 @@ test.describe("Affichage des packs de crédits", () => {
   test("chaque pack a un bouton Acheter", async ({ membrePage: page }) => {
     await page.goto("/dashboard/recharger")
 
-    await expect(page.locator('[data-testid="buy-pack-5"]')).toBeVisible()
     await expect(page.locator('[data-testid="buy-pack-10"]')).toBeVisible()
     await expect(page.locator('[data-testid="buy-pack-20"]')).toBeVisible()
+    await expect(page.locator('[data-testid="buy-pack-30"]')).toBeVisible()
   })
 })
 
 // ─── Flux d'achat (mock Stripe) ───────────────────────────────────────────────
 
 test.describe("Flux d'achat de crédits (mock Stripe)", () => {
-  test("clic pack 5 crédits → redirect mock → dashboard avec payment=success", async ({
+  test("clic pack 10 crédits → redirect mock → dashboard avec payment=success", async ({
     membrePage: page,
   }) => {
     await page.goto("/dashboard/recharger")
 
-    // Lire le solde initial
-    const balanceBefore = parseInt(
-      (await page.locator('[data-testid="header-credit-balance"]').textContent()) ?? "0"
-    )
-
-    // Cliquer sur "Acheter" pour le pack 5 crédits
-    await page.click('[data-testid="buy-pack-5"]')
+    // Cliquer sur "Acheter" pour le pack 10 crédits
+    await page.click('[data-testid="buy-pack-10"]')
 
     // Le mock checkout redirige automatiquement vers /dashboard?payment=success
     await expect(page).toHaveURL(/dashboard.*payment=success/, { timeout: 10_000 })
@@ -69,14 +65,14 @@ test.describe("Flux d'achat de crédits (mock Stripe)", () => {
     await expect(page.locator('[data-testid="payment-success-toast"]')).toBeVisible()
   })
 
-  test("solde mis à jour après achat de 5 crédits", async ({ membrePage: page }) => {
+  test("solde mis à jour après achat de 10 crédits", async ({ membrePage: page }) => {
     await page.goto("/dashboard/recharger")
 
     const balanceBefore = parseInt(
       (await page.locator('[data-testid="header-credit-balance"]').textContent()) ?? "0"
     )
 
-    await page.click('[data-testid="buy-pack-5"]')
+    await page.click('[data-testid="buy-pack-10"]')
     await expect(page).toHaveURL(/dashboard.*payment=success/, { timeout: 10_000 })
 
     // Recharger la page pour lire le nouveau solde depuis la DB
@@ -86,15 +82,15 @@ test.describe("Flux d'achat de crédits (mock Stripe)", () => {
       (await page.locator('[data-testid="header-credit-balance"]').textContent()) ?? "0"
     )
 
-    // Le solde doit avoir augmenté de 5
-    expect(balanceAfter).toBe(balanceBefore + 5)
+    // Le solde doit avoir augmenté de 10
+    expect(balanceAfter).toBe(balanceBefore + 10)
   })
 
   test("transaction CREDIT_PURCHASE visible dans l'historique après achat", async ({
     membrePage: page,
   }) => {
     await page.goto("/dashboard/recharger")
-    await page.click('[data-testid="buy-pack-5"]')
+    await page.click('[data-testid="buy-pack-10"]')
     await expect(page).toHaveURL(/dashboard.*payment=success/, { timeout: 10_000 })
 
     // Recharger pour lire l'historique depuis la DB
@@ -120,7 +116,7 @@ test.describe("Brevo mock log — email de confirmation", () => {
     })
 
     await page.goto("/dashboard/recharger")
-    await page.click('[data-testid="buy-pack-5"]')
+    await page.click('[data-testid="buy-pack-10"]')
     await expect(page).toHaveURL(/dashboard.*payment=success/, { timeout: 10_000 })
 
     // Note : le log Brevo est côté serveur, pas visible dans la console browser.

@@ -18,7 +18,6 @@ vi.mock("@/lib/prisma", () => ({
 }))
 
 vi.mock("@/lib/stripe")
-vi.mock("@/lib/brevo")
 
 vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
@@ -38,7 +37,6 @@ vi.mock("@/lib/env", () => ({
 import * as checkoutHandler from "@/app/api/credits/checkout/route"
 import * as webhookHandler from "@/app/api/webhooks/stripe/route"
 import { stripe, stripeTestHelpers } from "@/lib/stripe"
-import { brevo } from "@/lib/brevo"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
@@ -230,34 +228,6 @@ describe("POST /api/webhooks/stripe", () => {
     })
   })
 
-  it("200 — brevo.sendEmail appelé avec confirmation-achat-credits", async () => {
-    const payload = stripeTestHelpers.mockCheckoutCompleted({
-      userId: fakeUser.id,
-      creditsAmount: "10",
-    })
-
-    await testApiHandler({
-      appHandler: webhookHandler,
-      test: async ({ fetch }) => {
-        await fetch({
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "stripe-signature": "mock_signature",
-          },
-          body: JSON.stringify(payload),
-        })
-
-        expect(vi.mocked(brevo.sendEmail)).toHaveBeenCalledWith(
-          expect.objectContaining({
-            template: "confirmation-achat-credits",
-            to: fakeUser.email,
-          })
-        )
-      },
-    })
-  })
-
   it("200 — idempotence : même stripeId deux fois n'incrémente qu'une fois", async () => {
     const payload = stripeTestHelpers.mockCheckoutCompleted({
       userId: fakeUser.id,
@@ -314,8 +284,6 @@ describe("POST /api/webhooks/stripe", () => {
 
     // update appelé une seule fois au total
     expect(mockPrisma.user.update).toHaveBeenCalledTimes(1)
-    // brevo appelé une seule fois
-    expect(vi.mocked(brevo.sendEmail)).toHaveBeenCalledTimes(1)
   })
 
   it("400 — signature invalide (constructEvent jette une erreur)", async () => {
