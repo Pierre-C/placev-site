@@ -1,0 +1,299 @@
+# specs/14-mobile-responsiveness.yaml
+# Slice 14 — Responsiveness mobile & tablette
+# Priorité P1 : mobile (320px–640px) / P2 : tablette (640px–1024px)
+
+slice: 14
+title: "Responsiveness mobile et tablette"
+status: draft
+branch: feat/slice14-mobile-responsive
+
+description: |
+  L'application est actuellement développée desktop-first sans adaptation
+  systématique pour les petits écrans. Cette slice corrige les problèmes
+  identifiés par ordre de criticité : CRITIQUE > MAJEUR > MINEUR.
+  Priorité absolue : le parcours membre (dashboard, réservation, recharge).
+  Secondaire : les écrans admin.
+
+viewports:
+  mobile_xs:  { width: 320, height: 568 }   # iPhone SE 1st gen
+  mobile_sm:  { width: 390, height: 844 }   # iPhone 12/13/14
+  mobile_lg:  { width: 430, height: 932 }   # iPhone Plus
+  tablet:     { width: 768, height: 1024 }  # iPad mini portrait
+  tablet_lg:  { width: 1024, height: 768 }  # iPad landscape / small laptop
+
+touch_target_min_px: 44   # Apple HIG / WCAG 2.5.5
+
+# ─── User Stories ─────────────────────────────────────────────────────────────
+
+user_stories:
+  - id: US-14-01
+    as: membre sur mobile
+    want: naviguer dans mon espace membre sans débordement horizontal
+    so_that: je peux accéder à toutes les fonctionnalités depuis mon téléphone
+
+  - id: US-14-02
+    as: membre sur mobile
+    want: cliquer facilement sur les boutons et onglets
+    so_that: je ne rate pas mes clics (touch target ≥ 44px)
+
+  - id: US-14-03
+    as: membre sur mobile
+    want: voir mon solde et les packs de crédits correctement formatés
+    so_that: je peux recharger mes crédits sans zoom
+
+  - id: US-14-04
+    as: admin sur tablette
+    want: voir les tableaux de gestion (membres, devis) avec scroll horizontal ou en vue card
+    so_that: je peux gérer l'espace depuis une tablette
+
+  - id: US-14-05
+    as: membre sur mobile
+    want: annuler une réservation via la dialog de confirmation sans problème
+    so_that: je peux gérer mes réservations depuis mon téléphone
+
+# ─── Changements par fichier — CRITIQUE ───────────────────────────────────────
+
+changes:
+  # ── 1. DashboardNav ──────────────────────────────────────────────────────────
+  - file: app/(app)/dashboard/DashboardNav.tsx
+    priority: CRITIQUE
+    issue: |
+      4 tabs en flex sans wrap ni scroll. Sur mobile <480px,
+      les tabs "Mon compte" / "Historique" débordent ou se compriment.
+    current_class: "flex space-x-4 border-b"
+    fix: |
+      Passer en overflow-x-auto avec snap pour permettre le scroll horizontal
+      sur mobile, ou réduire le label sur petit écran.
+    target_classes:
+      nav: "flex overflow-x-auto border-b scrollbar-hide snap-x snap-mandatory"
+      link: "snap-start shrink-0 px-3 py-3 text-sm whitespace-nowrap ..."
+    notes: |
+      - Ajouter `shrink-0` et `whitespace-nowrap` sur chaque lien
+      - Touch target minimum : py-3 = ~48px hauteur totale ✓
+      - Masquer la scrollbar visuellement (scrollbar-hide via plugin ou CSS)
+
+  # ── 2. Dashboard Layout ───────────────────────────────────────────────────────
+  - file: app/(app)/dashboard/layout.tsx
+    priority: CRITIQUE
+    issue: |
+      Titre text-3xl + badge solde sur une seule ligne flex.
+      Sur mobile, le titre "Bonjour, Prénom" et le badge se compressent.
+    fixes:
+      - element: "header flex items-center justify-between"
+        change: "Passer en flex-col sm:flex-row gap-3 sm:gap-0"
+      - element: "h1 text-3xl font-bold"
+        change: "text-2xl sm:text-3xl"
+      - element: "badge container px-4 py-3"
+        change: "px-3 py-2.5 sm:px-4 sm:py-3"
+      - element: "bouton Recharger mes crédits"
+        change: "text-xs sm:text-sm, py-1.5 sm:py-2"
+    notes: |
+      Sur mobile, le badge de solde passe sous le titre (flex-col).
+      Sur sm: (640px+), retour en ligne (flex-row).
+
+  # ── 3. UpcomingReservations ───────────────────────────────────────────────────
+  - file: app/(app)/dashboard/UpcomingReservations.tsx
+    priority: CRITIQUE
+    issue: |
+      Dialog de confirmation inline avec 2 boutons en flex gap-2.
+      Sur mobile, texte des boutons peut être tronqué.
+      Ligne principale flex justify-between peut déborder avec des textes longs.
+    fixes:
+      - element: "ligne réservation flex justify-between"
+        change: "flex-col gap-1 sm:flex-row sm:justify-between"
+      - element: "dialog buttons div flex gap-2"
+        change: "flex flex-col sm:flex-row gap-2, boutons w-full sm:w-auto"
+    notes: |
+      - Les 2 boutons (Oui, annuler / Garder) en flex-col sur mobile
+      - Chacun w-full sur mobile pour touch target complet
+
+  # ── 4. ProfileClientPage ─────────────────────────────────────────────────────
+  - file: app/(app)/dashboard/mon-compte/ProfileClientPage.tsx
+    priority: MAJEUR
+    issue: |
+      grid-cols-2 (prénom / nom) sans breakpoint mobile.
+      Sur 320px, les 2 inputs se compriment à ~140px chacun.
+    fixes:
+      - element: "grid grid-cols-2 gap-4"
+        change: "grid grid-cols-1 sm:grid-cols-2 gap-4"
+    notes: Correction simple, une seule ligne.
+
+  # ── 5. CreditPackCard ─────────────────────────────────────────────────────────
+  - file: app/(app)/dashboard/CreditPackCard.tsx
+    priority: MAJEUR
+    issue: |
+      p-6 (24px) sur mobile trop généreux.
+      Bouton py-3 = ~40px (légèrement sous le seuil 44px).
+    fixes:
+      - element: "wrapper div p-6"
+        change: "p-4 sm:p-6"
+      - element: "bouton Acheter py-3 text-sm"
+        change: "py-3 text-base sm:text-sm (au moins 44px de hauteur)"
+    notes: Impact visuel mineur mais important pour l'accessibilité.
+
+  # ── 6. CreditQuantitySelector ─────────────────────────────────────────────────
+  - file: app/(app)/dashboard/CreditQuantitySelector.tsx
+    priority: MAJEUR
+    issue: |
+      p-6 sur la carte. Boutons +/- : taille effective ~36px.
+    fixes:
+      - element: "wrapper card p-6"
+        change: "p-4 sm:p-6"
+      - element: "boutons +/- circulaires"
+        change: "min-w-[44px] min-h-[44px] (touch target conforme)"
+
+  # ── 7. Admin MembersTable ─────────────────────────────────────────────────────
+  - file: app/(app)/admin/MembersTable.tsx
+    priority: CRITIQUE
+    issue: |
+      Table 7 colonnes avec px-6 par cellule. Pas adaptée mobile.
+      overflow-x-auto = scroll horizontal forcé, mauvaise UX.
+    fix_strategy: |
+      TABLETTE (≥768px) : conserver la table avec overflow-x-auto.
+      MOBILE (<768px) : affichage en liste de cards empilées.
+      Utiliser `hidden md:table-cell` sur colonnes secondaires,
+      ou wrapper conditionnel.
+    fixes:
+      - element: "thead th colonnes secondaires (Crédits à vie, Adhérent)"
+        change: "hidden md:table-cell"
+      - element: "tbody td colonnes secondaires"
+        change: "hidden md:table-cell"
+      - element: "wrapper div overflow-x-auto"
+        change: "overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0"
+      - element: "modal buttons div px-8 py-6 flex gap-4"
+        change: "px-4 sm:px-8 py-4 sm:py-6 flex flex-col sm:flex-row gap-3"
+    notes: |
+      Colonnes conservées sur mobile : Nom + Email + Crédits + Action.
+      Colonnes masquées sur mobile : Crédits à vie, Segment, Adhérent.
+
+  # ── 8. Admin QuotesTable ──────────────────────────────────────────────────────
+  - file: app/(app)/admin/quotes/QuotesTable.tsx
+    priority: CRITIQUE
+    issue: |
+      Table 5 colonnes, px-6 par cellule, overflow-x-auto seulement.
+    fixes:
+      - element: "th/td colonnes secondaires (Entreprise, Contact)"
+        change: "hidden md:table-cell"
+      - element: "modal grid grid-cols-3 gap-2"
+        change: "grid grid-cols-1 sm:grid-cols-3 gap-3"
+    notes: Colonnes conservées mobile : Date + Statut + Actions.
+
+  # ── 9. Admin EventsTable ──────────────────────────────────────────────────────
+  - file: app/(app)/admin/events/EventsTable.tsx
+    priority: CRITIQUE
+    issue: |
+      Table 6 colonnes sans overflow-x-auto sur le wrapper.
+      max-w-xs sur description impossible sur mobile.
+    fixes:
+      - element: "wrapper table div"
+        change: "Ajouter overflow-x-auto"
+      - element: "th/td Description, Lien"
+        change: "hidden md:table-cell"
+      - element: "modal p-6"
+        change: "p-4 sm:p-6"
+    notes: Colonnes conservées mobile : Image + Titre + Date + Actions.
+
+  # ── 10. Admin Calendar ───────────────────────────────────────────────────────
+  - file: app/(app)/admin/calendar/AdminCalendar.tsx
+    priority: MAJEUR
+    issue: |
+      Grille grid-cols-5 fixe. Texte text-[10px] illisible.
+      Boutons AM/PM : py-1.5 = ~24px (touch target insuffisant).
+    fixes:
+      - element: "grid grid-cols-5 gap-2"
+        change: "Conserver 5 colonnes mais augmenter gap sur mobile"
+      - element: "boutons AM/PM py-1.5"
+        change: "py-2 sm:py-1.5 (touch target minimum)"
+      - element: "panel de réservations p-6"
+        change: "p-4 sm:p-6"
+      - element: "tableau panel overflow-x-auto"
+        change: "Déjà présent, ajouter -mx-4 sm:mx-0 sur mobile"
+    notes: |
+      Le calendrier admin est moins prioritaire car usage tablette/desktop.
+      Pas de refonte complète, amélioration incrémentale suffisante.
+
+  # ── 11. GlobalSettingsForm ───────────────────────────────────────────────────
+  - file: app/(app)/admin/settings/GlobalSettingsForm.tsx
+    priority: MINEUR
+    issue: "flex items-end gap-4 avec max-w-[200px] sur input"
+    fixes:
+      - element: "flex items-end gap-4"
+        change: "flex flex-col sm:flex-row items-end gap-3"
+      - element: "max-w-[200px]"
+        change: "w-full sm:max-w-[200px]"
+
+# ─── Règles globales Tailwind à appliquer ─────────────────────────────────────
+
+global_rules:
+  padding_cards: "p-4 sm:p-6 (jamais p-6 seul sur un composant mobile)"
+  touch_targets: "py-3 minimum sur boutons (≈44px), min-w-[44px] sur icônes"
+  flex_direction: "flex-col sm:flex-row pour tout flex horizontal sur mobile"
+  text_headings: "text-2xl sm:text-3xl pour les gros titres"
+  grids: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 (jamais grid-cols-2 sans sm:)"
+  table_columns: "hidden md:table-cell sur colonnes secondaires des tables admin"
+  modals: "w-full max-w-lg mx-4 sm:mx-auto pour les modals fixes"
+
+# ─── Critères d'acceptance ────────────────────────────────────────────────────
+
+acceptance_criteria:
+  - id: AC-14-01
+    viewport: mobile_sm (390px)
+    page: /dashboard
+    check: Aucun débordement horizontal (scrollWidth === clientWidth)
+
+  - id: AC-14-02
+    viewport: mobile_sm (390px)
+    page: /dashboard
+    check: Navigation tabs visible et scrollable horizontalement
+
+  - id: AC-14-03
+    viewport: mobile_sm (390px)
+    page: /dashboard/recharger
+    check: Grille de packs en 1 colonne, cartes pleine largeur
+
+  - id: AC-14-04
+    viewport: mobile_sm (390px)
+    page: /dashboard
+    check: Dialog de confirmation annulation affiche boutons empilés
+
+  - id: AC-14-05
+    viewport: mobile_sm (390px)
+    page: /dashboard/mon-compte
+    check: Formulaire prénom/nom en 1 colonne
+
+  - id: AC-14-06
+    viewport: tablet (768px)
+    page: /admin/members
+    check: Table membres scrollable sans débordement hors viewport
+
+  - id: AC-14-07
+    all_viewports: true
+    check: Tous les boutons cliquables ont height ≥ 44px
+
+  - id: AC-14-08
+    viewport: mobile_sm (390px)
+    page: /dashboard/recharger
+    check: Prix et bouton Acheter de chaque card lisibles sans zoom
+
+# ─── Fichiers NON modifiés (déjà OK) ─────────────────────────────────────────
+
+files_already_responsive:
+  - app/(app)/dashboard/CreditQuantitySection.tsx   # grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ✓
+  - app/(app)/admin/settings/ClosedDatesModal.tsx   # flex-col sm:flex-row ✓
+  - lib/brevo.ts                                    # pas de UI
+  - app/api/**                                      # pas de UI
+
+# ─── Tests ────────────────────────────────────────────────────────────────────
+
+tests:
+  unit:
+    file: __tests__/unit/slice-14-responsive.unit.test.tsx
+    scope: |
+      Vérifier que les composants clés émettent les classes Tailwind
+      responsive correctes (grid-cols-1, flex-col, overflow-x-auto, shrink-0...).
+
+  e2e:
+    file: e2e/slice-14-mobile-responsive.spec.ts
+    scope: |
+      Tests Playwright multi-viewport (390px mobile, 768px tablette).
+      Vérifier : no horizontal overflow, touch targets, visibilité éléments clés.
