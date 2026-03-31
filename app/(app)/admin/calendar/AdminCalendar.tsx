@@ -298,7 +298,7 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
       </AnimatePresence>
 
       {/* NAVIGATION */}
-      <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm ring-1 ring-neutral-100">
+      <div className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm ring-1 ring-neutral-100">
         <button
           data-testid="calendar-prev-month"
           onClick={() => setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() - 1, 1))}
@@ -377,7 +377,7 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
                     data-selected={isAmSelected ? "true" : "false"}
                     disabled={amDisabled}
                     onClick={() => !amDisabled && handleSlotToggle(dateStr, "AM")}
-                    className={`flex-1 px-1 py-1.5 text-center text-[10px] leading-tight transition-colors ${getAdminClasses(am, isAmSelected, isPast, !!isClosed)}`}
+                    className={`flex-1 px-1 py-2 sm:py-1.5 text-center text-[10px] leading-tight transition-colors ${getAdminClasses(am, isAmSelected, isPast, !!isClosed)}`}
                   >
                     AM<br/>
                     {am && !isClosed && !isPast ? `${am.count}/${am.capacity}` : "—"}
@@ -409,7 +409,7 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
 
       {/* DETAIL PANEL */}
       {selectedSlots.length > 0 && (
-        <div data-testid="admin-slots-panel" className="bg-white rounded-2xl shadow-xl ring-1 ring-neutral-100 p-6 space-y-6">
+        <div data-testid="admin-slots-panel" className="bg-white rounded-2xl shadow-xl ring-1 ring-neutral-100 p-4 sm:p-6 space-y-6">
           {/* EN-TÊTE */}
           <div className="border-b pb-4">
             <p className="text-neutral-500 font-medium mb-3">
@@ -482,7 +482,7 @@ export default function AdminCalendar({ capacity, openDays }: AdminCalendarProps
           {loadingReservations ? (
             <div className="text-center py-8 text-neutral-400 italic">Chargement...</div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
               <table data-testid="admin-reservations-table" className="w-full text-left">
                 <thead>
                   <tr className="border-b text-neutral-400 text-xs font-bold uppercase tracking-wider">

@@ -143,16 +143,16 @@ export default function QuotesTable({ quotes }: { quotes: QuoteData[] }) {
         />
       </div>
 
-      <div data-testid="admin-quotes-table" className="overflow-x-auto overflow-y-auto max-h-[70vh] bg-white border border-gray-200 rounded-lg shadow-sm">
+      <div data-testid="admin-quotes-table" className="overflow-x-auto overflow-y-auto max-h-[70vh] bg-white rounded-lg shadow-sm ring-1 ring-neutral-100">
         <table className="min-w-full text-sm text-left">
-          <thead className="sticky top-0 z-10 bg-gray-50 text-gray-700 font-medium border-b border-gray-200">
-            <tr>
+          <thead className="sticky top-0 z-10 bg-neutral-50 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+            <tr className="text-xs font-black text-neutral-400 uppercase tracking-wider">
               <th className="px-6 py-4">
                 <button data-testid="quotes-sort-btn" data-column="date" onClick={() => handleSort("date")} className="flex items-center gap-1 hover:text-gray-900">
                   Date <span>{renderSortIndicator("date")}</span>
                 </button>
               </th>
-              <th className="px-6 py-4">
+              <th className="hidden md:table-cell px-6 py-4">
                 <button data-testid="quotes-sort-btn" data-column="companyName" onClick={() => handleSort("companyName")} className="flex items-center gap-1 hover:text-gray-900">
                   Entreprise <span>{renderSortIndicator("companyName")}</span>
                 </button>
@@ -162,7 +162,7 @@ export default function QuotesTable({ quotes }: { quotes: QuoteData[] }) {
                   Statut <span>{renderSortIndicator("status")}</span>
                 </button>
               </th>
-              <th className="px-6 py-4">
+              <th className="hidden md:table-cell px-6 py-4">
                 <button data-testid="quotes-sort-btn" data-column="contactName" onClick={() => handleSort("contactName")} className="flex items-center gap-1 hover:text-gray-900">
                   Contact <span>{renderSortIndicator("contactName")}</span>
                 </button>
@@ -185,13 +185,13 @@ export default function QuotesTable({ quotes }: { quotes: QuoteData[] }) {
                     <td className="px-6 py-4 font-medium whitespace-nowrap">
                       {new Date(quote.date).toLocaleDateString("fr-FR")}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="hidden md:table-cell px-6 py-4">
                       {quote.companyName || "—"}
                     </td>
                     <td className="px-6 py-4">
                       {getStatusBadge(quote.status)}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="hidden md:table-cell px-6 py-4">
                       <div className="font-medium">{contactName}</div>
                       <div className="text-xs text-gray-500">{quote.contactEmail || quote.user?.email || "—"}</div>
                     </td>
@@ -224,7 +224,7 @@ export default function QuotesTable({ quotes }: { quotes: QuoteData[] }) {
             </div>
             
             <div className="p-6 overflow-y-auto flex-1 space-y-4 text-sm">
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="font-medium text-gray-500">Date</div>
                 <div className="col-span-2 font-bold">{new Date(selectedQuote.date).toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long", year:"numeric" })}</div>
                 
@@ -240,7 +240,7 @@ export default function QuotesTable({ quotes }: { quotes: QuoteData[] }) {
 
               <div className="pt-4 border-t">
                 <h4 className="font-bold text-gray-900 mb-2">Contact</h4>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="font-medium text-gray-500">Nom</div>
                   <div className="col-span-2">{selectedQuote.contactName || [selectedQuote.user?.firstName, selectedQuote.user?.lastName].filter(Boolean).join(" ") || "—"}</div>
                   

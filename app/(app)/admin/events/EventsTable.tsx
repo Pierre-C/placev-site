@@ -220,7 +220,7 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventIte
         </button>
       </div>
 
-      <div className="border rounded-md overflow-hidden max-h-[600px] overflow-y-auto">
+      <div className="border rounded-md overflow-hidden max-h-[600px] overflow-y-auto overflow-x-auto">
         <table className="w-full text-left text-sm" data-testid="events-table">
           <thead className="bg-gray-100 sticky top-0">
             <tr>
@@ -235,7 +235,7 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventIte
                   Titre {sortCol === "title" && (sortDir === "asc" ? "↑" : "↓")}
                 </button>
               </th>
-              <th className="p-3 font-semibold">Description</th>
+              <th className="hidden md:table-cell p-3 font-semibold">Description</th>
               <th className="p-3">
                 <button
                   data-testid="events-sort-btn"
@@ -246,7 +246,7 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventIte
                   Date {sortCol === "date" && (sortDir === "asc" ? "↑" : "↓")}
                 </button>
               </th>
-              <th className="p-3 font-semibold">Lien</th>
+              <th className="hidden md:table-cell p-3 font-semibold">Lien</th>
               <th className="p-3 font-semibold">Actions</th>
             </tr>
           </thead>
@@ -266,7 +266,7 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventIte
                   )}
                 </td>
                 <td className="p-3" data-testid="event-title-cell">{event.title}</td>
-                <td className="p-3">
+                <td className="hidden md:table-cell p-3">
                   <span className="truncate block max-w-xs" title={event.description}>
                     {event.description.length > 60
                       ? event.description.substring(0, 60) + "..."
@@ -276,7 +276,7 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventIte
                 <td className="p-3" data-testid="event-date-cell">
                   {new Date(event.date).toLocaleDateString("fr-FR")}
                 </td>
-                <td className="p-3">
+                <td className="hidden md:table-cell p-3">
                   {event.registrationUrl ? (
                     <a
                       href={event.registrationUrl}
@@ -314,7 +314,7 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventIte
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full my-auto" data-testid="event-form-modal">
+          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full my-auto" data-testid="event-form-modal">
             <h2 className="text-xl font-bold mb-4">
               {editingEvent ? "Éditer l'événement" : "Nouvel événement"}
             </h2>

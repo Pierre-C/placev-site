@@ -28,7 +28,7 @@ export async function Header() {
           <HeaderAuthButton session={session} />
         </div>
 
-        <div className="relative md:hidden">
+        <div className="md:hidden">
           <MobileMenu session={session} />
         </div>
       </div>

@@ -46,7 +46,7 @@ export function CreditPackCard({ label, credits, pricePerCredit }: Props) {
   return (
     <div
       data-testid={`credit-pack-${credits}`}
-      className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-100 flex flex-col"
+      className="rounded-2xl bg-white p-4 sm:p-6 shadow-sm ring-1 ring-neutral-100 flex flex-col"
     >
       <p className="text-sm text-neutral-500 text-center mb-4">{label}</p>
 
@@ -66,9 +66,8 @@ export function CreditPackCard({ label, credits, pricePerCredit }: Props) {
         data-testid={`buy-pack-${credits}`}
         onClick={handleBuy}
         disabled={loading}
-        className="w-full py-3 bg-blue-500 text-white rounded-xl text-sm font-semibold
-                   hover:bg-blue-600 disabled:opacity-50 transition"
-      >
+        className="w-full py-3 bg-blue-500 text-white rounded-xl text-base sm:text-sm font-semibold
+                       hover:bg-blue-600 disabled:opacity-50 transition"      >
         {loading ? "Redirection..." : "Acheter"}
       </button>
     </div>

@@ -101,7 +101,7 @@ export function UpcomingReservations({ reservations }: Props) {
               </div>
             )}
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
               <div>
                 <p className="font-medium text-neutral-900">
                   {/* Date ISO en sr-only pour les assertions de test (toContainText) */}
@@ -148,18 +148,18 @@ export function UpcomingReservations({ reservations }: Props) {
                 <p className="mb-3 text-sm text-neutral-700">
                   Confirmer l&apos;annulation de cette réservation ? Vos crédits seront remboursés.
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <button
                     data-testid="confirm-cancel"
                     onClick={() => handleCancel(r.id)}
                     disabled={cancellingId === r.id}
-                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                    className="rounded-lg bg-red-600 px-4 py-3 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 w-full sm:w-auto"
                   >
                     {cancellingId === r.id ? "Annulation…" : "Oui, annuler"}
                   </button>
                   <button
                     onClick={() => setConfirmId(null)}
-                    className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-neutral-700 ring-1 ring-neutral-200 hover:bg-neutral-50"
+                    className="rounded-lg bg-white px-4 py-3 text-sm font-medium text-neutral-700 ring-1 ring-neutral-200 hover:bg-neutral-50 w-full sm:w-auto"
                   >
                     Garder la réservation
                   </button>

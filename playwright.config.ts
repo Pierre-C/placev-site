@@ -54,7 +54,7 @@ export default defineConfig({
     // ── Tests mobile (vérifier la responsivité du calendrier) ────────────
     {
       name: "mobile-safari",
-      use: { ...devices["iPhone 13"] },
+      use: { ...devices["Pixel 5"] },
       dependencies: ["setup"],
       testMatch: /.*mobile.*\.spec\.ts/,
     },

@@ -50,7 +50,7 @@ export function CreditQuantitySelector({ pricePerCredit }: Props) {
   return (
     <div
       data-testid="credit-quantity-section"
-      className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-100 flex flex-col"
+      className="rounded-2xl bg-white p-4 sm:p-6 shadow-sm ring-1 ring-neutral-100 flex flex-col"
     >
       <p className="text-sm text-neutral-500 text-center mb-4">Montant libre</p>
 
@@ -60,7 +60,7 @@ export function CreditQuantitySelector({ pricePerCredit }: Props) {
           data-testid="credit-quantity-minus"
           onClick={() => setQuantity((q) => Math.max(MIN_CREDITS, q - 1))}
           disabled={quantity <= MIN_CREDITS}
-          className="w-10 h-10 rounded-full border border-neutral-300 text-neutral-700 font-bold text-xl
+          className="w-10 h-10 min-w-[44px] min-h-[44px] rounded-full border border-neutral-300 text-neutral-700 font-bold text-xl
                      hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed
                      flex items-center justify-center"
           aria-label="Diminuer la quantité"
@@ -82,7 +82,7 @@ export function CreditQuantitySelector({ pricePerCredit }: Props) {
           data-testid="credit-quantity-plus"
           onClick={() => setQuantity((q) => Math.min(MAX_CREDITS, q + 1))}
           disabled={quantity >= MAX_CREDITS}
-          className="w-10 h-10 rounded-full border border-neutral-300 text-neutral-700 font-bold text-xl
+          className="w-10 h-10 min-w-[44px] min-h-[44px] rounded-full border border-neutral-300 text-neutral-700 font-bold text-xl
                      hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed
                      flex items-center justify-center"
           aria-label="Augmenter la quantité"

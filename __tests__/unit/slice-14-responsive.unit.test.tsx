@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 /**
  * __tests__/unit/slice-14-responsive.unit.test.tsx
  * Tests unitaires — Slice 14 : Responsiveness
@@ -30,18 +32,16 @@ vi.mock("next/link", () => ({
 
 describe("DashboardNav — classes responsive", () => {
   it("la nav contient overflow-x-auto pour le scroll mobile", async () => {
-    const { DashboardNav } = await import(
-      "@/app/(app)/dashboard/DashboardNav"
-    )
+    const mod = await import("@/app/(app)/dashboard/DashboardNav")
+    const DashboardNav = mod.default
     const { container } = render(<DashboardNav />)
     const nav = container.querySelector("nav")
     expect(nav?.className).toMatch(/overflow-x-auto/)
   })
 
   it("les liens nav contiennent shrink-0 pour éviter la compression", async () => {
-    const { DashboardNav } = await import(
-      "@/app/(app)/dashboard/DashboardNav"
-    )
+    const mod = await import("@/app/(app)/dashboard/DashboardNav")
+    const DashboardNav = mod.default
     const { container } = render(<DashboardNav />)
     const links = container.querySelectorAll("a")
     links.forEach((link) => {
@@ -50,9 +50,8 @@ describe("DashboardNav — classes responsive", () => {
   })
 
   it("les liens nav contiennent whitespace-nowrap", async () => {
-    const { DashboardNav } = await import(
-      "@/app/(app)/dashboard/DashboardNav"
-    )
+    const mod = await import("@/app/(app)/dashboard/DashboardNav")
+    const DashboardNav = mod.default
     const { container } = render(<DashboardNav />)
     const links = container.querySelectorAll("a")
     links.forEach((link) => {
@@ -144,7 +143,7 @@ describe("UpcomingReservations — classes responsive", () => {
   const mockReservations = [
     {
       id: "r1",
-      date: new Date(Date.now() + 86400000 * 5).toISOString(),
+      date: new Date(Date.now() + 86400000 * 5),
       slot: "AM" as const,
       status: "CONFIRMED" as const,
       creditsCost: 1,

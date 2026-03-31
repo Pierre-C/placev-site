@@ -198,7 +198,8 @@ test.describe("Mobile (390px) — Mon compte", () => {
   test("les champs prénom et nom sont visibles sur mobile", async ({ membrePage }) => {
     await membrePage.goto("/dashboard/mon-compte")
     // Les champs doivent être visibles (pas cachés par débordement)
-    const inputs = membrePage.locator('input[type="text"]')
+    // Les inputs prénom/nom n'ont pas d'attribut type explicite
+    const inputs = membrePage.locator('input[name="firstName"], input[name="lastName"]')
     const count = await inputs.count()
     expect(count).toBeGreaterThan(0)
     // Le premier input doit être visible
@@ -238,7 +239,7 @@ test.describe("Tablette (768px) — Admin membres", () => {
   })
 
   test("pas de débordement hors-viewport sur /admin/members", async ({ adminPage }) => {
-    await adminPage.goto("/admin/members")
+    await adminPage.goto("/admin")
     await adminPage.waitForLoadState("networkidle")
 
     // Le wrapper de la table doit gérer son propre scroll, pas la page entière
@@ -248,7 +249,7 @@ test.describe("Tablette (768px) — Admin membres", () => {
   })
 
   test("les colonnes essentielles sont visibles sur tablette", async ({ adminPage }) => {
-    await adminPage.goto("/admin/members")
+    await adminPage.goto("/admin")
     await adminPage.waitForLoadState("networkidle")
 
     // La table doit être dans le DOM

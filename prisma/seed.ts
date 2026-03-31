@@ -125,6 +125,7 @@ async function main() {
         role: userData.role,
         segment: userData.segment,
         emailVerified: userData.emailVerified,
+        passwordHash,
       },
       create: {
         ...userData,

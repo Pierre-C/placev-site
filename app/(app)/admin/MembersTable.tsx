@@ -237,17 +237,17 @@ export default function MembersTable({ users: initialUsers }: { users: UserWithE
                   Crédits <span>{renderSortIndicator("credits")}</span>
                 </button>
               </th>
-              <th className="px-6 py-4 text-left">
+              <th className="hidden md:table-cell px-6 py-4 text-left">
                 <button data-testid="column-sort-btn" data-column="lifetimeCredits" data-direction={sortColumn === "lifetimeCredits" ? sortDirection : "none"} onClick={() => handleSort("lifetimeCredits")} className="flex items-center gap-1 hover:text-neutral-700">
                   Crédits à vie <span>{renderSortIndicator("lifetimeCredits")}</span>
                 </button>
               </th>
-              <th className="px-6 py-4 text-left">
+              <th className="hidden md:table-cell px-6 py-4 text-left">
                 <button data-testid="column-sort-btn" data-column="segment" data-direction={sortColumn === "segment" ? sortDirection : "none"} onClick={() => handleSort("segment")} className="flex items-center gap-1 hover:text-neutral-700">
                   Segment <span>{renderSortIndicator("segment")}</span>
                 </button>
               </th>
-              <th className="px-6 py-4 text-left">
+              <th className="hidden md:table-cell px-6 py-4 text-left">
                 <button data-testid="column-sort-btn" data-column="isMember" data-direction={sortColumn === "isMember" ? sortDirection : "none"} onClick={() => handleSort("isMember")} className="flex items-center gap-1 hover:text-neutral-700">
                   Adhérent <span>{renderSortIndicator("isMember")}</span>
                 </button>
@@ -271,13 +271,13 @@ export default function MembersTable({ users: initialUsers }: { users: UserWithE
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500 font-medium">{user.email}</td>
                   <td data-testid="member-credits" data-level={getCreditsLevel(user.credits)} className={`px-6 py-4 whitespace-nowrap text-sm font-black ${getCreditsColorClass(user.credits)}`}>{user.credits}</td>
-                  <td data-testid="lifetime-credits" className="px-6 py-4 whitespace-nowrap text-sm font-bold text-neutral-600">{user.lifetimeCredits ?? 0}</td>
-                  <td data-testid="member-segment" className="px-6 py-4 whitespace-nowrap">
+                  <td data-testid="lifetime-credits" className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm font-bold text-neutral-600">{user.lifetimeCredits ?? 0}</td>
+                  <td data-testid="member-segment" className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
                     <span className="px-2 py-1 rounded-lg bg-neutral-100 text-[10px] font-black uppercase text-neutral-600">
                       {user.segment}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
                     <span
                       data-testid="member-is-member-badge"
                       data-value={user.isMember ? "true" : "false"}
@@ -344,7 +344,7 @@ export default function MembersTable({ users: initialUsers }: { users: UserWithE
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x">
                     {/* Infos (Read-only) */}
-                    <div className="p-8 space-y-6">
+                    <div className="p-4 sm:p-8 space-y-6">
                         <div className="space-y-4">
                             <h4 className="text-xs font-black text-neutral-400 uppercase tracking-widest">Informations</h4>
                             <div className="space-y-2">
@@ -374,7 +374,7 @@ export default function MembersTable({ users: initialUsers }: { users: UserWithE
                     </div>
 
                     {/* Édition */}
-                    <div className="p-8 space-y-6 bg-blue-50/30">
+                    <div className="p-4 sm:p-8 space-y-6 bg-blue-50/30">
                         <h4 className="text-xs font-black text-blue-400 uppercase tracking-widest">Édition</h4>
 
                         {/* Crédits */}
@@ -449,7 +449,7 @@ export default function MembersTable({ users: initialUsers }: { users: UserWithE
                 </div>
 
                 {/* Actions */}
-                <div className="px-8 py-6 bg-neutral-50 flex gap-4 border-t">
+                <div className="px-4 sm:px-8 py-4 sm:py-6 bg-neutral-50 flex flex-col sm:flex-row gap-3 border-t">
                     <button
                         data-testid="save-credits"
                         onClick={handleSaveAll}

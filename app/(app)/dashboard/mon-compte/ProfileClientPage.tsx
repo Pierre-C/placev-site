@@ -124,7 +124,7 @@ export default function ProfileClientPage({ initialUser }: ProfileClientPageProp
       <section className="bg-white p-8 rounded-2xl shadow-sm border border-neutral-100">
         <h2 className="text-xl font-bold mb-6">Informations personnelles</h2>
         <form data-testid="profile-form" onSubmit={handleProfileSave} className="space-y-4 max-w-lg">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">Prénom</label>
               <input

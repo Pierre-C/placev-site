@@ -81,8 +81,8 @@ export default function GlobalSettingsForm({ settings }: { settings: SystemSetti
       {/* CAPACITÉ */}
       <section className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-neutral-100">
         <h3 className="text-xl font-black mb-6">Capacité de l&apos;open-space</h3>
-        <div className="flex items-end gap-4">
-          <div className="flex-1 max-w-[200px]">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
+          <div className="w-full sm:max-w-[200px]">
             <label htmlFor="desk-capacity" className="block text-xs font-bold text-neutral-400 uppercase mb-2">Nombre de places</label>
             <input
               id="desk-capacity"
@@ -93,7 +93,7 @@ export default function GlobalSettingsForm({ settings }: { settings: SystemSetti
               className="w-full rounded-xl border-neutral-200 shadow-sm focus:ring-blue-500 focus:border-blue-500 font-bold"
             />
           </div>
-          <button data-testid="save-settings" onClick={handleSaveCapacity} className="bg-neutral-900 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-neutral-800 transition-colors">
+          <button data-testid="save-settings" onClick={handleSaveCapacity} className="bg-neutral-900 text-white px-6 py-3 sm:py-2.5 rounded-xl w-full sm:w-auto font-bold hover:bg-neutral-800 transition-colors">
             Enregistrer
           </button>
         </div>
@@ -103,7 +103,7 @@ export default function GlobalSettingsForm({ settings }: { settings: SystemSetti
       <section data-testid="setting-OPEN_DAYS" className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-neutral-100">
         <h3 className="text-xl font-black mb-6">Jours d&apos;ouverture</h3>
         <div className="space-y-4">
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-x-6 gap-y-4">
             {DAYS.map(day => (
               <label key={day.id} className="flex items-center gap-2 cursor-pointer group">
                 <input
@@ -119,7 +119,7 @@ export default function GlobalSettingsForm({ settings }: { settings: SystemSetti
             ))}
           </div>
           <div className="pt-4 border-t">
-            <button data-testid="save-settings-open-days" onClick={handleSaveOpenDays} className="bg-neutral-900 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-neutral-800 transition-colors">
+            <button data-testid="save-settings-open-days" onClick={handleSaveOpenDays} className="bg-neutral-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-neutral-800 transition-colors">
               Enregistrer les jours
             </button>
           </div>
@@ -129,7 +129,7 @@ export default function GlobalSettingsForm({ settings }: { settings: SystemSetti
       {/* TARIFS */}
       <section className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-neutral-100">
         <h3 className="text-xl font-black mb-6">Tarifs par segment (€)</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
           {SEGMENTS.map(s => (
             <div key={s.id}>
               <label htmlFor={s.id} className="block text-xs font-bold text-neutral-400 uppercase mb-2">{s.label}</label>
@@ -149,7 +149,7 @@ export default function GlobalSettingsForm({ settings }: { settings: SystemSetti
           ))}
         </div>
         <div className="pt-6 border-t">
-          <button data-testid="save-settings-prices" onClick={handleSavePrices} className="bg-neutral-900 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-neutral-800 transition-colors">
+          <button data-testid="save-settings-prices" onClick={handleSavePrices} className="bg-neutral-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-neutral-800 transition-colors">
             Enregistrer les tarifs
           </button>
         </div>

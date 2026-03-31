@@ -25,14 +25,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <div data-testid="dashboard-header" className="mb-4 flex items-center justify-between">
-        <h1 data-testid="welcome-message" className="text-3xl font-bold text-neutral-900">
+      <div data-testid="dashboard-header" className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h1 data-testid="welcome-message" className="text-2xl sm:text-3xl font-bold text-neutral-900">
           Bonjour, {user.firstName ?? user.email}
         </h1>
       </div>
 
       <div
-        className={`mb-4 rounded-xl border-2 bg-white px-4 py-3 flex items-center justify-between ${
+        className={`mb-4 rounded-xl border-2 bg-white px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between ${
           balanceLevel === "normal"  ? "border-green-500"  :
           balanceLevel === "warning" ? "border-orange-400" : "border-red-500"
         }`}
@@ -56,7 +56,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           ) : (
             <Link
               href="/dashboard/recharger"
-              className="text-sm font-medium text-blue-600 hover:underline"
+              className="py-2 text-sm font-medium text-blue-600 hover:underline"
             >
               Recharger
             </Link>
