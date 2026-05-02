@@ -26,7 +26,8 @@ const TEMPLATE_IDS: Record<string, number> = {
   "reset-password": 15,
   "confirmation-reservation": 40,
   "annulation-par-admin": 39,
-  "nouvelle-demande-devis": 4,
+  "nouvelle-demande-devis": 43,
+  "demande-suppression-compte": 44,
 }
 
 // ─── Client réel (appel API Brevo) ────────────────────────────────────────────
