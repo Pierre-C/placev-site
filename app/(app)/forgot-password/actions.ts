@@ -40,7 +40,7 @@ export async function forgotPasswordAction(
         template: "reset-password",
         to: user.email,
         variables: {
-          resetLink: `https://place-v.fr/reset-password?token=${token}`,
+          resetLink: `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`,
         }
       })
     }
