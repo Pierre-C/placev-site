@@ -1,13 +1,14 @@
-# Déploiement sur Vercel avec Newsletter
+# Déploiement sur Vercel
 
-Ce guide explique comment déployer votre site PlaceV sur Vercel avec la fonctionnalité newsletter Brevo.
+Ce guide explique comment déployer le site Place V sur Vercel (Production et Staging).
 
 ## 📋 Prérequis
 
 - Un compte Vercel (gratuit)
-- Votre projet PlaceV sur GitHub
-- Votre clé API Brevo
-- L'ID de votre liste Brevo
+- Le projet PlaceV sur GitHub, connecté à Vercel
+- Une base de données Neon (branche `main` pour la production, `develop` pour le staging)
+- Clés API Brevo (transactionnels + newsletter)
+- Clés Stripe et IDs de prix (3 segments : Bouliacais, Réduit, Externe)
 
 ## 🚀 Étapes de déploiement
 
@@ -23,73 +24,56 @@ Si ce n'est pas encore fait :
 
 ### 2. Configuration des variables d'environnement
 
-#### Via le Dashboard (Interface Web)
+Toutes les variables listées dans `.env.example` doivent être configurées sur Vercel. Voici les valeurs par environnement.
 
-1. **Accédez aux paramètres**
+#### Production (`main`)
 
-   - Ouvrez votre projet sur Vercel
-   - Cliquez sur **Settings** (onglet en haut)
-   - Dans le menu latéral, cliquez sur **Environment Variables**
+```
+DATABASE_URL                        → URL Neon branche main
+NEXTAUTH_SECRET                     → clé générée (openssl rand -base64 32)
+NEXTAUTH_URL                        → https://placev.co
+NEXT_PUBLIC_APP_URL                 → https://placev.co
+ADMIN_EMAIL                         → placevcoworking@gmail.com
+BREVO_MOCK                          → false
+NEXT_PUBLIC_STRIPE_MOCK             → false
+STRIPE_MOCK                         → false
+BREVO_API_KEY                       → xkeysib-...
+BREVO_LIST_IDS                      → [2]
+STRIPE_SECRET_KEY                   → sk_live_... (ou sk_test_... si encore en test)
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY  → pk_live_...
+STRIPE_WEBHOOK_SECRET               → whsec_...
+STRIPE_PRICE_BOULIACAIS             → price_...
+STRIPE_PRICE_REDUIT                 → price_...
+STRIPE_PRICE_EXTERNE                → price_...
+```
 
-2. **Ajoutez BREVO_API_KEY**
+#### Staging / Preview (branche `staging`)
 
-   ```
-   Name:  BREVO_API_KEY
-   Value: [Votre clé API Brevo, ex: xkeysib-abc123...]
-   ```
+```
+DATABASE_URL                        → URL Neon branche staging
+NEXTAUTH_SECRET                     → même clé ou clé distincte
+NEXTAUTH_URL                        → https://[url-preview-vercel]
+NEXT_PUBLIC_APP_URL                 → https://[url-preview-vercel]
+ADMIN_EMAIL                         → placevcoworking@gmail.com
+BREVO_MOCK                          → true   ← pas de vrais emails
+NEXT_PUBLIC_STRIPE_MOCK             → true   ← pas de vrais paiements
+STRIPE_MOCK                         → true
+```
 
-   - Cochez les environnements :
-     - ✅ Production
-     - ✅ Preview
-     - ✅ Development (optionnel)
-   - Cliquez sur **Save**
-
-3. **Ajoutez BREVO_LIST_IDS**
-
-   ```
-   Name:  BREVO_LIST_IDS
-   Value: [2]
-   ```
-
-   ⚠️ **Important** : La valeur doit être au format JSON array : `[2]` ou `[2,5]` pour plusieurs listes
-
-   - Cochez les mêmes environnements
-   - Cliquez sur **Save**
-
-4. **Vérifiez vos variables**
-
-   Vous devriez voir :
-
-   ```
-   BREVO_API_KEY      Production, Preview        xkeysib-•••••
-   BREVO_LIST_IDS     Production, Preview        [2]
-   ```
+> Pour scoper une variable à une branche précise : dans Vercel, choisir **Preview** comme environnement puis cliquer sur **Add** et saisir le nom de la branche (`staging`).
 
 #### Via la CLI Vercel
 
 ```bash
-# 1. Installez la CLI Vercel (si pas déjà fait)
 npm i -g vercel
-
-# 2. Connectez-vous
 vercel login
-
-# 3. Liez votre projet local
 vercel link
 
-# 4. Ajoutez les variables d'environnement
+# Ajouter une variable (exemple)
 vercel env add BREVO_API_KEY
-# Quand demandé:
-# - Quelle valeur? → [Collez votre clé API]
-# - Pour quels environnements? → Production, Preview
+# → valeur, puis choisir les environnements
 
-vercel env add BREVO_LIST_IDS
-# Quand demandé:
-# - Quelle valeur? → [2]
-# - Pour quels environnements? → Production, Preview
-
-# 5. Vérifiez les variables
-vercel env ls
+vercel env ls   # Vérifier
 ```
 
 ### 3. Redéploiement
@@ -207,14 +191,18 @@ vercel env add BREVO_LIST_IDS preview
 
 Avant de considérer le déploiement comme réussi :
 
-- [ ] Variables d'environnement ajoutées dans Vercel
-- [ ] `BREVO_API_KEY` configurée pour Production
-- [ ] `BREVO_LIST_IDS` configurée pour Production (format `[2]`)
+- [ ] Toutes les variables d'environnement ajoutées dans Vercel
+- [ ] `DATABASE_URL` pointe vers la bonne branche Neon (main en prod)
+- [ ] `NEXTAUTH_SECRET` configuré
+- [ ] `NEXT_PUBLIC_APP_URL` correct pour chaque environnement
+- [ ] `BREVO_MOCK=false` + `BREVO_API_KEY` en production
+- [ ] `STRIPE_MOCK=false` + clés Stripe en production
+- [ ] IDs de prix Stripe (`STRIPE_PRICE_*`) configurés
 - [ ] Redéploiement effectué après l'ajout des variables
 - [ ] Déploiement terminé avec succès (vert)
-- [ ] Test d'inscription réussi sur le site en production
-- [ ] Email reçu dans Brevo Contacts
-- [ ] Test de doublon fonctionne (message orange)
+- [ ] Connexion / inscription utilisateur fonctionnelle
+- [ ] Test d'inscription newsletter réussi (email dans Brevo Contacts)
+- [ ] Test de doublon newsletter fonctionne (message orange)
 
 ## 🔒 Sécurité
 

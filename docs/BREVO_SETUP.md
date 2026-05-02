@@ -1,6 +1,13 @@
-# Configuration de la Newsletter avec Brevo
+# Configuration de Brevo (Newsletter + Emails transactionnels)
 
-Ce guide vous explique comment configurer l'intégration de la newsletter avec Brevo (anciennement Sendinblue).
+Brevo est utilisé dans ce projet pour deux usages distincts :
+
+1. **Newsletter** (ce guide) — inscription des visiteurs via le footer, gérée par `app/api/newsletter/`
+2. **Emails transactionnels** — confirmation de réservation, réinitialisation de mot de passe, notifications admin, etc., gérés par `lib/brevo.ts`
+
+Les deux usages partagent la même clé API (`BREVO_API_KEY`). En développement, `BREVO_MOCK=true` désactive l'envoi réel et logue les emails en console.
+
+---
 
 ## 📋 Prérequis
 
