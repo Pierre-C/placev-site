@@ -130,10 +130,11 @@ export async function POST(request: Request) {
 
     const adminEmail = process.env.ADMIN_EMAIL || "placevcoworking@gmail.com";
     const durationHours = (endMin - startMin) / 60;
+    const billedHours = Math.ceil(durationHours);
     const isFullDay = startMin === OPEN_FROM && endMin === OPEN_UNTIL;
     const indicativePrice = isFullDay
       ? FULL_DAY_PRICE
-      : Math.round(durationHours * HOURLY_RATE);
+      : billedHours * HOURLY_RATE;
 
     await brevo.sendEmail({
       to: adminEmail,

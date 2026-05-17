@@ -4,6 +4,7 @@ import { NextRequest } from "next/server"
 import { redirect } from "next/navigation"
 import crypto from "crypto"
 import { prisma } from "@/lib/prisma"
+import { brevo } from "@/lib/brevo"
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token")
@@ -32,6 +33,14 @@ export async function GET(request: NextRequest) {
     data: { emailVerified: new Date() },
   })
   await prisma.emailVerificationToken.delete({ where: { id: evToken.id } })
+
+  // Email de bienvenue complet (fire & forget — ne bloque pas le redirect)
+  brevo.sendEmail({
+    template: "bienvenue-complet",
+    to: evToken.user.email,
+    toName: evToken.user.firstName,
+    variables: { firstName: evToken.user.firstName },
+  }).catch(() => {})
 
   // Créer un VerifiedUserToken court-vécu pour l'auto-login
   const autoLoginToken = crypto.randomBytes(16).toString("hex")

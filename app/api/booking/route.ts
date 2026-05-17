@@ -15,6 +15,7 @@ import { z } from "zod"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { calculateCost, canBook } from "@/lib/services/booking"
+import { brevo } from "@/lib/brevo"
 
 const bookingItemSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format YYYY-MM-DD requis"),
@@ -170,6 +171,27 @@ export async function POST(request: Request) {
       creditsBefore: user.credits,
     },
   })
+
+  const SLOT_LABELS: Record<string, string> = { AM: "Matin", PM: "Après-midi", FULL: "Journée complète" }
+  const bookingsSummary = createdReservations
+    .map(r => {
+      const label = new Date(r.date).toLocaleDateString("fr-FR", {
+        weekday: "long", day: "numeric", month: "long", year: "numeric",
+      })
+      return `${label} — ${SLOT_LABELS[r.slot] ?? r.slot}`
+    })
+    .join("\n")
+
+  brevo.sendEmail({
+    template: "confirmation-reservation",
+    to: user.email,
+    toName: user.firstName,
+    variables: {
+      bookingsSummary,
+      totalCost,
+      newBalance: updatedUser.credits,
+    },
+  }).catch(() => {})
 
   return NextResponse.json(
     {

@@ -3,6 +3,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { NewsletterPopup } from "@/components/NewsletterPopup";
 
 export const metadata: Metadata = {
   title: "Place V Coworking — Votre place pour créer, travailler et rencontrer",
@@ -41,6 +42,7 @@ export default function RootLayout({
         <Header />
         <main>{children}</main>
         <Footer />
+        <NewsletterPopup />
       </body>
     </html>
   );

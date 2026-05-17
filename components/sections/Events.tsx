@@ -16,11 +16,26 @@ type EventItem = {
 export function Events() {
   const [events, setEvents] = useState<EventItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [isPast, setIsPast] = useState(false)
 
   useEffect(() => {
     fetch("/api/events?limit=3")
       .then(r => r.json())
-      .then(data => { setEvents(data); setLoading(false) })
+      .then((data: EventItem[]) => {
+        if (data.length > 0) {
+          setEvents(data)
+          setLoading(false)
+        } else {
+          // Aucun événement à venir : fallback sur les 3 plus récents passés
+          return fetch("/api/events?limit=3&includePast=true&sort=desc")
+            .then(r => r.json())
+            .then((pastData: EventItem[]) => {
+              if (pastData.length > 0) setIsPast(true)
+              setEvents(pastData)
+              setLoading(false)
+            })
+        }
+      })
       .catch(() => setLoading(false))
   }, [])
 
@@ -29,7 +44,7 @@ export function Events() {
   return (
     <section data-testid="events-section" className="mx-auto max-w-7xl px-4 py-16">
       <h2 className="text-3xl font-semibold md:text-4xl text-center">
-        Nos prochains événements
+        {isPast ? "Nos derniers événements" : "Nos prochains événements"}
       </h2>
 
       {events.length === 0 ? (
@@ -60,7 +75,9 @@ export function Events() {
                     {event.title}
                   </h3>
                   <p data-testid="event-card-description" className="text-sm text-neutral-700 flex-1">
-                    {event.description}
+                    {event.description.length > 400
+                      ? event.description.slice(0, 400) + "…"
+                      : event.description}
                   </p>
                   {event.registrationUrl && event.registrationUrl.trim() !== "" && (
                     <a

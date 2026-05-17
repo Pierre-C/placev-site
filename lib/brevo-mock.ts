@@ -24,6 +24,7 @@ export const BREVO_MOCK_ENABLED = process.env.BREVO_MOCK === "true"
 // ─── Types des emails supportés ───────────────────────────────────────────────
 export type BrevoTemplate =
   | "bienvenue-validation"
+  | "bienvenue-complet"
   | "reset-password"
   | "confirmation-reservation"
   | "annulation-par-admin"

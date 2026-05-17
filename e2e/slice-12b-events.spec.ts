@@ -135,12 +135,12 @@ test.describe("Page /events — Structure et navigation", () => {
     await expect(page.locator('[data-testid="events-filter-to"]')).toBeVisible()
   })
 
-  test("la checkbox 'Afficher les événements passés' est visible et décochée par défaut", async ({ page }) => {
+  test("la checkbox 'Afficher les événements passés' est visible et cochée par défaut", async ({ page }) => {
     await page.goto("/events")
 
     const checkbox = page.locator('[data-testid="events-show-past"]')
     await expect(checkbox).toBeVisible()
-    await expect(checkbox).not.toBeChecked()
+    await expect(checkbox).toBeChecked()
   })
 })
 

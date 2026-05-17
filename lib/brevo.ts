@@ -23,6 +23,7 @@ import {
 // Créer ces templates dans le dashboard Brevo avant de désactiver le mock.
 const TEMPLATE_IDS: Record<string, number> = {
   "bienvenue-validation": 38,
+  "bienvenue-complet": 0, // À renseigner après création dans Brevo
   "reset-password": 15,
   "confirmation-reservation": 40,
   "annulation-par-admin": 39,

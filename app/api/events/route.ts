@@ -8,16 +8,18 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
     const limit = searchParams.get("limit");
     const includePast = searchParams.get("includePast");
+    const sort = searchParams.get("sort");
 
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
     const whereParams = includePast === "true" ? {} : { date: { gte: now } };
     const takeValue = limit && !isNaN(parseInt(limit)) ? parseInt(limit) : undefined;
+    const orderDir = sort === "desc" ? "desc" : "asc";
 
     const events = await prisma.event.findMany({
       where: whereParams,
-      orderBy: { date: "asc" },
+      orderBy: { date: orderDir },
       take: takeValue,
       select: {
         id: true,

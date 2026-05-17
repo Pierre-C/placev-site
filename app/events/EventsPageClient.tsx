@@ -13,7 +13,7 @@ type EventItem = {
 }
 
 export default function EventsPageClient({ initialEvents }: { initialEvents: EventItem[] }) {
-  const [showPast, setShowPast] = useState(false)
+  const [showPast, setShowPast] = useState(true)
   const [search, setSearch] = useState("")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")

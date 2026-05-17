@@ -47,10 +47,11 @@ export function MeetingRoomForm({ openDays }: { openDays: number[] }) {
   const endMin = toMinutes(end)
   const durationMinutes = endMin > startMin ? endMin - startMin : 0
   const durationHours = durationMinutes / 60
+  const billedHours = Math.ceil(durationHours)
 
   const isFullDay = startMin === OPEN_FROM && endMin === OPEN_UNTIL
-  const indicativePrice = durationHours > 0 
-    ? (isFullDay ? FULL_DAY_PRICE : Math.round(durationHours * HOURLY_RATE)) 
+  const indicativePrice = durationHours > 0
+    ? (isFullDay ? FULL_DAY_PRICE : billedHours * HOURLY_RATE)
     : null
 
   const startOptions = useMemo(() => {
@@ -154,7 +155,7 @@ export function MeetingRoomForm({ openDays }: { openDays: number[] }) {
     <>
       {status === "success" ? (
         <div data-testid="quote-success" className="bg-green-50 text-green-700 p-6 rounded-lg text-center font-medium">
-          Votre demande a bien été envoyée. L'équipe Place V vous contactera sous 24h.
+          Votre demande a bien été envoyée. Nous reviendrons vers vous rapidement.
         </div>
       ) : (
         <form data-testid="quote-form" onSubmit={handleSubmit} className="space-y-6 bg-white p-8 rounded-lg shadow-sm border border-gray-100">
@@ -220,7 +221,7 @@ export function MeetingRoomForm({ openDays }: { openDays: number[] }) {
               <div>
                 <p className="text-sm font-semibold text-blue-800">Tarif indicatif</p>
                 <p className="text-xs text-blue-600 mt-0.5">
-                  {isFullDay ? "Journée complète" : `${durationHours}h · ${HOURLY_RATE}€/h`}
+                  {isFullDay ? "Journée complète" : `${billedHours}h facturée(s) · ${HOURLY_RATE}€/h`}
                 </p>
               </div>
               <p className="text-2xl font-black text-blue-900">~{indicativePrice} €</p>

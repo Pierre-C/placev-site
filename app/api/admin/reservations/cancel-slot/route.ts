@@ -62,13 +62,20 @@ export async function POST(request: Request) {
     }
 
     if (reservation.user?.email) {
+      const SLOT_LABELS: Record<string, string> = { AM: "Matin", PM: "Après-midi", FULL: "Journée complète" }
+      const slotLabel = SLOT_LABELS[reservation.slot] ?? reservation.slot
+      const dateLabel = reservation.date.toLocaleDateString("fr-FR", {
+        weekday: "long", day: "numeric", month: "long", year: "numeric",
+      })
       await brevo.sendEmail({
         to: reservation.user.email,
         template: "annulation-par-admin",
         variables: {
           date: reservation.date.toISOString().slice(0, 10),
+          dateLabel,
           slot: reservation.slot,
-          reason: `Annulation groupée (${slot})`,
+          slotLabel,
+          reason: `Annulation groupée — ${SLOT_LABELS[slot] ?? slot}`,
           refundedCredits: reservation.creditsCost ?? 0,
         },
       });
