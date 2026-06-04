@@ -17,32 +17,36 @@ import {
   brevoMock,
   type SendEmailParams,
   type SendEmailResult,
-} from "./brevo-mock"
+} from "./brevo-mock";
 
 // ─── IDs des templates Brevo (à renseigner lors de la migration vers le vrai Brevo) ──
 // Créer ces templates dans le dashboard Brevo avant de désactiver le mock.
 const TEMPLATE_IDS: Record<string, number> = {
   "bienvenue-validation": 38,
-  "bienvenue-complet": 0, // À renseigner après création dans Brevo
+  "bienvenue-complet": 46,
   "reset-password": 15,
   "confirmation-reservation": 40,
   "annulation-par-admin": 39,
   "nouvelle-demande-devis": 43,
   "demande-suppression-compte": 44,
-}
+};
 
 // ─── Client réel (appel API Brevo) ────────────────────────────────────────────
-async function sendEmailReal(params: SendEmailParams): Promise<SendEmailResult> {
+async function sendEmailReal(
+  params: SendEmailParams,
+): Promise<SendEmailResult> {
   if (!process.env.BREVO_API_KEY) {
-    throw new Error("BREVO_API_KEY manquant. Définir BREVO_MOCK=true pour le dev.")
+    throw new Error(
+      "BREVO_API_KEY manquant. Définir BREVO_MOCK=true pour le dev.",
+    );
   }
 
-  const templateId = TEMPLATE_IDS[params.template]
+  const templateId = TEMPLATE_IDS[params.template];
   if (!templateId) {
     throw new Error(
       `Template Brevo "${params.template}" non configuré. ` +
-      "Renseigner l'ID dans lib/brevo.ts ou activer BREVO_MOCK=true."
-    )
+        "Renseigner l'ID dans lib/brevo.ts ou activer BREVO_MOCK=true.",
+    );
   }
 
   const response = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -56,26 +60,30 @@ async function sendEmailReal(params: SendEmailParams): Promise<SendEmailResult> 
       templateId,
       params: params.variables,
     }),
-  })
+  });
 
   if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`Brevo API error ${response.status}: ${error}`)
+    const error = await response.text();
+    throw new Error(`Brevo API error ${response.status}: ${error}`);
   }
 
-  const data = await response.json()
-  return { success: true, messageId: data.messageId }
+  const data = await response.json();
+  return { success: true, messageId: data.messageId };
 }
 
 // ─── Interface publique ───────────────────────────────────────────────────────
 export const brevo = {
   sendEmail: async (params: SendEmailParams): Promise<SendEmailResult> => {
     if (BREVO_MOCK_ENABLED) {
-      return brevoMock.sendEmail(params)
+      return brevoMock.sendEmail(params);
     }
-    return sendEmailReal(params)
+    return sendEmailReal(params);
   },
-}
+};
 
 // Re-exporter les types pour les consommateurs
-export type { SendEmailParams, SendEmailResult, BrevoTemplate } from "./brevo-mock"
+export type {
+  SendEmailParams,
+  SendEmailResult,
+  BrevoTemplate,
+} from "./brevo-mock";
